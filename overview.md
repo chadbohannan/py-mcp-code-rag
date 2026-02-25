@@ -5,7 +5,8 @@ for navigating complex, sprawling codebases — surfacing architectural intent r
 matching surface text.
 
 Embeddings run in-process via `fastembed` (ONNX Runtime). The index — content, metadata, and
-vectors — lives in a single SQLite file at `.mcp-rag/index.db` within each indexed root.
+vectors — lives in a single SQLite file (`index.db` by default in the working directory, or the
+path given by `--db`).
 
 ## Semantic Surrogate Indexing
 
