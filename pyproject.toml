@@ -1,0 +1,27 @@
+[project]
+name = "mcp-rag"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=2.0",
+    "fastembed>=0.3",
+    "anthropic>=0.40",
+    "sqlite-vec>=0.1.0",
+]
+
+[project.scripts]
+mcp-rag = "mcp_rag.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
