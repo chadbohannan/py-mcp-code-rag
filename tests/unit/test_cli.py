@@ -37,10 +37,19 @@ def mock_embedder(monkeypatch):
 
 @pytest.fixture
 def mock_summarizer(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-tests")
     inst = MagicMock()
     cls = MagicMock(return_value=inst)
     monkeypatch.setattr("mcp_rag.__main__.AnthropicSummarizer", cls)
     return inst
+
+
+@pytest.fixture
+def mock_ollama_summarizer(monkeypatch):
+    inst = MagicMock()
+    cls = MagicMock(return_value=inst)
+    monkeypatch.setattr("mcp_rag.__main__.OllamaSummarizer", cls)
+    return cls, inst
 
 
 @pytest.fixture
@@ -269,3 +278,75 @@ def test_combined_serve_only_when_no_paths(
     main()
     mock_run_index.assert_not_called()
     mock_mcp.run.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# index subcommand — summarizer selection
+# ---------------------------------------------------------------------------
+
+def test_index_default_summarizer_is_anthropic(
+    tmp_path, monkeypatch, mock_embedder, mock_summarizer, mock_run_index,
+):
+    monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
+    main()
+    from mcp_rag.__main__ import AnthropicSummarizer  # noqa: F401
+    # AnthropicSummarizer was patched via mock_summarizer; run_index was called
+    mock_run_index.assert_called_once()
+    summarizer_arg = mock_run_index.call_args.kwargs["summarizer"]
+    assert summarizer_arg is mock_summarizer
+
+
+def test_index_ollama_summarizer_flag(
+    tmp_path, monkeypatch, mock_embedder, mock_ollama_summarizer, mock_run_index
+):
+    monkeypatch.setattr("sys.argv", _argv("index", "--summarizer", "ollama", str(tmp_path)))
+    main()
+    mock_run_index.assert_called_once()
+    summarizer_arg = mock_run_index.call_args.kwargs["summarizer"]
+    assert summarizer_arg is mock_ollama_summarizer[1]
+
+
+def test_index_ollama_model_flag(
+    tmp_path, monkeypatch, mock_embedder, mock_ollama_summarizer, mock_run_index
+):
+    monkeypatch.setattr(
+        "sys.argv",
+        _argv("index", "--summarizer", "ollama", "--ollama-model", "mymodel", str(tmp_path)),
+    )
+    main()
+    mock_ollama_summarizer[0].assert_called_once_with(model="mymodel")
+
+
+def test_index_no_api_key_exits_1(
+    tmp_path, monkeypatch, mock_embedder, mock_run_index
+):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
+    with pytest.raises(SystemExit) as ei:
+        main()
+    assert ei.value.code == 1
+    mock_run_index.assert_not_called()
+
+
+def test_index_ollama_no_api_key_required(
+    tmp_path, monkeypatch, mock_embedder, mock_ollama_summarizer, mock_run_index
+):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr("sys.argv", _argv("index", "--summarizer", "ollama", str(tmp_path)))
+    main()  # must not raise or exit
+    mock_run_index.assert_called_once()
+
+
+def test_combined_ollama_summarizer(
+    tmp_path, monkeypatch, mock_embedder, mock_ollama_summarizer,
+    mock_server, mock_mcp, mock_run_index, mock_read_meta
+):
+    db = tmp_path / "index.db"  # does not exist
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "sys.argv", _argv("--db", str(db), "--summarizer", "ollama", str(tmp_path))
+    )
+    main()
+    mock_run_index.assert_called_once()
+    summarizer_arg = mock_run_index.call_args.kwargs["summarizer"]
+    assert summarizer_arg is mock_ollama_summarizer[1]

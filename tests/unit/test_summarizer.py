@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from mcp_rag.models import SemanticUnit
-from mcp_rag.summarizer import MODEL, AnthropicSummarizer
+from mcp_rag.summarizer import MODEL, AnthropicSummarizer, OllamaSummarizer
 
 
 # ---------------------------------------------------------------------------
@@ -222,3 +222,85 @@ def test_retry_jitter_is_applied(mock_client, summarizer, monkeypatch):
         summarizer.summarize(_unit())
 
     assert sleep_calls == pytest.approx([1.2, 4.8, 19.2])
+
+
+# ---------------------------------------------------------------------------
+# OllamaSummarizer fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mock_ollama_client(monkeypatch):
+    import sys
+    client = MagicMock()
+    ollama_mod = MagicMock()
+    ollama_mod.Client.return_value = client
+    monkeypatch.setitem(sys.modules, "ollama", ollama_mod)
+    return client
+
+
+@pytest.fixture
+def ollama_summarizer(mock_ollama_client):
+    return OllamaSummarizer(model="test-model")
+
+
+# ---------------------------------------------------------------------------
+# OllamaSummarizer tests
+# ---------------------------------------------------------------------------
+
+def test_ollama_uses_specified_model(mock_ollama_client, ollama_summarizer):
+    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    ollama_summarizer.summarize(_unit())
+    call_kwargs = mock_ollama_client.chat.call_args.kwargs
+    assert call_kwargs["model"] == "test-model"
+
+
+def test_ollama_message_role_is_user(mock_ollama_client, ollama_summarizer):
+    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    ollama_summarizer.summarize(_unit())
+    call_kwargs = mock_ollama_client.chat.call_args.kwargs
+    assert call_kwargs["messages"][0]["role"] == "user"
+
+
+def test_ollama_prompt_includes_unit_type(mock_ollama_client, ollama_summarizer):
+    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    ollama_summarizer.summarize(_unit(unit_type="class"))
+    call_kwargs = mock_ollama_client.chat.call_args.kwargs
+    assert "class" in call_kwargs["messages"][0]["content"]
+
+
+def test_ollama_prompt_includes_unit_name(mock_ollama_client, ollama_summarizer):
+    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    ollama_summarizer.summarize(_unit(unit_name="authenticate_user"))
+    call_kwargs = mock_ollama_client.chat.call_args.kwargs
+    assert "authenticate_user" in call_kwargs["messages"][0]["content"]
+
+
+def test_ollama_prompt_includes_source_content(mock_ollama_client, ollama_summarizer):
+    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    ollama_summarizer.summarize(_unit(content="def foo(): return 42"))
+    call_kwargs = mock_ollama_client.chat.call_args.kwargs
+    assert "def foo(): return 42" in call_kwargs["messages"][0]["content"]
+
+
+def test_ollama_returns_response_text(mock_ollama_client, ollama_summarizer):
+    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="ollama summary"))
+    assert ollama_summarizer.summarize(_unit()) == "ollama summary"
+
+
+def test_ollama_default_model_is_llama3_2(monkeypatch):
+    import sys
+    client = MagicMock()
+    ollama_mod = MagicMock()
+    ollama_mod.Client.return_value = client
+    monkeypatch.setitem(sys.modules, "ollama", ollama_mod)
+    s = OllamaSummarizer()
+    client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
+    s.summarize(_unit())
+    assert client.chat.call_args.kwargs["model"] == "llama3.2"
+
+
+def test_ollama_handles_anonymous_unit(mock_ollama_client, ollama_summarizer):
+    """unit_name=None must not crash prompt construction."""
+    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
+    unit = SemanticUnit(unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0)
+    ollama_summarizer.summarize(unit)  # must not raise

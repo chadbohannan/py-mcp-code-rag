@@ -6,7 +6,6 @@ embeds the summary, and writes everything to SQLite.
 from __future__ import annotations
 
 import hashlib
-import os
 import struct
 import sys
 from datetime import datetime, timezone
@@ -39,12 +38,6 @@ def run_index(
     reindex: bool = False,
 ) -> None:
     """Build or update the index for *roots* into *db_path*."""
-    # Guard: ANTHROPIC_API_KEY must be set before any file I/O
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise IndexAbortError(
-            "ANTHROPIC_API_KEY is not set. Export it before running mcp-rag index."
-        )
-
     # Guard: roots must not overlap
     resolved = [r.resolve() for r in roots]
     for i, a in enumerate(resolved):

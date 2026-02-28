@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -10,7 +11,7 @@ from mcp_rag import server
 from mcp_rag.embedder import DEFAULT_MODEL, FastEmbedder
 from mcp_rag.indexer import IndexAbortError, run_index
 from mcp_rag.server import mcp
-from mcp_rag.summarizer import AnthropicSummarizer
+from mcp_rag.summarizer import AnthropicSummarizer, OllamaSummarizer
 
 _DEFAULT_DB = Path("index.db")
 _SUBCOMMANDS = {"index", "serve"}
@@ -39,10 +40,19 @@ def _do_index(
     roots: list[Path],
     db_path: Path,
     embed_model: str,
+    summarizer_type: str,
+    ollama_model: str,
     reindex: bool,
 ) -> None:
     embedder = FastEmbedder(model_name=embed_model)
-    summarizer = AnthropicSummarizer()
+    if summarizer_type == "anthropic":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise IndexAbortError(
+                "ANTHROPIC_API_KEY is not set. Export it before running mcp-rag index."
+            )
+        summarizer = AnthropicSummarizer()
+    else:
+        summarizer = OllamaSummarizer(model=ollama_model)
     run_index(
         roots=roots,
         db_path=db_path,
@@ -72,6 +82,8 @@ def _make_index_parser() -> argparse.ArgumentParser:
     p.add_argument("--reindex", action="store_true")
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
+    p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="anthropic")
+    p.add_argument("--ollama-model", default="llama3.2", dest="ollama_model")
     return p
 
 
@@ -88,6 +100,8 @@ def _make_combined_parser() -> argparse.ArgumentParser:
     p.add_argument("paths", nargs="*", type=Path, metavar="PATH")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
+    p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="anthropic")
+    p.add_argument("--ollama-model", default="llama3.2", dest="ollama_model")
     return p
 
 
@@ -130,6 +144,8 @@ def _run_index_cmd(args: argparse.Namespace) -> None:
             roots=[p.resolve() for p in args.paths],
             db_path=args.db,
             embed_model=args.embed_model,
+            summarizer_type=args.summarizer,
+            ollama_model=args.ollama_model,
             reindex=args.reindex,
         )
     except IndexAbortError as exc:
@@ -148,6 +164,8 @@ def _run_combined_cmd(args: argparse.Namespace) -> None:
                 roots=[p.resolve() for p in args.paths],
                 db_path=args.db,
                 embed_model=args.embed_model,
+                summarizer_type=args.summarizer,
+                ollama_model=args.ollama_model,
                 reindex=False,
             )
         _do_serve(db_path=args.db)

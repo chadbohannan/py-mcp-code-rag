@@ -53,6 +53,26 @@ class AnthropicSummarizer:
         raise AssertionError("unreachable")  # pragma: no cover
 
 
+_DEFAULT_OLLAMA_MODEL = "llama3.2"
+
+
+class OllamaSummarizer:
+    """Summarizer backed by a local Ollama server."""
+
+    def __init__(self, model: str = _DEFAULT_OLLAMA_MODEL) -> None:
+        import ollama  # lazy import — optional dependency
+
+        self._client = ollama.Client()
+        self._model = model
+
+    def summarize(self, unit: SemanticUnit) -> str:
+        response = self._client.chat(
+            model=self._model,
+            messages=[{"role": "user", "content": _build_prompt(unit)}],
+        )
+        return response.message.content
+
+
 def _build_prompt(unit: SemanticUnit) -> str:
     name_clause = f" named `{unit.unit_name}`" if unit.unit_name else ""
     return (

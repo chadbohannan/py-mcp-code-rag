@@ -30,26 +30,9 @@ def summarizer() -> FakeSummarizer:
     return FakeSummarizer()
 
 
-@pytest.fixture(autouse=True)
-def set_api_key(monkeypatch):
-    """Satisfy the ANTHROPIC_API_KEY startup check in all integration tests."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-tests")
-
-
 # ---------------------------------------------------------------------------
 # Startup guards
 # ---------------------------------------------------------------------------
-
-def test_index_aborts_without_anthropic_api_key(tmp_path, embedder, summarizer, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    root = tmp_path / "proj"
-    root.mkdir()
-    db_path = tmp_path / "index.db"
-    with pytest.raises(IndexAbortError, match="ANTHROPIC_API_KEY"):
-        run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
-    # No DB should have been created
-    assert not db_path.exists()
-
 
 def test_index_aborts_on_overlapping_roots(tmp_path, embedder, summarizer):
     parent = tmp_path / "proj"
