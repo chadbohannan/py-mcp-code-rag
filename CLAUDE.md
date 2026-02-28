@@ -5,9 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `overview.md` — design rationale and the Semantic Surrogate Indexing technique
 - `design_spec.md` — complete implementation specification (architecture, schema, CLI, testing)
 
+When implementation diverges from `design_spec.md` — whether fixing a spec error, choosing a
+simpler approach, or resolving an ambiguity — update the relevant section of `design_spec.md`
+with the actual decision and a brief rationale. The spec should reflect what was built, not
+just what was planned.
+
 ## Status
 
-This is a specification-only repository. No source code exists yet. The task is to implement `mcp-rag` from the specs above.
+All modules implemented and fully tested (199/199 tests passing). The project is feature-complete.
 
 ## Test commands
 
@@ -64,24 +69,39 @@ uv run mcp-rag serve --http /path/to/project   # HTTP transport (localhost:8000)
 
 ```
 mcp_rag/
-  go_parser/main.go     # Go AST helper; invoked with `go run` per file
-  ...                   # Python modules to be created per design_spec.md
+  go_parser/main.go   # Go AST helper; invoked with `go run -- <file>` per .go file
+  __init__.py
+  __main__.py         # CLI entry-point (index / serve / combined mode)
+  db.py               # open_db, schema DDL, ModelMismatchError
+  discovery.py        # discover_files, DiscoveryError
+  embedder.py         # FastEmbedder (fastembed, L2-normalised), DEFAULT_MODEL
+  indexer.py          # run_index, IndexAbortError
+  models.py           # SemanticUnit, Embedder/Summarizer protocols
+  parsers.py          # parse_python, parse_markdown, parse_sql, parse_go, parse_file
+  reconcile.py        # StoredUnit, diff_units
+  server.py           # MCP server: search + index_status tools, configure()
+  summarizer.py       # AnthropicSummarizer (claude-haiku, retry with backoff)
 tests/
-  unit/                 # pure-logic tests, no I/O
-  integration/          # full pipeline: real SQLite + real FS, FakeEmbedder + FakeSummarizer
+  conftest.py         # FakeEmbedder(dim=4, model="fake-model"), FakeSummarizer
+  unit/               # pure-logic tests, no I/O
+  integration/        # full pipeline: real SQLite + real FS, FakeEmbedder + FakeSummarizer
 ```
 
 ## Test seams
 
 ```python
 class Embedder(Protocol):
+    dim: int
+    model: str
     def embed(self, text: str) -> list[float]: ...
 
 class Summarizer(Protocol):
     def summarize(self, unit: SemanticUnit) -> str: ...
 ```
 
-`FakeEmbedder` returns deterministic unit-length vectors (MD5-seeded). `FakeSummarizer` returns a deterministic string. Both live in a shared `tests/` fixtures module and are used in all integration tests.
+`FakeEmbedder(dim=4)` has `model = "fake-model"` and returns deterministic unit-length vectors
+(MD5-seeded). `FakeSummarizer` records every call in `.calls` and returns a deterministic string.
+Both live in `tests/conftest.py` and are used in all integration tests.
 
 ## Key constraints
 

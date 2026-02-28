@@ -120,8 +120,10 @@ fails), fall back to `pathlib.Path.walk(follow_symlinks=False)` with a hardcoded
 **Symlinks** — git does not follow directory symlinks; file symlinks are included as regular
 files. The non-git fallback uses `follow_symlinks=False` to match this behaviour.
 
-**Subprocess failure** — if `git ls-files` exits non-zero, abort immediately with a message
-identifying the root and the git error output; do not fall back silently.
+**Subprocess failure** — if `git ls-files` exits non-zero (e.g. the root is not inside any git
+repository), fall back to the `pathlib.Path.walk` path described above rather than aborting.
+Rationale: aborting would break the common case of indexing a plain directory that has never
+been `git init`-ed; silent fallback is preferable to a hard failure here.
 
 ### Deleted-file reconciliation
 
@@ -170,9 +172,11 @@ leaves the DB fully consistent (old state or new state, never a mix).
 | everything else | — | skip; log extension at DEBUG |
 
 **Go parsing** — a small Go helper script is bundled with the package under `mcp_rag/go_parser/main.go`.
-The indexer invokes it with `go run` per file, passing the file path as an argument; the helper
-parses it with `go/ast` and writes a JSON array of units to stdout. No compiled binary is
-distributed. If `go` is not found in `PATH`, `.go` files are skipped with a one-time warning:
+The indexer invokes it with `go run -- <file>` per file (the `--` separates the helper source file
+from the target `.go` file so `go run` does not treat the target as an additional source file to
+compile); the helper parses it with `go/ast` and writes a JSON array of units to stdout.
+No compiled binary is distributed. If `go` is not found in `PATH`, `.go` files are skipped
+with a one-time warning:
 
 ```
 warning: 'go' not found in PATH — .go files will not be indexed
@@ -216,7 +220,7 @@ Called once per semantic unit during `mcp-rag index`.
 
 ```
 You are indexing a codebase for semantic search. Write a dense, searchable description
-of the following {unit_type} from `{relative_path}`.
+of the following {unit_type} named `{unit_name}`.
 
 Describe: what it does, what problem it solves, key inputs/outputs/parameters, and any
 important constraints or design patterns. Use natural language that will match developer
@@ -224,6 +228,11 @@ questions about this code.
 
 {source_content}
 ```
+
+Rationale: `SemanticUnit` carries no file path (path lives in `mcp_rag_files`), so
+`{relative_path}` cannot be included at summarization time without changing the protocol.
+`{unit_name}` provides equivalent context for named units; anonymous units (e.g. SQL) omit
+the name clause entirely.
 
 ### Large unit handling
 
@@ -241,15 +250,22 @@ Token estimate: `len(source) // 4` (no tokenizer dependency).
 
 ### Embedding dimension
 
-The output dimension of the configured model is determined at startup by embedding a single
-dummy string and measuring the length of the result:
+The `Embedder` protocol exposes `dim: int` directly:
 
 ```python
-embed_dim = len(embedder.embed("probe"))
+class Embedder(Protocol):
+    dim: int
+    model: str
+    def embed(self, text: str) -> list[float]: ...
 ```
 
-This value is used in the DDL when creating `mcp_rag_embeddings` and stored in
-`mcp_rag_meta` under `embed_dim`. No hardcoded model-to-dimension registry is maintained.
+`embed_dim` is read from `embedder.dim` at startup and used in the DDL when creating
+`mcp_rag_embeddings` and stored in `mcp_rag_meta`. No hardcoded model-to-dimension registry
+is maintained.
+
+Rationale: a probe-embed approach (`len(embedder.embed("probe"))`) works but wastes a forward
+pass at startup. Real embedders (fastembed) know their output dimension without running
+inference; exposing it as a protocol attribute is cheaper and makes the contract explicit.
 
 ### Reindexing (`--reindex`)
 
@@ -260,13 +276,24 @@ only the vector table is rebuilt.
 
 ```sql
 DROP TABLE IF EXISTS mcp_rag_embeddings;
+DROP TRIGGER IF EXISTS mcp_rag_units_delete_cascade;
 CREATE VIRTUAL TABLE mcp_rag_embeddings USING vec0 (
     unit_id   INTEGER PRIMARY KEY,
     embedding FLOAT[<new_dim>]
 );
+CREATE TRIGGER mcp_rag_units_delete_cascade
+AFTER DELETE ON mcp_rag_units FOR EACH ROW
+BEGIN
+    DELETE FROM mcp_rag_embeddings WHERE unit_id = OLD.id;
+END;
 UPDATE mcp_rag_meta SET value = '<new_model>' WHERE key = 'embed_model';
 UPDATE mcp_rag_meta SET value = '<new_dim>'   WHERE key = 'embed_dim';
 ```
+
+Rationale: `vec0` virtual tables cannot carry `FOREIGN KEY` constraints, so the cascade is
+implemented via a trigger. Dropping the virtual table without dropping the trigger leaves a
+dangling trigger that references a non-existent table; SQLite will error on the next delete
+from `mcp_rag_units`. Both must be dropped and recreated together.
 
 **Re-embedding pass** — every row in `mcp_rag_units` is re-embedded from its `summary` using the
 new model. No API calls are made. Progress is reported to stderr:
@@ -324,6 +351,24 @@ Returns a list of result objects, sorted by `score` descending:
 Derived from `sqlite-vec`'s cosine distance: `score = 1.0 - (vec_distance_cosine(embedding, ?) / 2.0)`.
 Embeddings are stored as unit-length vectors (the default output of `nomic-embed-text`), so cosine
 distance is in `[0.0, 2.0]` and the mapping is exact with no clipping required.
+
+**Query pattern** — `vec0` in sqlite-vec 0.1.6 does not expose a `distance` column via the
+`MATCH`/`k =` ANN syntax. Use `vec_distance_cosine()` as a scalar function with a plain `LIMIT`
+instead:
+
+```sql
+SELECT f.path, u.unit_type, u.unit_name, u.content, u.summary,
+       vec_distance_cosine(e.embedding, ?) AS dist
+FROM mcp_rag_embeddings e
+JOIN mcp_rag_units u ON u.id = e.unit_id
+JOIN mcp_rag_files f ON f.id = u.file_id
+ORDER BY dist ASC
+LIMIT ?
+```
+
+Rationale: the `MATCH`/`k` ANN path only exposes the primary key and the raw embedding bytes,
+not the computed distance. The scalar-function approach is a full scan but is sufficient for
+typical index sizes; revisit if performance becomes a concern.
 
 ### `index_status`
 
