@@ -130,8 +130,6 @@ def test_model_mismatch_error_message_names_models(tmp_path):
 def test_cascade_delete_units_on_file_delete(tmp_path):
     db_path = tmp_path / "index.db"
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    import sqlite_vec
-    sqlite_vec.load(conn)
 
     conn.execute(
         "INSERT INTO mcp_rag_files (root, path, mtime, md5, indexed_at) "
@@ -159,8 +157,6 @@ def test_cascade_delete_units_on_file_delete(tmp_path):
 def test_cascade_delete_embeddings_on_unit_delete(tmp_path):
     db_path = tmp_path / "index.db"
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    import sqlite_vec
-    sqlite_vec.load(conn)
 
     conn.execute(
         "INSERT INTO mcp_rag_files (root, path, mtime, md5, indexed_at) "

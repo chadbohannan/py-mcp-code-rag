@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import hashlib
 import struct
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
+
+from tqdm import tqdm
 
 import sqlite_vec
 
@@ -79,7 +82,9 @@ def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
     """Open an existing DB and rebuild the embeddings table with a new dimension."""
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.enable_load_extension(True)
     sqlite_vec.load(conn)
+    conn.enable_load_extension(False)
     conn.execute("PRAGMA journal_mode = WAL")
 
     new_dim = embedder.dim
@@ -144,8 +149,16 @@ def _index_root(
             deleted_count += 1
 
     # Process files present on disk
-    for file_path in disk_files:
-        _process_file(conn, root, file_path, db_map.get(file_path), embedder, summarizer)
+    disable_bars = not sys.stderr.isatty()
+    with tqdm(total=len(disk_files), desc="files", unit="file",
+              file=sys.stderr, position=0, disable=disable_bars) as file_bar:
+        with tqdm(total=0, desc="units", unit="unit", file=sys.stderr,
+                  position=1, leave=False, disable=disable_bars) as unit_bar:
+            for file_path in sorted(disk_files):
+                file_bar.set_postfix(file=file_path.name, status="scanning", refresh=True)
+                _process_file(conn, root, file_path, db_map.get(file_path),
+                               embedder, summarizer, file_bar, unit_bar)
+                file_bar.update(1)
 
     return deleted_count
 
@@ -161,18 +174,27 @@ def _process_file(
     file_info: tuple[int, float, str] | None,
     embedder,
     summarizer,
+    file_bar: tqdm | None = None,
+    unit_bar: tqdm | None = None,
 ) -> None:
     """Parse, reconcile, summarise, embed, and store one file."""
+
+    def _file_status(status: str) -> None:
+        if file_bar is not None:
+            file_bar.set_postfix(file=file_path.name, status=status, refresh=True)
+
     # Read bytes once for binary check + md5
     try:
         raw = file_path.read_bytes()
     except OSError:
+        _file_status("unreadable")
         return
 
     # Skip binary files and unsupported extensions — clean up stale DB rows
     binary = b"\x00" in raw[:512]
     unsupported = file_path.suffix.lower() not in _SUPPORTED_EXTENSIONS
     if binary or unsupported:
+        _file_status("skipped")
         if file_info is not None:
             file_id, _, _ = file_info
             with conn:
@@ -185,9 +207,11 @@ def _process_file(
     if file_info is not None:
         file_id, stored_mtime, stored_md5 = file_info
         if stored_mtime == mtime and stored_md5 == md5:
+            _file_status("unchanged")
             return
 
     # Parse into semantic units (may be [] for oversized SQL, empty files, etc.)
+    _file_status("parsing")
     units = parse_file(file_path)
 
     # Truncate units that exceed the token estimate threshold
@@ -245,8 +269,24 @@ def _process_file(
             conn.execute("DELETE FROM mcp_rag_units WHERE id=?", (stored.id,))
 
         # Summarise, embed, and insert new or changed units
+        if unit_bar is not None:
+            unit_bar.reset(total=len(to_add))
+            unit_bar.set_description(file_path.name)
+        _file_status(f"indexing {len(to_add)} unit(s)")
         for unit in to_add:
-            summary = summarizer.summarize(unit)
+            unit_label = unit.unit_name or unit.unit_type
+            if unit_bar is not None:
+                unit_bar.set_postfix(type=unit.unit_type, name=unit_label, refresh=True)
+            try:
+                summary = summarizer.summarize(unit)
+            except subprocess.TimeoutExpired:
+                tqdm.write(
+                    f"Warning: {file_path.name}:{unit_label!r} timed out — skipping unit.",
+                    file=sys.stderr,
+                )
+                if unit_bar is not None:
+                    unit_bar.update(1)
+                continue
             cur = conn.execute(
                 "INSERT INTO mcp_rag_units "
                 "(file_id, unit_type, unit_name, content, content_md5, summary, char_offset) "
@@ -268,3 +308,5 @@ def _process_file(
                 "INSERT INTO mcp_rag_embeddings (unit_id, embedding) VALUES (?, ?)",
                 (unit_id, emb_bytes),
             )
+            if unit_bar is not None:
+                unit_bar.update(1)

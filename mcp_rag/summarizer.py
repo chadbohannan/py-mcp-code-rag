@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import random
+import subprocess
 import time
 
 from mcp_rag.models import SemanticUnit
@@ -51,6 +52,27 @@ class AnthropicSummarizer:
                 last_exc = exc
 
         raise AssertionError("unreachable")  # pragma: no cover
+
+
+class AgentSummarizer:
+    """Summarizer backed by a local agent CLI (e.g. claude, pi).
+
+    Invokes `<command> -p <prompt>` as a subprocess and captures stdout.
+    """
+
+    def __init__(self, command: str, timeout: int = 120) -> None:
+        self._command = command
+        self._timeout = timeout
+
+    def summarize(self, unit: SemanticUnit) -> str:
+        result = subprocess.run(
+            [self._command, "-p", _build_prompt(unit)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=self._timeout,
+        )
+        return result.stdout.strip()
 
 
 _DEFAULT_OLLAMA_MODEL = "llama3.2"

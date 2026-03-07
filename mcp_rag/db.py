@@ -90,7 +90,9 @@ def open_db(path: Path, embed_dim: int, embed_model: str) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
 
     try:
+        conn.enable_load_extension(True)
         sqlite_vec.load(conn)
+        conn.enable_load_extension(False)
     except Exception as exc:
         conn.close()
         raise RuntimeError(

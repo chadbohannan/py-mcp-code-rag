@@ -11,7 +11,7 @@ from mcp_rag import server
 from mcp_rag.embedder import DEFAULT_MODEL, FastEmbedder
 from mcp_rag.indexer import IndexAbortError, run_index
 from mcp_rag.server import mcp
-from mcp_rag.summarizer import AnthropicSummarizer, OllamaSummarizer
+from mcp_rag.summarizer import AgentSummarizer, AnthropicSummarizer, OllamaSummarizer
 
 _DEFAULT_DB = Path("index.db")
 _SUBCOMMANDS = {"index", "serve"}
@@ -42,6 +42,7 @@ def _do_index(
     embed_model: str,
     summarizer_type: str,
     ollama_model: str,
+    agent_timeout: int,
     reindex: bool,
 ) -> None:
     embedder = FastEmbedder(model_name=embed_model)
@@ -51,8 +52,10 @@ def _do_index(
                 "ANTHROPIC_API_KEY is not set. Export it before running mcp-rag index."
             )
         summarizer = AnthropicSummarizer()
-    else:
+    elif summarizer_type == "ollama":
         summarizer = OllamaSummarizer(model=ollama_model)
+    else:
+        summarizer = AgentSummarizer(command=summarizer_type, timeout=agent_timeout)
     run_index(
         roots=roots,
         db_path=db_path,
@@ -82,8 +85,10 @@ def _make_index_parser() -> argparse.ArgumentParser:
     p.add_argument("--reindex", action="store_true")
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
-    p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="anthropic")
+    p.add_argument("--summarizer", choices=["anthropic", "ollama", "claude", "pi"], default="anthropic")
     p.add_argument("--ollama-model", default="llama3.2", dest="ollama_model")
+    p.add_argument("--agent-timeout", type=int, default=120, dest="agent_timeout",
+                   metavar="SECONDS", help="timeout per agent subprocess call (default: 120)")
     return p
 
 
@@ -100,8 +105,10 @@ def _make_combined_parser() -> argparse.ArgumentParser:
     p.add_argument("paths", nargs="*", type=Path, metavar="PATH")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
-    p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="anthropic")
+    p.add_argument("--summarizer", choices=["anthropic", "ollama", "claude", "pi"], default="anthropic")
     p.add_argument("--ollama-model", default="llama3.2", dest="ollama_model")
+    p.add_argument("--agent-timeout", type=int, default=120, dest="agent_timeout",
+                   metavar="SECONDS", help="timeout per agent subprocess call (default: 120)")
     return p
 
 
@@ -146,6 +153,7 @@ def _run_index_cmd(args: argparse.Namespace) -> None:
             embed_model=args.embed_model,
             summarizer_type=args.summarizer,
             ollama_model=args.ollama_model,
+            agent_timeout=args.agent_timeout,
             reindex=args.reindex,
         )
     except IndexAbortError as exc:
@@ -166,6 +174,7 @@ def _run_combined_cmd(args: argparse.Namespace) -> None:
                 embed_model=args.embed_model,
                 summarizer_type=args.summarizer,
                 ollama_model=args.ollama_model,
+                agent_timeout=args.agent_timeout,
                 reindex=False,
             )
         _do_serve(db_path=args.db)

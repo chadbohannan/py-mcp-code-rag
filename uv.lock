@@ -838,6 +838,7 @@ dependencies = [
     { name = "fastembed" },
     { name = "fastmcp" },
     { name = "sqlite-vec" },
+    { name = "tqdm" },
 ]
 
 [package.dev-dependencies]
@@ -852,6 +853,7 @@ requires-dist = [
     { name = "fastembed", specifier = ">=0.3" },
     { name = "fastmcp", specifier = ">=2.0" },
     { name = "sqlite-vec", specifier = ">=0.1.0" },
+    { name = "tqdm", specifier = ">=4.67.3" },
 ]
 
 [package.metadata.requires-dev]
