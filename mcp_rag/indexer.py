@@ -37,6 +37,7 @@ _SUPPORTED_EXTENSIONS = frozenset({
     ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".ino",
     ".js", ".jsx", ".mjs", ".cjs",
     ".ts", ".tsx", ".mts", ".cts",
+    ".java",
 })
 
 
