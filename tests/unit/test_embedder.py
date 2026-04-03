@@ -2,6 +2,7 @@
 
 fastembed.TextEmbedding is monkeypatched so no model is downloaded.
 """
+
 import math
 
 import numpy as np
@@ -33,6 +34,7 @@ def patch_fastembed(monkeypatch):
 # Protocol attributes
 # ---------------------------------------------------------------------------
 
+
 def test_has_model_attribute():
     assert FastEmbedder().model == DEFAULT_MODEL
 
@@ -54,6 +56,7 @@ def test_dim_matches_embed_output_length():
 # embed() return type and shape
 # ---------------------------------------------------------------------------
 
+
 def test_embed_returns_list():
     assert isinstance(FastEmbedder().embed("hello"), list)
 
@@ -71,6 +74,7 @@ def test_embed_correct_length():
 # Normalisation
 # ---------------------------------------------------------------------------
 
+
 def test_embed_is_unit_length():
     v = FastEmbedder().embed("hello")
     norm = math.sqrt(sum(x * x for x in v))
@@ -87,6 +91,7 @@ def test_embed_normalises_non_unit_input():
 # ---------------------------------------------------------------------------
 # Determinism
 # ---------------------------------------------------------------------------
+
 
 def test_embed_is_deterministic():
     e = FastEmbedder()

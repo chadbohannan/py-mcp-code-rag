@@ -6,9 +6,9 @@ returns three buckets:
   - to_add    : SemanticUnit objects that are new or changed (insert after summarise+embed)
   - to_delete : StoredUnit objects that are removed or changed (delete from DB)
 """
+
 import hashlib
 
-import pytest
 
 from mcp_rag.models import SemanticUnit
 from mcp_rag.reconcile import StoredUnit, diff_units
@@ -18,7 +18,10 @@ from mcp_rag.reconcile import StoredUnit, diff_units
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _stored(id: int, unit_type: str, unit_name: str | None, content: str, char_offset: int) -> StoredUnit:
+
+def _stored(
+    id: int, unit_type: str, unit_name: str | None, content: str, char_offset: int
+) -> StoredUnit:
     return StoredUnit(
         id=id,
         unit_type=unit_type,
@@ -28,7 +31,9 @@ def _stored(id: int, unit_type: str, unit_name: str | None, content: str, char_o
     )
 
 
-def _incoming(unit_type: str, unit_name: str | None, content: str, char_offset: int) -> SemanticUnit:
+def _incoming(
+    unit_type: str, unit_name: str | None, content: str, char_offset: int
+) -> SemanticUnit:
     return SemanticUnit(
         unit_type=unit_type,
         unit_name=unit_name,
@@ -40,6 +45,7 @@ def _incoming(unit_type: str, unit_name: str | None, content: str, char_offset: 
 # ---------------------------------------------------------------------------
 # Empty cases
 # ---------------------------------------------------------------------------
+
 
 def test_diff_empty_both_sides():
     keep, add, delete = diff_units([], [])
@@ -74,6 +80,7 @@ def test_diff_no_incoming_all_deleted():
 # Unchanged units
 # ---------------------------------------------------------------------------
 
+
 def test_diff_unchanged_unit_kept():
     content = "def foo(): return 1"
     existing = [_stored(7, "function", "foo", content, 0)]
@@ -99,6 +106,7 @@ def test_diff_to_keep_preserves_stored_unit_id():
 # Changed units (same key, different content)
 # ---------------------------------------------------------------------------
 
+
 def test_diff_changed_content_triggers_replacement():
     existing = [_stored(1, "function", "compute", "def compute(): return 0", 0)]
     incoming = [_incoming("function", "compute", "def compute(): return 42", 0)]
@@ -114,6 +122,7 @@ def test_diff_changed_content_triggers_replacement():
 # ---------------------------------------------------------------------------
 # Removed units
 # ---------------------------------------------------------------------------
+
 
 def test_diff_removed_unit_deleted():
     existing = [
@@ -134,6 +143,7 @@ def test_diff_removed_unit_deleted():
 # Added units
 # ---------------------------------------------------------------------------
 
+
 def test_diff_added_unit_inserted():
     existing = [_stored(1, "function", "old", "def old(): pass", 0)]
     incoming = [
@@ -150,6 +160,7 @@ def test_diff_added_unit_inserted():
 # ---------------------------------------------------------------------------
 # Key is the (unit_type, unit_name, char_offset) triple
 # ---------------------------------------------------------------------------
+
 
 def test_diff_key_unit_type_change():
     # Same name and offset, different unit_type → different key
@@ -191,6 +202,7 @@ def test_diff_key_char_offset_change():
 # Mixed scenario
 # ---------------------------------------------------------------------------
 
+
 def test_diff_multiple_mixed_changes():
     existing = [
         _stored(1, "function", "unchanged", "def unchanged(): pass", 0),
@@ -198,9 +210,9 @@ def test_diff_multiple_mixed_changes():
         _stored(3, "function", "deleted", "def deleted(): pass", 60),
     ]
     incoming = [
-        _incoming("function", "unchanged", "def unchanged(): pass", 0),   # same
+        _incoming("function", "unchanged", "def unchanged(): pass", 0),  # same
         _incoming("function", "modified", "def modified(): return 99", 30),  # changed
-        _incoming("function", "added", "def added(): pass", 90),            # new
+        _incoming("function", "added", "def added(): pass", 90),  # new
     ]
     keep, add, delete = diff_units(existing, incoming)
 
@@ -208,14 +220,15 @@ def test_diff_multiple_mixed_changes():
     delete_ids = {u.id for u in delete}
     add_names = {u.unit_name for u in add}
 
-    assert keep_ids == {1}           # unchanged retained
-    assert delete_ids == {2, 3}      # modified old + deleted
+    assert keep_ids == {1}  # unchanged retained
+    assert delete_ids == {2, 3}  # modified old + deleted
     assert add_names == {"modified", "added"}  # modified new + newly added
 
 
 # ---------------------------------------------------------------------------
 # Null unit_name in key
 # ---------------------------------------------------------------------------
+
 
 def test_diff_null_unit_name_as_key():
     content = "SELECT 1"

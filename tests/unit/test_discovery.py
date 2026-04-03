@@ -3,41 +3,51 @@
 These tests use real filesystem I/O (tmp_path) but no database or network.
 Git-based tests require `git` to be in PATH.
 """
+
 import subprocess
 from pathlib import Path
 
-import pytest
 
-from mcp_rag.discovery import DiscoveryError, discover_files
+from mcp_rag.discovery import discover_files
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _git_init(path: Path) -> None:
     subprocess.run(["git", "init", str(path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
-        check=True, capture_output=True, cwd=str(path),
+        check=True,
+        capture_output=True,
+        cwd=str(path),
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        check=True, capture_output=True, cwd=str(path),
+        check=True,
+        capture_output=True,
+        cwd=str(path),
     )
 
 
 def _git_add_commit(path: Path, file: Path) -> None:
-    subprocess.run(["git", "add", str(file)], check=True, capture_output=True, cwd=str(path))
+    subprocess.run(
+        ["git", "add", str(file)], check=True, capture_output=True, cwd=str(path)
+    )
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        check=True, capture_output=True, cwd=str(path),
+        check=True,
+        capture_output=True,
+        cwd=str(path),
     )
 
 
 # ---------------------------------------------------------------------------
 # Git-based discovery
 # ---------------------------------------------------------------------------
+
 
 def test_discover_files_git_repo_returns_committed_file(tmp_path):
     _git_init(tmp_path)
@@ -90,6 +100,7 @@ def test_discover_files_untracked_not_ignored_included(tmp_path):
 # ---------------------------------------------------------------------------
 # Non-git fallback
 # ---------------------------------------------------------------------------
+
 
 def test_discover_files_non_git_returns_files(tmp_path):
     f = tmp_path / "data.py"

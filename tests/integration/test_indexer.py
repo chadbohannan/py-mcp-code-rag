@@ -4,14 +4,14 @@ Integration tests for the mcp-rag index pipeline.
 Uses real SQLite on disk (tmp_path), real file I/O, FakeEmbedder, and
 FakeSummarizer.  No Anthropic API calls; no fastembed.
 """
+
 import os
 import textwrap
 import time
-from pathlib import Path
 
 import pytest
 
-from mcp_rag.db import ModelMismatchError, open_db
+from mcp_rag.db import open_db
 from mcp_rag.indexer import IndexAbortError, run_index
 from tests.conftest import FakeEmbedder, FakeSummarizer
 
@@ -19,6 +19,7 @@ from tests.conftest import FakeEmbedder, FakeSummarizer
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def embedder() -> FakeEmbedder:
@@ -34,6 +35,7 @@ def summarizer() -> FakeSummarizer:
 # Startup guards
 # ---------------------------------------------------------------------------
 
+
 def test_index_aborts_on_overlapping_roots(tmp_path, embedder, summarizer):
     parent = tmp_path / "proj"
     child = parent / "sub"
@@ -41,12 +43,15 @@ def test_index_aborts_on_overlapping_roots(tmp_path, embedder, summarizer):
     child.mkdir()
     db_path = tmp_path / "index.db"
     with pytest.raises(IndexAbortError, match="overlap"):
-        run_index([parent, child], db_path=db_path, embedder=embedder, summarizer=summarizer)
+        run_index(
+            [parent, child], db_path=db_path, embedder=embedder, summarizer=summarizer
+        )
 
 
 # ---------------------------------------------------------------------------
 # First run — fresh database
 # ---------------------------------------------------------------------------
+
 
 def test_first_run_creates_db_file(tmp_path, embedder, summarizer):
     root = tmp_path / "proj"
@@ -81,12 +86,13 @@ def test_first_run_indexes_python_file(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    units = conn.execute(
-        "SELECT unit_type, unit_name FROM mcp_rag_units"
-    ).fetchall()
+    units = conn.execute("SELECT unit_type, unit_name FROM mcp_rag_units").fetchall()
     conn.close()
 
-    assert any(unit_type == "function" and unit_name == "process" for unit_type, unit_name in units)
+    assert any(
+        unit_type == "function" and unit_name == "process"
+        for unit_type, unit_name in units
+    )
 
 
 def test_first_run_indexes_markdown_file(tmp_path, embedder, summarizer):
@@ -172,7 +178,9 @@ def test_first_run_stores_summary_in_units(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    rows = conn.execute("SELECT summary FROM mcp_rag_units WHERE unit_name = 'compute'").fetchall()
+    rows = conn.execute(
+        "SELECT summary FROM mcp_rag_units WHERE unit_name = 'compute'"
+    ).fetchall()
     conn.close()
     assert len(rows) == 1
     assert rows[0][0].startswith("summary:")
@@ -201,9 +209,7 @@ def test_first_run_writes_file_fingerprint(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    row = conn.execute(
-        "SELECT mtime, md5, indexed_at FROM mcp_rag_files"
-    ).fetchone()
+    row = conn.execute("SELECT mtime, md5, indexed_at FROM mcp_rag_files").fetchone()
     conn.close()
     mtime, md5, indexed_at = row
     assert mtime > 0
@@ -214,6 +220,7 @@ def test_first_run_writes_file_fingerprint(tmp_path, embedder, summarizer):
 # ---------------------------------------------------------------------------
 # Incremental run — unchanged files
 # ---------------------------------------------------------------------------
+
 
 def test_second_run_unchanged_file_no_resummarize(tmp_path, embedder, summarizer):
     root = tmp_path / "proj"
@@ -236,13 +243,17 @@ def test_second_run_unchanged_file_same_embedding_count(tmp_path, embedder, summ
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    count_after_first = conn.execute("SELECT COUNT(*) FROM mcp_rag_embeddings").fetchone()[0]
+    count_after_first = conn.execute(
+        "SELECT COUNT(*) FROM mcp_rag_embeddings"
+    ).fetchone()[0]
     conn.close()
 
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    count_after_second = conn.execute("SELECT COUNT(*) FROM mcp_rag_embeddings").fetchone()[0]
+    count_after_second = conn.execute(
+        "SELECT COUNT(*) FROM mcp_rag_embeddings"
+    ).fetchone()[0]
     conn.close()
 
     assert count_after_first == count_after_second
@@ -251,6 +262,7 @@ def test_second_run_unchanged_file_same_embedding_count(tmp_path, embedder, summ
 # ---------------------------------------------------------------------------
 # Incremental run — changed file
 # ---------------------------------------------------------------------------
+
 
 def test_changed_file_triggers_new_unit(tmp_path, embedder, summarizer):
     root = tmp_path / "proj"
@@ -271,8 +283,7 @@ def test_changed_file_triggers_new_unit(tmp_path, embedder, summarizer):
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
     names = [
-        row[0]
-        for row in conn.execute("SELECT unit_name FROM mcp_rag_units").fetchall()
+        row[0] for row in conn.execute("SELECT unit_name FROM mcp_rag_units").fetchall()
     ]
     conn.close()
     assert "beta" in names
@@ -295,7 +306,9 @@ def test_changed_unit_content_triggers_resummarize(tmp_path, embedder, summarize
     assert len(summarizer.calls) > calls_after_first
 
 
-def test_unchanged_unit_in_changed_file_not_resummarized(tmp_path, embedder, summarizer):
+def test_unchanged_unit_in_changed_file_not_resummarized(
+    tmp_path, embedder, summarizer
+):
     """
     When a file changes, units whose content_md5 is unchanged must NOT be
     re-summarized.
@@ -353,6 +366,7 @@ def test_changed_file_updates_fingerprint(tmp_path, embedder, summarizer):
 # ---------------------------------------------------------------------------
 # Deleted-file reconciliation
 # ---------------------------------------------------------------------------
+
 
 def test_deleted_file_removed_from_db(tmp_path, embedder, summarizer):
     root = tmp_path / "proj"
@@ -425,6 +439,7 @@ def test_deleted_file_count_logged_to_stderr(tmp_path, embedder, summarizer, cap
 # Transactional integrity
 # ---------------------------------------------------------------------------
 
+
 def test_single_file_indexing_is_atomic(tmp_path, embedder, monkeypatch):
     """
     If the summarizer raises on the second unit, the DB must remain in its
@@ -456,6 +471,7 @@ def test_single_file_indexing_is_atomic(tmp_path, embedder, monkeypatch):
     class BombSummarizer:
         def __init__(self):
             self.calls = []
+
         def summarize(self, unit):
             self.calls.append(unit)
             if len(self.calls) == 2:
@@ -476,6 +492,7 @@ def test_single_file_indexing_is_atomic(tmp_path, embedder, monkeypatch):
 # ---------------------------------------------------------------------------
 # Large unit truncation
 # ---------------------------------------------------------------------------
+
 
 def test_large_unit_truncated_and_warned(tmp_path, embedder, summarizer, capsys):
     root = tmp_path / "proj"
@@ -500,6 +517,7 @@ def test_large_unit_truncated_and_warned(tmp_path, embedder, summarizer, capsys)
 # Multi-root indexing
 # ---------------------------------------------------------------------------
 
+
 def test_multi_root_both_indexed_into_same_db(tmp_path, embedder, summarizer):
     root_a = tmp_path / "proj_a"
     root_b = tmp_path / "proj_b"
@@ -508,7 +526,9 @@ def test_multi_root_both_indexed_into_same_db(tmp_path, embedder, summarizer):
     (root_a / "a.py").write_text("def fa(): pass\n", encoding="utf-8")
     (root_b / "b.py").write_text("def fb(): pass\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
-    run_index([root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer)
+    run_index(
+        [root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer
+    )
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
     roots = {
@@ -529,11 +549,15 @@ def test_multi_root_reconciliation_is_per_root(tmp_path, embedder, summarizer):
     fa.write_text("def fa(): pass\n", encoding="utf-8")
     (root_b / "b.py").write_text("def fb(): pass\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
-    run_index([root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer)
+    run_index(
+        [root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer
+    )
 
     # Delete the file in root_a only
     fa.unlink()
-    run_index([root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer)
+    run_index(
+        [root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer
+    )
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
     remaining_roots = {
@@ -548,6 +572,7 @@ def test_multi_root_reconciliation_is_per_root(tmp_path, embedder, summarizer):
 # ---------------------------------------------------------------------------
 # Reindex (--reindex flag)
 # ---------------------------------------------------------------------------
+
 
 def test_reindex_drops_and_recreates_embeddings_table(tmp_path, embedder, summarizer):
     root = tmp_path / "proj"
@@ -581,7 +606,9 @@ def test_reindex_preserves_summaries(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    summary_before = conn.execute("SELECT summary FROM mcp_rag_units WHERE unit_name = 'foo'").fetchone()[0]
+    summary_before = conn.execute(
+        "SELECT summary FROM mcp_rag_units WHERE unit_name = 'foo'"
+    ).fetchone()[0]
     conn.close()
 
     fresh_summarizer = FakeSummarizer()
@@ -594,7 +621,9 @@ def test_reindex_preserves_summaries(tmp_path, embedder, summarizer):
     )
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    summary_after = conn.execute("SELECT summary FROM mcp_rag_units WHERE unit_name = 'foo'").fetchone()[0]
+    summary_after = conn.execute(
+        "SELECT summary FROM mcp_rag_units WHERE unit_name = 'foo'"
+    ).fetchone()[0]
     conn.close()
 
     # Summary unchanged; no new API calls for the unchanged file

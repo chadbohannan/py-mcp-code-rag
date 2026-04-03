@@ -4,6 +4,7 @@ Each parser takes source text (a str) and returns a list of SemanticUnit
 objects in source order.  parse_file dispatches by extension after a binary
 check.
 """
+
 import ast
 import json
 import logging
@@ -25,6 +26,7 @@ _BINARY_CHECK_BYTES = 512
 # ---------------------------------------------------------------------------
 # Python
 # ---------------------------------------------------------------------------
+
 
 def parse_python(source: str) -> list[SemanticUnit]:
     """Parse a Python source string into SemanticUnits.
@@ -52,32 +54,38 @@ def parse_python(source: str) -> list[SemanticUnit]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             content = ast.get_source_segment(source, node) or ""
             if content:
-                units.append(SemanticUnit(
-                    unit_type="function",
-                    unit_name=node.name,
-                    content=content,
-                    char_offset=_char_offset(node),
-                ))
+                units.append(
+                    SemanticUnit(
+                        unit_type="function",
+                        unit_name=node.name,
+                        content=content,
+                        char_offset=_char_offset(node),
+                    )
+                )
 
         elif isinstance(node, ast.ClassDef):
             content = ast.get_source_segment(source, node) or ""
             if content:
-                units.append(SemanticUnit(
-                    unit_type="class",
-                    unit_name=node.name,
-                    content=content,
-                    char_offset=_char_offset(node),
-                ))
+                units.append(
+                    SemanticUnit(
+                        unit_type="class",
+                        unit_name=node.name,
+                        content=content,
+                        char_offset=_char_offset(node),
+                    )
+                )
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     method_content = ast.get_source_segment(source, item) or ""
                     if method_content:
-                        units.append(SemanticUnit(
-                            unit_type="method",
-                            unit_name=item.name,
-                            content=method_content,
-                            char_offset=_char_offset(item),
-                        ))
+                        units.append(
+                            SemanticUnit(
+                                unit_type="method",
+                                unit_name=item.name,
+                                content=method_content,
+                                char_offset=_char_offset(item),
+                            )
+                        )
 
     return sorted(units, key=lambda u: u.char_offset)
 
@@ -85,6 +93,7 @@ def parse_python(source: str) -> list[SemanticUnit]:
 # ---------------------------------------------------------------------------
 # Markdown / MDX
 # ---------------------------------------------------------------------------
+
 
 def parse_markdown(source: str) -> list[SemanticUnit]:
     """Parse a Markdown source string into SemanticUnits.
@@ -138,6 +147,7 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
 # SQL
 # ---------------------------------------------------------------------------
 
+
 def parse_sql(source: str) -> list[SemanticUnit]:
     """Parse a SQL source string into a single SemanticUnit.
 
@@ -158,6 +168,7 @@ def parse_sql(source: str) -> list[SemanticUnit]:
 # ---------------------------------------------------------------------------
 # Go
 # ---------------------------------------------------------------------------
+
 
 def parse_go(path: Path) -> list[SemanticUnit]:
     """Parse a Go source file into SemanticUnits via the bundled go_parser helper.
@@ -186,18 +197,21 @@ def parse_go(path: Path) -> list[SemanticUnit]:
     data = json.loads(result.stdout)
     units = []
     for item in data:
-        units.append(SemanticUnit(
-            unit_type=item["unit_type"],
-            unit_name=item.get("unit_name"),
-            content=item["content"],
-            char_offset=item["char_offset"],
-        ))
+        units.append(
+            SemanticUnit(
+                unit_type=item["unit_type"],
+                unit_name=item.get("unit_name"),
+                content=item["content"],
+                char_offset=item["char_offset"],
+            )
+        )
     return units
 
 
 # ---------------------------------------------------------------------------
 # File dispatcher
 # ---------------------------------------------------------------------------
+
 
 def _is_binary(path: Path) -> bool:
     """Return True if the first 512 bytes of the file contain a null byte."""

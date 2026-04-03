@@ -4,10 +4,10 @@ subprocess.run and shutil.which are monkeypatched so no real Go subprocess
 is spawned.  The _go_warned module flag is reset before each test via autouse
 fixture so warning-once logic is deterministic.
 """
+
 import hashlib
 import json
 import logging
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -19,6 +19,7 @@ from mcp_rag.parsers import parse_file, parse_go
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run_ok(stdout: str = "[]") -> MagicMock:
     r = MagicMock()
@@ -40,7 +41,9 @@ def _units(*items) -> str:
     return json.dumps(list(items))
 
 
-def _unit(unit_type="function", unit_name="Foo", content="func Foo() {}", char_offset=0):
+def _unit(
+    unit_type="function", unit_name="Foo", content="func Foo() {}", char_offset=0
+):
     return {
         "unit_type": unit_type,
         "unit_name": unit_name,
@@ -53,6 +56,7 @@ def _unit(unit_type="function", unit_name="Foo", content="func Foo() {}", char_o
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def reset_go_warned():
     """Reset _go_warned before/after each test to isolate warning-once logic."""
@@ -63,7 +67,9 @@ def reset_go_warned():
 
 @pytest.fixture
 def go_available(monkeypatch):
-    monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/go" if cmd == "go" else None)
+    monkeypatch.setattr(
+        "shutil.which", lambda cmd: "/usr/bin/go" if cmd == "go" else None
+    )
 
 
 @pytest.fixture
@@ -74,6 +80,7 @@ def go_missing(monkeypatch):
 # ---------------------------------------------------------------------------
 # go not in PATH
 # ---------------------------------------------------------------------------
+
 
 def test_parse_go_missing_binary_returns_empty(tmp_path, go_missing):
     f = tmp_path / "main.go"
@@ -103,6 +110,7 @@ def test_parse_go_missing_binary_warns_only_once(tmp_path, go_missing, caplog):
 # subprocess failure
 # ---------------------------------------------------------------------------
 
+
 def test_parse_go_subprocess_failure_returns_empty(tmp_path, go_available, monkeypatch):
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_fail())
     f = tmp_path / "bad.go"
@@ -110,7 +118,9 @@ def test_parse_go_subprocess_failure_returns_empty(tmp_path, go_available, monke
     assert parse_go(f) == []
 
 
-def test_parse_go_subprocess_failure_logs_warning(tmp_path, go_available, monkeypatch, caplog):
+def test_parse_go_subprocess_failure_logs_warning(
+    tmp_path, go_available, monkeypatch, caplog
+):
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_fail())
     f = tmp_path / "bad.go"
     f.write_text("package main\n")
@@ -123,8 +133,11 @@ def test_parse_go_subprocess_failure_logs_warning(tmp_path, go_available, monkey
 # Successful parse — unit types
 # ---------------------------------------------------------------------------
 
+
 def test_parse_go_returns_function(tmp_path, go_available, monkeypatch):
-    data = _units(_unit(unit_type="function", unit_name="Hello", content="func Hello() {}"))
+    data = _units(
+        _unit(unit_type="function", unit_name="Hello", content="func Hello() {}")
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_ok(data))
     f = tmp_path / "hello.go"
     f.write_text("package main\n")
@@ -135,7 +148,9 @@ def test_parse_go_returns_function(tmp_path, go_available, monkeypatch):
 
 
 def test_parse_go_returns_method(tmp_path, go_available, monkeypatch):
-    data = _units(_unit(unit_type="method", unit_name="Run", content="func (s *Srv) Run() {}"))
+    data = _units(
+        _unit(unit_type="method", unit_name="Run", content="func (s *Srv) Run() {}")
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_ok(data))
     f = tmp_path / "srv.go"
     f.write_text("package main\n")
@@ -144,7 +159,9 @@ def test_parse_go_returns_method(tmp_path, go_available, monkeypatch):
 
 
 def test_parse_go_returns_struct(tmp_path, go_available, monkeypatch):
-    data = _units(_unit(unit_type="struct", unit_name="Config", content="type Config struct {}"))
+    data = _units(
+        _unit(unit_type="struct", unit_name="Config", content="type Config struct {}")
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_ok(data))
     f = tmp_path / "cfg.go"
     f.write_text("package main\n")
@@ -153,7 +170,13 @@ def test_parse_go_returns_struct(tmp_path, go_available, monkeypatch):
 
 
 def test_parse_go_returns_interface(tmp_path, go_available, monkeypatch):
-    data = _units(_unit(unit_type="interface", unit_name="Handler", content="type Handler interface {}"))
+    data = _units(
+        _unit(
+            unit_type="interface",
+            unit_name="Handler",
+            content="type Handler interface {}",
+        )
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_ok(data))
     f = tmp_path / "iface.go"
     f.write_text("package main\n")
@@ -164,6 +187,7 @@ def test_parse_go_returns_interface(tmp_path, go_available, monkeypatch):
 # ---------------------------------------------------------------------------
 # Successful parse — field values
 # ---------------------------------------------------------------------------
+
 
 def test_parse_go_null_unit_name(tmp_path, go_available, monkeypatch):
     item = _unit()
@@ -207,7 +231,12 @@ def test_parse_go_content_md5_set(tmp_path, go_available, monkeypatch):
 def test_parse_go_multiple_units(tmp_path, go_available, monkeypatch):
     data = _units(
         _unit(unit_type="struct", unit_name="Server", content="type Server struct {}"),
-        _unit(unit_type="function", unit_name="New", content="func New() *Server { return nil }", char_offset=30),
+        _unit(
+            unit_type="function",
+            unit_name="New",
+            content="func New() *Server { return nil }",
+            char_offset=30,
+        ),
     )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_ok(data))
     f = tmp_path / "server.go"
@@ -227,8 +256,11 @@ def test_parse_go_empty_result(tmp_path, go_available, monkeypatch):
 # parse_file dispatch
 # ---------------------------------------------------------------------------
 
+
 def test_parse_file_go_dispatches_to_go_parser(tmp_path, go_available, monkeypatch):
-    data = _units(_unit(unit_type="function", unit_name="Main", content="func main() {}"))
+    data = _units(
+        _unit(unit_type="function", unit_name="Main", content="func main() {}")
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_ok(data))
     f = tmp_path / "main.go"
     f.write_text("package main\nfunc main() {}\n")

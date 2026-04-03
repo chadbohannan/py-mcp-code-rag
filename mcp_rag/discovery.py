@@ -4,6 +4,7 @@ Uses `git ls-files --cached --others --exclude-standard` when the root is
 inside a git repo; falls back to pathlib.Path.walk with a hardcoded exclusion
 list otherwise.
 """
+
 from __future__ import annotations
 
 import subprocess

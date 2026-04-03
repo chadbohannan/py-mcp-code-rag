@@ -3,6 +3,7 @@
 Discovers files, parses them into SemanticUnits, summarises each unit,
 embeds the summary, and writes everything to SQLite.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -78,6 +79,7 @@ def run_index(
 # Reindex helpers
 # ---------------------------------------------------------------------------
 
+
 def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
     """Open an existing DB and rebuild the embeddings table with a new dimension."""
     conn = sqlite3.connect(str(db_path))
@@ -120,8 +122,34 @@ def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
 
 
 # ---------------------------------------------------------------------------
+# Embedding helpers
+# ---------------------------------------------------------------------------
+
+
+def _embed_text(unit: SemanticUnit, summary: str) -> str:
+    """Build the string to embed: path::name prefix + summary.
+
+    The raw summary is stored in the DB and returned to callers; this prefix
+    is applied only to the vector so that path and identifier tokens strengthen
+    similarity for path- or name-based queries.
+    """
+    parts = []
+    if unit.file_path is not None and unit.root is not None:
+        try:
+            rel = unit.file_path.relative_to(unit.root)
+        except ValueError:
+            rel = unit.file_path
+        parts.append(str(rel))
+    if unit.unit_name:
+        parts.append(unit.unit_name)
+    prefix = "::".join(parts)
+    return f"{prefix} | {summary}" if prefix else summary
+
+
+# ---------------------------------------------------------------------------
 # Per-root indexing
 # ---------------------------------------------------------------------------
+
 
 def _index_root(
     conn: sqlite3.Connection,
@@ -150,14 +178,37 @@ def _index_root(
 
     # Process files present on disk
     disable_bars = not sys.stderr.isatty()
-    with tqdm(total=len(disk_files), desc="files", unit="file",
-              file=sys.stderr, position=0, disable=disable_bars) as file_bar:
-        with tqdm(total=0, desc="units", unit="unit", file=sys.stderr,
-                  position=1, leave=False, disable=disable_bars) as unit_bar:
+    with tqdm(
+        total=len(disk_files),
+        desc="files",
+        unit="file",
+        file=sys.stderr,
+        position=0,
+        disable=disable_bars,
+    ) as file_bar:
+        with tqdm(
+            total=0,
+            desc="units",
+            unit="unit",
+            file=sys.stderr,
+            position=1,
+            leave=False,
+            disable=disable_bars,
+        ) as unit_bar:
             for file_path in sorted(disk_files):
-                file_bar.set_postfix(file=file_path.name, status="scanning", refresh=True)
-                _process_file(conn, root, file_path, db_map.get(file_path),
-                               embedder, summarizer, file_bar, unit_bar)
+                file_bar.set_postfix(
+                    file=file_path.name, status="scanning", refresh=True
+                )
+                _process_file(
+                    conn,
+                    root,
+                    file_path,
+                    db_map.get(file_path),
+                    embedder,
+                    summarizer,
+                    file_bar,
+                    unit_bar,
+                )
                 file_bar.update(1)
 
     return deleted_count
@@ -166,6 +217,7 @@ def _index_root(
 # ---------------------------------------------------------------------------
 # Per-file processing
 # ---------------------------------------------------------------------------
+
 
 def _process_file(
     conn: sqlite3.Connection,
@@ -213,6 +265,9 @@ def _process_file(
     # Parse into semantic units (may be [] for oversized SQL, empty files, etc.)
     _file_status("parsing")
     units = parse_file(file_path)
+    for unit in units:
+        unit.file_path = file_path
+        unit.root = root
 
     # Truncate units that exceed the token estimate threshold
     processed: list[SemanticUnit] = []
@@ -228,6 +283,8 @@ def _process_file(
                 unit_name=unit.unit_name,
                 content=unit.content[:_MAX_CHARS],
                 char_offset=unit.char_offset,
+                file_path=file_path,
+                root=root,
             )
         processed.append(unit)
     units = processed
@@ -297,12 +354,12 @@ def _process_file(
                     unit.unit_name,
                     unit.content,
                     unit.content_md5,
-                    summary,
+                    summary,  # raw summary stored; prefix applied only for embedding
                     unit.char_offset,
                 ),
             )
             unit_id = cur.lastrowid
-            embedding = embedder.embed(summary)
+            embedding = embedder.embed(_embed_text(unit, summary))
             emb_bytes = struct.pack(f"{len(embedding)}f", *embedding)
             conn.execute(
                 "INSERT INTO mcp_rag_embeddings (unit_id, embedding) VALUES (?, ?)",

@@ -1,17 +1,19 @@
-"""Real Anthropic-backed Summarizer implementation."""
+"""Summarizer implementations for mcp-rag."""
+
 from __future__ import annotations
 
 import random
-import subprocess
 import time
 
 from mcp_rag.models import SemanticUnit
 
-MODEL = "claude-haiku-4-5-20251001"
 _MAX_TOKENS = 256
 _RETRY_DELAYS = [1, 4, 16]  # seconds before each retry attempt
 _JITTER = 0.2
 _RETRY_STATUSES = frozenset({429, 529})
+
+_DEFAULT_OLLAMA_MODEL = "gemma4"
+_DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 
 
 class AnthropicSummarizer:
@@ -20,6 +22,8 @@ class AnthropicSummarizer:
     Retries on 429, 529, and 5xx responses with exponential backoff ±20%
     jitter. Other errors are raised immediately.
     """
+
+    MODEL = "claude-haiku-4-5-20251001"
 
     def __init__(self) -> None:
         import anthropic
@@ -37,7 +41,7 @@ class AnthropicSummarizer:
                 time.sleep(delay * jitter)
             try:
                 response = self._client.messages.create(
-                    model=MODEL,
+                    model=self.MODEL,
                     max_tokens=_MAX_TOKENS,
                     messages=[{"role": "user", "content": prompt}],
                 )
@@ -54,53 +58,45 @@ class AnthropicSummarizer:
         raise AssertionError("unreachable")  # pragma: no cover
 
 
-class AgentSummarizer:
-    """Summarizer backed by a local agent CLI (e.g. claude, pi).
-
-    Invokes `<command> -p <prompt>` as a subprocess and captures stdout.
-    """
-
-    def __init__(self, command: str, timeout: int = 120) -> None:
-        self._command = command
-        self._timeout = timeout
-
-    def summarize(self, unit: SemanticUnit) -> str:
-        result = subprocess.run(
-            [self._command, "-p", _build_prompt(unit)],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=self._timeout,
-        )
-        return result.stdout.strip()
-
-
-_DEFAULT_OLLAMA_MODEL = "llama3.2"
-
-
 class OllamaSummarizer:
     """Summarizer backed by a local Ollama server."""
 
-    def __init__(self, model: str = _DEFAULT_OLLAMA_MODEL) -> None:
+    def __init__(
+        self,
+        model: str = _DEFAULT_OLLAMA_MODEL,
+        host: str = _DEFAULT_OLLAMA_HOST,
+    ) -> None:
         import ollama  # lazy import — optional dependency
 
-        self._client = ollama.Client()
+        self._client = ollama.Client(host=host)
         self._model = model
 
     def summarize(self, unit: SemanticUnit) -> str:
         response = self._client.chat(
             model=self._model,
             messages=[{"role": "user", "content": _build_prompt(unit)}],
+            options={"num_predict": _MAX_TOKENS},
         )
         return response.message.content
 
 
 def _build_prompt(unit: SemanticUnit) -> str:
     name_clause = f" named `{unit.unit_name}`" if unit.unit_name else ""
+
+    path_clause = ""
+    if unit.file_path is not None:
+        base = unit.root if unit.root is not None else unit.file_path.parent
+        try:
+            rel = unit.file_path.relative_to(base)
+        except ValueError:
+            rel = unit.file_path
+        path_clause = f"File: {rel}\n\n"
+
     return (
         f"You are indexing a codebase for semantic search. "
         f"Write a dense, searchable description of the following "
         f"{unit.unit_type}{name_clause}.\n\n"
+        f"{path_clause}"
         f"Describe: what it does, what problem it solves, "
         f"key inputs/outputs/parameters, and any important constraints "
         f"or design patterns. Use natural language that will match "

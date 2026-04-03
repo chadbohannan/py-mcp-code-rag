@@ -1,4 +1,5 @@
 """mcp-rag CLI entry point."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,10 +9,15 @@ import sys
 from pathlib import Path
 
 from mcp_rag import server
-from mcp_rag.embedder import DEFAULT_MODEL, FastEmbedder
+from mcp_rag.embedder import DEFAULT_MODEL, EmbedderLoadError, FastEmbedder
 from mcp_rag.indexer import IndexAbortError, run_index
 from mcp_rag.server import mcp
-from mcp_rag.summarizer import AgentSummarizer, AnthropicSummarizer, OllamaSummarizer
+from mcp_rag.summarizer import (
+    AnthropicSummarizer,
+    OllamaSummarizer,
+    _DEFAULT_OLLAMA_HOST,
+    _DEFAULT_OLLAMA_MODEL,
+)
 
 _DEFAULT_DB = Path("index.db")
 _SUBCOMMANDS = {"index", "serve"}
@@ -20,6 +26,7 @@ _SUBCOMMANDS = {"index", "serve"}
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _read_embed_meta(db_path: Path) -> tuple[str, int]:
     """Read embed_model and embed_dim from an existing index DB.
@@ -42,7 +49,7 @@ def _do_index(
     embed_model: str,
     summarizer_type: str,
     ollama_model: str,
-    agent_timeout: int,
+    ollama_host: str,
     reindex: bool,
 ) -> None:
     embedder = FastEmbedder(model_name=embed_model)
@@ -52,10 +59,8 @@ def _do_index(
                 "ANTHROPIC_API_KEY is not set. Export it before running mcp-rag index."
             )
         summarizer = AnthropicSummarizer()
-    elif summarizer_type == "ollama":
-        summarizer = OllamaSummarizer(model=ollama_model)
     else:
-        summarizer = AgentSummarizer(command=summarizer_type, timeout=agent_timeout)
+        summarizer = OllamaSummarizer(model=ollama_model, host=ollama_host)
     run_index(
         roots=roots,
         db_path=db_path,
@@ -79,16 +84,16 @@ def _do_serve(db_path: Path, http: bool = False, port: int = 8000) -> None:
 # Argument parsers
 # ---------------------------------------------------------------------------
 
+
 def _make_index_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mcp-rag index")
     p.add_argument("paths", nargs="+", type=Path, metavar="PATH")
     p.add_argument("--reindex", action="store_true")
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
-    p.add_argument("--summarizer", choices=["anthropic", "ollama", "claude", "pi"], default="anthropic")
-    p.add_argument("--ollama-model", default="llama3.2", dest="ollama_model")
-    p.add_argument("--agent-timeout", type=int, default=120, dest="agent_timeout",
-                   metavar="SECONDS", help="timeout per agent subprocess call (default: 120)")
+    p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
+    p.add_argument("--ollama-model", default=_DEFAULT_OLLAMA_MODEL, dest="ollama_model")
+    p.add_argument("--ollama-host", default=_DEFAULT_OLLAMA_HOST, dest="ollama_host")
     return p
 
 
@@ -105,16 +110,16 @@ def _make_combined_parser() -> argparse.ArgumentParser:
     p.add_argument("paths", nargs="*", type=Path, metavar="PATH")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
-    p.add_argument("--summarizer", choices=["anthropic", "ollama", "claude", "pi"], default="anthropic")
-    p.add_argument("--ollama-model", default="llama3.2", dest="ollama_model")
-    p.add_argument("--agent-timeout", type=int, default=120, dest="agent_timeout",
-                   metavar="SECONDS", help="timeout per agent subprocess call (default: 120)")
+    p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
+    p.add_argument("--ollama-model", default=_DEFAULT_OLLAMA_MODEL, dest="ollama_model")
+    p.add_argument("--ollama-host", default=_DEFAULT_OLLAMA_HOST, dest="ollama_host")
     return p
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     argv = sys.argv[1:]
@@ -153,12 +158,18 @@ def _run_index_cmd(args: argparse.Namespace) -> None:
             embed_model=args.embed_model,
             summarizer_type=args.summarizer,
             ollama_model=args.ollama_model,
-            agent_timeout=args.agent_timeout,
+            ollama_host=args.ollama_host,
             reindex=args.reindex,
         )
-    except IndexAbortError as exc:
+    except (IndexAbortError, EmbedderLoadError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
+    except KeyboardInterrupt:
+        print(
+            "\nInterrupted — partially indexed files will be retried on next run.",
+            file=sys.stderr,
+        )
+        sys.exit(130)
 
 
 def _run_serve_cmd(args: argparse.Namespace) -> None:
@@ -174,13 +185,19 @@ def _run_combined_cmd(args: argparse.Namespace) -> None:
                 embed_model=args.embed_model,
                 summarizer_type=args.summarizer,
                 ollama_model=args.ollama_model,
-                agent_timeout=args.agent_timeout,
+                ollama_host=args.ollama_host,
                 reindex=False,
             )
         _do_serve(db_path=args.db)
-    except IndexAbortError as exc:
+    except (IndexAbortError, EmbedderLoadError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
+    except KeyboardInterrupt:
+        print(
+            "\nInterrupted — partially indexed files will be retried on next run.",
+            file=sys.stderr,
+        )
+        sys.exit(130)
 
 
 if __name__ == "__main__":

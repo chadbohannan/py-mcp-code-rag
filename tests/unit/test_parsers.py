@@ -1,16 +1,15 @@
 """Unit tests for mcp_rag.parsers — pure parsing logic, no I/O."""
+
 import textwrap
-from pathlib import Path
 
-import pytest
 
-from mcp_rag.models import SemanticUnit
 from mcp_rag.parsers import parse_file, parse_markdown, parse_python, parse_sql
 
 
 # ---------------------------------------------------------------------------
 # Python parser
 # ---------------------------------------------------------------------------
+
 
 def test_parse_python_empty_file():
     assert parse_python("") == []
@@ -139,12 +138,14 @@ def test_parse_python_content_md5_set():
     units = parse_python(source)
     func = next(u for u in units if u.unit_name == "compute")
     import hashlib
+
     assert func.content_md5 == hashlib.md5(func.content.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
 # Markdown parser
 # ---------------------------------------------------------------------------
+
 
 def test_parse_markdown_empty_string():
     assert parse_markdown("") == []
@@ -229,6 +230,7 @@ def test_parse_markdown_content_md5_set():
     source = "# Hello\n\nWorld.\n"
     units = parse_markdown(source)
     import hashlib
+
     for unit in units:
         assert unit.content_md5 == hashlib.md5(unit.content.encode()).hexdigest()
 
@@ -236,6 +238,7 @@ def test_parse_markdown_content_md5_set():
 # ---------------------------------------------------------------------------
 # SQL parser
 # ---------------------------------------------------------------------------
+
 
 def test_parse_sql_small_file():
     source = "SELECT id, name FROM users WHERE active = 1;"
@@ -274,12 +277,14 @@ def test_parse_sql_content_md5_set():
     source = "SELECT 1"
     units = parse_sql(source)
     import hashlib
+
     assert units[0].content_md5 == hashlib.md5(source.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
 # parse_file dispatch
 # ---------------------------------------------------------------------------
+
 
 def test_parse_file_py_dispatches_to_python_parser(tmp_path):
     py_file = tmp_path / "example.py"

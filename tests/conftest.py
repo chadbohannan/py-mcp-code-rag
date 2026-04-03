@@ -4,6 +4,7 @@ Shared test fixtures for all test tiers.
 FakeEmbedder  — deterministic unit-length vectors, no fastembed dependency.
 FakeSummarizer — deterministic strings + call log, no Anthropic API dependency.
 """
+
 import hashlib
 import math
 import textwrap
@@ -17,6 +18,7 @@ from mcp_rag.models import SemanticUnit
 # ---------------------------------------------------------------------------
 # Fakes
 # ---------------------------------------------------------------------------
+
 
 class FakeEmbedder:
     """
@@ -63,6 +65,7 @@ class FakeSummarizer:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def fake_embedder() -> FakeEmbedder:
@@ -138,6 +141,8 @@ def sample_project_dir(tmp_path: Path) -> Path:
     (root / "docs" / "skipped.bin").write_bytes(b"\x00" * 8)
 
     # src/huge.sql — over 4 KB limit
-    (root / "src" / "huge.sql").write_text("-- x\n" * 820, encoding="utf-8")  # ~4,920 bytes
+    (root / "src" / "huge.sql").write_text(
+        "-- x\n" * 820, encoding="utf-8"
+    )  # ~4,920 bytes
 
     return root

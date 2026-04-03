@@ -4,9 +4,9 @@ All external I/O (run_index, FastEmbedder, AnthropicSummarizer, mcp.run,
 _read_embed_meta) is monkeypatched so no files, network, or servers are
 touched.
 """
-import sys
+
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,6 +17,7 @@ from mcp_rag.__main__ import main
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _argv(*args):
     return ["mcp-rag"] + list(args)
 
@@ -24,6 +25,7 @@ def _argv(*args):
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_embedder(monkeypatch):
@@ -84,6 +86,7 @@ def mock_read_meta(monkeypatch):
 # index subcommand — argument wiring
 # ---------------------------------------------------------------------------
 
+
 def test_index_calls_run_index(
     tmp_path, monkeypatch, mock_embedder, mock_summarizer, mock_run_index
 ):
@@ -139,6 +142,7 @@ def test_index_default_embed_model(
     tmp_path, monkeypatch, mock_embedder, mock_summarizer, mock_run_index
 ):
     from mcp_rag.embedder import DEFAULT_MODEL
+
     monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
     main()
     mock_embedder[0].assert_called_once_with(model_name=DEFAULT_MODEL)
@@ -158,10 +162,12 @@ def test_index_custom_embed_model(
 # index subcommand — error handling
 # ---------------------------------------------------------------------------
 
+
 def test_index_abort_error_exits_1(
     tmp_path, monkeypatch, mock_embedder, mock_summarizer, mock_run_index
 ):
     from mcp_rag.indexer import IndexAbortError
+
     mock_run_index.side_effect = IndexAbortError("no key")
     monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
     with pytest.raises(SystemExit) as ei:
@@ -172,6 +178,7 @@ def test_index_abort_error_exits_1(
 # ---------------------------------------------------------------------------
 # serve subcommand
 # ---------------------------------------------------------------------------
+
 
 def test_serve_configures_server(
     monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
@@ -245,9 +252,16 @@ def test_serve_custom_db(
 # combined mode
 # ---------------------------------------------------------------------------
 
+
 def test_combined_indexes_when_db_absent(
-    tmp_path, monkeypatch, mock_embedder, mock_summarizer, mock_server,
-    mock_mcp, mock_run_index, mock_read_meta
+    tmp_path,
+    monkeypatch,
+    mock_embedder,
+    mock_summarizer,
+    mock_server,
+    mock_mcp,
+    mock_run_index,
+    mock_read_meta,
 ):
     db = tmp_path / "index.db"  # does not exist
     monkeypatch.setattr("sys.argv", _argv("--db", str(db), str(tmp_path)))
@@ -257,8 +271,14 @@ def test_combined_indexes_when_db_absent(
 
 
 def test_combined_skips_index_when_db_present(
-    tmp_path, monkeypatch, mock_embedder, mock_summarizer, mock_server,
-    mock_mcp, mock_run_index, mock_read_meta
+    tmp_path,
+    monkeypatch,
+    mock_embedder,
+    mock_summarizer,
+    mock_server,
+    mock_mcp,
+    mock_run_index,
+    mock_read_meta,
 ):
     db = tmp_path / "index.db"
     db.touch()  # DB exists
@@ -269,8 +289,13 @@ def test_combined_skips_index_when_db_present(
 
 
 def test_combined_serve_only_when_no_paths(
-    tmp_path, monkeypatch, mock_embedder, mock_server, mock_mcp,
-    mock_run_index, mock_read_meta
+    tmp_path,
+    monkeypatch,
+    mock_embedder,
+    mock_server,
+    mock_mcp,
+    mock_run_index,
+    mock_read_meta,
 ):
     """No paths given → go straight to serve even if DB absent."""
     db = tmp_path / "index.db"
@@ -284,12 +309,18 @@ def test_combined_serve_only_when_no_paths(
 # index subcommand — summarizer selection
 # ---------------------------------------------------------------------------
 
+
 def test_index_default_summarizer_is_anthropic(
-    tmp_path, monkeypatch, mock_embedder, mock_summarizer, mock_run_index,
+    tmp_path,
+    monkeypatch,
+    mock_embedder,
+    mock_summarizer,
+    mock_run_index,
 ):
     monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
     main()
     from mcp_rag.__main__ import AnthropicSummarizer  # noqa: F401
+
     # AnthropicSummarizer was patched via mock_summarizer; run_index was called
     mock_run_index.assert_called_once()
     summarizer_arg = mock_run_index.call_args.kwargs["summarizer"]
@@ -299,7 +330,9 @@ def test_index_default_summarizer_is_anthropic(
 def test_index_ollama_summarizer_flag(
     tmp_path, monkeypatch, mock_embedder, mock_ollama_summarizer, mock_run_index
 ):
-    monkeypatch.setattr("sys.argv", _argv("index", "--summarizer", "ollama", str(tmp_path)))
+    monkeypatch.setattr(
+        "sys.argv", _argv("index", "--summarizer", "ollama", str(tmp_path))
+    )
     main()
     mock_run_index.assert_called_once()
     summarizer_arg = mock_run_index.call_args.kwargs["summarizer"]
@@ -311,15 +344,20 @@ def test_index_ollama_model_flag(
 ):
     monkeypatch.setattr(
         "sys.argv",
-        _argv("index", "--summarizer", "ollama", "--ollama-model", "mymodel", str(tmp_path)),
+        _argv(
+            "index",
+            "--summarizer",
+            "ollama",
+            "--ollama-model",
+            "mymodel",
+            str(tmp_path),
+        ),
     )
     main()
     mock_ollama_summarizer[0].assert_called_once_with(model="mymodel")
 
 
-def test_index_no_api_key_exits_1(
-    tmp_path, monkeypatch, mock_embedder, mock_run_index
-):
+def test_index_no_api_key_exits_1(tmp_path, monkeypatch, mock_embedder, mock_run_index):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
     with pytest.raises(SystemExit) as ei:
@@ -332,14 +370,22 @@ def test_index_ollama_no_api_key_required(
     tmp_path, monkeypatch, mock_embedder, mock_ollama_summarizer, mock_run_index
 ):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setattr("sys.argv", _argv("index", "--summarizer", "ollama", str(tmp_path)))
+    monkeypatch.setattr(
+        "sys.argv", _argv("index", "--summarizer", "ollama", str(tmp_path))
+    )
     main()  # must not raise or exit
     mock_run_index.assert_called_once()
 
 
 def test_combined_ollama_summarizer(
-    tmp_path, monkeypatch, mock_embedder, mock_ollama_summarizer,
-    mock_server, mock_mcp, mock_run_index, mock_read_meta
+    tmp_path,
+    monkeypatch,
+    mock_embedder,
+    mock_ollama_summarizer,
+    mock_server,
+    mock_mcp,
+    mock_run_index,
+    mock_read_meta,
 ):
     db = tmp_path / "index.db"  # does not exist
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)

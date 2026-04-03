@@ -5,6 +5,7 @@ These tests use fastmcp's in-process Client to connect to the server instance
 directly — the same MCP protocol used by stdio transport, without spawning a
 subprocess.
 """
+
 import pytest
 from fastmcp import Client
 
@@ -14,6 +15,7 @@ from mcp_rag.server import mcp
 # ---------------------------------------------------------------------------
 # Shared fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 async def tools_by_name() -> dict:
@@ -27,6 +29,7 @@ async def tools_by_name() -> dict:
 # Connection
 # ---------------------------------------------------------------------------
 
+
 async def test_server_connection():
     """Client can connect and the server responds to a ping."""
     async with Client(mcp) as client:
@@ -36,6 +39,7 @@ async def test_server_connection():
 # ---------------------------------------------------------------------------
 # Tool presence
 # ---------------------------------------------------------------------------
+
 
 async def test_server_exposes_search_tool(tools_by_name):
     assert "search" in tools_by_name, "search tool not registered"
@@ -48,6 +52,7 @@ async def test_server_exposes_index_status_tool(tools_by_name):
 # ---------------------------------------------------------------------------
 # search — schema discovery
 # ---------------------------------------------------------------------------
+
 
 async def test_search_has_description(tools_by_name):
     """LLM needs a description to decide when to call this tool."""
@@ -77,6 +82,7 @@ async def test_search_top_k_param_is_optional_integer_defaulting_to_5(tools_by_n
 # ---------------------------------------------------------------------------
 # index_status — schema discovery
 # ---------------------------------------------------------------------------
+
 
 async def test_index_status_has_description(tools_by_name):
     """LLM needs a description to decide when to call this tool."""

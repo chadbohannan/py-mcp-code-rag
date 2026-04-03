@@ -3,16 +3,23 @@
 anthropic.Anthropic is monkeypatched so no API calls are made.
 time.sleep and random.uniform are patched to keep tests instant.
 """
+
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from mcp_rag.models import SemanticUnit
-from mcp_rag.summarizer import MODEL, AgentSummarizer, AnthropicSummarizer, OllamaSummarizer
+from mcp_rag.summarizer import (
+    MODEL,
+    AgentSummarizer,
+    AnthropicSummarizer,
+    OllamaSummarizer,
+)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _unit(unit_type="function", unit_name="my_func", content="def my_func(): pass"):
     return SemanticUnit(
@@ -36,6 +43,7 @@ def _status_error(status_code: int) -> Exception:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_client(monkeypatch):
     client = MagicMock()
@@ -57,6 +65,7 @@ def no_sleep(monkeypatch):
 # ---------------------------------------------------------------------------
 # API call shape
 # ---------------------------------------------------------------------------
+
 
 def test_uses_correct_model(mock_client, summarizer):
     mock_client.messages.create.return_value = _response()
@@ -83,6 +92,7 @@ def test_message_role_is_user(mock_client, summarizer):
 # Prompt content
 # ---------------------------------------------------------------------------
 
+
 def test_prompt_includes_unit_type(mock_client, summarizer):
     mock_client.messages.create.return_value = _response()
     summarizer.summarize(_unit(unit_type="class"))
@@ -107,13 +117,16 @@ def test_prompt_includes_source_content(mock_client, summarizer):
 def test_prompt_handles_anonymous_unit(mock_client, summarizer):
     """unit_name=None must not crash prompt construction."""
     mock_client.messages.create.return_value = _response()
-    unit = SemanticUnit(unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0)
+    unit = SemanticUnit(
+        unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0
+    )
     summarizer.summarize(unit)  # must not raise
 
 
 # ---------------------------------------------------------------------------
 # Return value
 # ---------------------------------------------------------------------------
+
 
 def test_returns_response_text(mock_client, summarizer):
     mock_client.messages.create.return_value = _response("my generated summary")
@@ -123,6 +136,7 @@ def test_returns_response_text(mock_client, summarizer):
 # ---------------------------------------------------------------------------
 # Retry — success after transient errors
 # ---------------------------------------------------------------------------
+
 
 def test_retries_on_429(mock_client, summarizer, no_sleep):
     mock_client.messages.create.side_effect = [
@@ -166,6 +180,7 @@ def test_retries_up_to_three_times(mock_client, summarizer, no_sleep):
 # Retry — exhaustion and non-retryable errors
 # ---------------------------------------------------------------------------
 
+
 def test_raises_after_max_retries_exhausted(mock_client, summarizer, no_sleep):
     exc = _status_error(429)
     mock_client.messages.create.side_effect = exc
@@ -195,6 +210,7 @@ def test_raises_immediately_on_401(mock_client, summarizer, no_sleep):
 # ---------------------------------------------------------------------------
 # Retry — delay values
 # ---------------------------------------------------------------------------
+
 
 def test_retry_delays_are_exponential(mock_client, summarizer, monkeypatch):
     """sleep() is called with [1, 4, 16] base delays (no jitter)."""
@@ -228,9 +244,11 @@ def test_retry_jitter_is_applied(mock_client, summarizer, monkeypatch):
 # OllamaSummarizer fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_ollama_client(monkeypatch):
     import sys
+
     client = MagicMock()
     ollama_mod = MagicMock()
     ollama_mod.Client.return_value = client
@@ -247,48 +265,62 @@ def ollama_summarizer(mock_ollama_client):
 # OllamaSummarizer tests
 # ---------------------------------------------------------------------------
 
+
 def test_ollama_uses_specified_model(mock_ollama_client, ollama_summarizer):
-    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    mock_ollama_client.chat.return_value = MagicMock(
+        message=MagicMock(content="summary")
+    )
     ollama_summarizer.summarize(_unit())
     call_kwargs = mock_ollama_client.chat.call_args.kwargs
     assert call_kwargs["model"] == "test-model"
 
 
 def test_ollama_message_role_is_user(mock_ollama_client, ollama_summarizer):
-    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    mock_ollama_client.chat.return_value = MagicMock(
+        message=MagicMock(content="summary")
+    )
     ollama_summarizer.summarize(_unit())
     call_kwargs = mock_ollama_client.chat.call_args.kwargs
     assert call_kwargs["messages"][0]["role"] == "user"
 
 
 def test_ollama_prompt_includes_unit_type(mock_ollama_client, ollama_summarizer):
-    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    mock_ollama_client.chat.return_value = MagicMock(
+        message=MagicMock(content="summary")
+    )
     ollama_summarizer.summarize(_unit(unit_type="class"))
     call_kwargs = mock_ollama_client.chat.call_args.kwargs
     assert "class" in call_kwargs["messages"][0]["content"]
 
 
 def test_ollama_prompt_includes_unit_name(mock_ollama_client, ollama_summarizer):
-    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    mock_ollama_client.chat.return_value = MagicMock(
+        message=MagicMock(content="summary")
+    )
     ollama_summarizer.summarize(_unit(unit_name="authenticate_user"))
     call_kwargs = mock_ollama_client.chat.call_args.kwargs
     assert "authenticate_user" in call_kwargs["messages"][0]["content"]
 
 
 def test_ollama_prompt_includes_source_content(mock_ollama_client, ollama_summarizer):
-    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="summary"))
+    mock_ollama_client.chat.return_value = MagicMock(
+        message=MagicMock(content="summary")
+    )
     ollama_summarizer.summarize(_unit(content="def foo(): return 42"))
     call_kwargs = mock_ollama_client.chat.call_args.kwargs
     assert "def foo(): return 42" in call_kwargs["messages"][0]["content"]
 
 
 def test_ollama_returns_response_text(mock_ollama_client, ollama_summarizer):
-    mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="ollama summary"))
+    mock_ollama_client.chat.return_value = MagicMock(
+        message=MagicMock(content="ollama summary")
+    )
     assert ollama_summarizer.summarize(_unit()) == "ollama summary"
 
 
 def test_ollama_default_model_is_llama3_2(monkeypatch):
     import sys
+
     client = MagicMock()
     ollama_mod = MagicMock()
     ollama_mod.Client.return_value = client
@@ -302,13 +334,16 @@ def test_ollama_default_model_is_llama3_2(monkeypatch):
 def test_ollama_handles_anonymous_unit(mock_ollama_client, ollama_summarizer):
     """unit_name=None must not crash prompt construction."""
     mock_ollama_client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
-    unit = SemanticUnit(unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0)
+    unit = SemanticUnit(
+        unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0
+    )
     ollama_summarizer.summarize(unit)  # must not raise
 
 
 # ---------------------------------------------------------------------------
 # AgentSummarizer fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_subprocess(monkeypatch):
@@ -332,6 +367,7 @@ def pi_summarizer():
 # ---------------------------------------------------------------------------
 # AgentSummarizer tests
 # ---------------------------------------------------------------------------
+
 
 def test_agent_invokes_command_with_p_flag(mock_subprocess, claude_summarizer):
     claude_summarizer.summarize(_unit())
@@ -376,5 +412,7 @@ def test_agent_uses_check_true(mock_subprocess, claude_summarizer):
 
 def test_agent_handles_anonymous_unit(mock_subprocess, claude_summarizer):
     """unit_name=None must not crash prompt construction."""
-    unit = SemanticUnit(unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0)
+    unit = SemanticUnit(
+        unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0
+    )
     claude_summarizer.summarize(unit)  # must not raise

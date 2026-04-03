@@ -7,6 +7,7 @@ FakeSummarizer.  No Anthropic API calls; no fastembed.
 server_module.configure(db_path, embedder) injects state into the server
 before each test and tears it down after.
 """
+
 import textwrap
 from datetime import datetime
 from pathlib import Path
@@ -23,6 +24,7 @@ from tests.conftest import FakeEmbedder, FakeSummarizer
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _call(tool: str, args: dict) -> object:
     """Call a tool and return the deserialized Python result."""
@@ -42,6 +44,7 @@ def _fake_summary(unit_type: str, unit_name: str, content: str) -> str:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def set_api_key(monkeypatch):
@@ -103,6 +106,7 @@ def empty_db(tmp_path, embedder, summarizer):
 # search — shape and contract
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_search_returns_list(configured_server):
     result = await _call("search", {"query": "token"})
@@ -149,6 +153,7 @@ async def test_search_path_is_absolute(configured_server):
 # search — top_k behaviour
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_search_top_k_limits_results(configured_server):
     results = await _call("search", {"query": "token", "top_k": 1})
@@ -184,6 +189,7 @@ async def test_search_top_k_capped_at_20(tmp_path, embedder, summarizer):
 # search — exact-match score
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_search_exact_summary_scores_1(populated_db, embedder):
     """Querying with the exact stored summary returns score ≈ 1.0."""
@@ -205,6 +211,7 @@ async def test_search_exact_summary_scores_1(populated_db, embedder):
 # search — empty DB
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_search_empty_db_returns_empty_list(empty_db, embedder):
     server_module.configure(empty_db, embedder)
@@ -218,6 +225,7 @@ async def test_search_empty_db_returns_empty_list(empty_db, embedder):
 # ---------------------------------------------------------------------------
 # index_status — shape and contract
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_index_status_returns_list(configured_server):
@@ -267,6 +275,7 @@ async def test_index_status_root_matches_indexed_path(populated_db, embedder):
 # index_status — empty DB and multi-root
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_index_status_empty_db_returns_empty_list(empty_db, embedder):
     server_module.configure(empty_db, embedder)
@@ -286,7 +295,9 @@ async def test_index_status_one_entry_per_root(tmp_path, embedder, summarizer):
     (root_a / "a.py").write_text("def fa(): pass\n", encoding="utf-8")
     (root_b / "b.py").write_text("def fb(): pass\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
-    run_index([root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer)
+    run_index(
+        [root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer
+    )
 
     server_module.configure(db_path, embedder)
     try:

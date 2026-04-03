@@ -1,6 +1,6 @@
 """Unit tests for mcp_rag.db — database schema and connection helpers."""
+
 import sqlite3
-from pathlib import Path
 
 import pytest
 
@@ -10,6 +10,7 @@ from mcp_rag.db import ModelMismatchError, open_db
 # ---------------------------------------------------------------------------
 # Schema creation
 # ---------------------------------------------------------------------------
+
 
 def test_open_db_creates_db_file(tmp_path):
     db_path = tmp_path / "index.db"
@@ -97,6 +98,7 @@ def test_open_db_idempotent_on_existing_db(tmp_path):
 # Model mismatch
 # ---------------------------------------------------------------------------
 
+
 def test_open_db_model_mismatch_raises(tmp_path):
     db_path = tmp_path / "index.db"
     conn = open_db(db_path, embed_dim=4, embed_model="model-a")
@@ -126,6 +128,7 @@ def test_model_mismatch_error_message_names_models(tmp_path):
 # ---------------------------------------------------------------------------
 # Cascade deletes
 # ---------------------------------------------------------------------------
+
 
 def test_cascade_delete_units_on_file_delete(tmp_path):
     db_path = tmp_path / "index.db"
@@ -171,6 +174,7 @@ def test_cascade_delete_embeddings_on_unit_delete(tmp_path):
     )
     unit_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     import struct
+
     vec_bytes = struct.pack("4f", 1.0, 0.0, 0.0, 0.0)
     conn.execute(
         "INSERT INTO mcp_rag_embeddings (unit_id, embedding) VALUES (?, ?)",

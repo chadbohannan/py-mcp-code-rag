@@ -1,4 +1,5 @@
 """MCP server for mcp-rag."""
+
 from __future__ import annotations
 
 import struct
@@ -29,6 +30,7 @@ def configure(db_path: Path | None, embedder: Embedder | None) -> None:
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool
 async def search(query: str, top_k: int = 5) -> list[dict]:

@@ -1,9 +1,14 @@
 """Real fastembed-backed Embedder implementation."""
+
 from __future__ import annotations
 
 import math
 
 DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5-Q"
+
+
+class EmbedderLoadError(RuntimeError):
+    """Raised when the embedding model cannot be loaded."""
 
 
 class FastEmbedder:
@@ -14,13 +19,24 @@ class FastEmbedder:
     """
 
     def __init__(self, model_name: str = DEFAULT_MODEL) -> None:
+        import tempfile
+        from pathlib import Path
+
         from fastembed import TextEmbedding
 
         self.model = model_name
-        self._fe = TextEmbedding(model_name)
-        # Probe dimension once at construction time
-        probe = next(iter(self._fe.embed(["probe"])))
-        self.dim = len(probe)
+        try:
+            self._fe = TextEmbedding(model_name)
+            # Probe dimension once at construction time
+            probe = next(iter(self._fe.embed(["probe"])))
+            self.dim = len(probe)
+        except Exception as exc:
+            cache_dir = Path(tempfile.gettempdir()) / "fastembed_cache"
+            raise EmbedderLoadError(
+                f"Failed to load embedding model '{model_name}'.\n"
+                f"The model cache may be corrupt. Try clearing it:\n"
+                f"  rm -rf {cache_dir}"
+            ) from exc
 
     def embed(self, text: str) -> list[float]:
         raw = next(iter(self._fe.embed([text])))

@@ -1,4 +1,5 @@
 """Database connection and schema management for mcp-rag."""
+
 import sqlite3
 from pathlib import Path
 
@@ -66,6 +67,7 @@ END;
 # Public API
 # ---------------------------------------------------------------------------
 
+
 class ModelMismatchError(Exception):
     """Raised when the stored embed model or dimension does not match."""
 
@@ -118,6 +120,7 @@ def open_db(path: Path, embed_dim: int, embed_model: str) -> sqlite3.Connection:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _create_schema(conn: sqlite3.Connection, embed_dim: int, embed_model: str) -> None:
     conn.execute(_DDL_META)

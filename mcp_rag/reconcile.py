@@ -12,6 +12,7 @@ parsed units from a file and returns three buckets:
 
 The reconciliation key is the triple ``(unit_type, unit_name, char_offset)``.
 """
+
 from dataclasses import dataclass
 
 from mcp_rag.models import SemanticUnit
@@ -23,6 +24,7 @@ _Key = tuple[str, str | None, int]
 @dataclass
 class StoredUnit:
     """Lightweight representation of a unit row already in the DB."""
+
     id: int
     unit_type: str
     unit_name: str | None
@@ -44,8 +46,7 @@ def diff_units(
     """
     # Build a lookup of existing units by reconciliation key
     existing_by_key: dict[_Key, StoredUnit] = {
-        _key(u.unit_type, u.unit_name, u.char_offset): u
-        for u in existing
+        _key(u.unit_type, u.unit_name, u.char_offset): u for u in existing
     }
 
     to_keep: list[StoredUnit] = []
