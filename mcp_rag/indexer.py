@@ -35,6 +35,8 @@ _SUPPORTED_EXTENSIONS = frozenset({
     ".py", ".go", ".md", ".mdx", ".sql",
     ".c", ".h",
     ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".ino",
+    ".js", ".jsx", ".mjs", ".cjs",
+    ".ts", ".tsx", ".mts", ".cts",
 })
 
 

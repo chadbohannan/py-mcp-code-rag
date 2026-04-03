@@ -372,6 +372,206 @@ def parse_cpp(source: str) -> list[SemanticUnit]:
 
 
 # ---------------------------------------------------------------------------
+# JavaScript / TypeScript
+# ---------------------------------------------------------------------------
+
+_JS_EXTENSIONS = frozenset({".js", ".jsx", ".mjs", ".cjs"})
+_TS_EXTENSIONS = frozenset({".ts", ".tsx", ".mts", ".cts"})
+
+
+def _get_ts_javascript_language():
+    """Return the tree-sitter JavaScript Language object, or None if unavailable."""
+    try:
+        import tree_sitter
+        import tree_sitter_javascript
+
+        return tree_sitter.Language(tree_sitter_javascript.language())
+    except Exception:
+        return None
+
+
+def _get_ts_typescript_language():
+    """Return the tree-sitter TypeScript Language object, or None if unavailable."""
+    try:
+        import tree_sitter
+        import tree_sitter_typescript
+
+        return tree_sitter.Language(tree_sitter_typescript.language_typescript())
+    except Exception:
+        return None
+
+
+def _get_ts_tsx_language():
+    """Return the tree-sitter TSX Language object, or None if unavailable."""
+    try:
+        import tree_sitter
+        import tree_sitter_typescript
+
+        return tree_sitter.Language(tree_sitter_typescript.language_tsx())
+    except Exception:
+        return None
+
+
+def _extract_js_ts_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
+    """Walk a tree-sitter parse tree and extract semantic units for JS/TS."""
+    units: list[SemanticUnit] = []
+
+    def _walk(node, class_name: str | None = None):
+        for child in node.children:
+            if child.type == "function_declaration":
+                name_node = _ts_find_child_by_type(child, "identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="function",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type == "class_declaration":
+                name_node = _ts_find_child_by_type(child, "type_identifier", "identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="class",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+                body = _ts_find_child_by_type(child, "class_body")
+                if body is not None:
+                    _walk(body, class_name=name)
+
+            elif child.type == "method_definition":
+                name_node = _ts_find_child_by_type(
+                    child, "property_identifier", "identifier",
+                    "computed_property_name",
+                )
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                if class_name:
+                    unit_name = f"{class_name}:{name}" if name else class_name
+                else:
+                    unit_name = name
+                units.append(
+                    SemanticUnit(
+                        unit_type="method",
+                        unit_name=unit_name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type in ("lexical_declaration", "variable_declaration"):
+                # Extract arrow functions and function expressions assigned to variables
+                for decl in child.children:
+                    if decl.type == "variable_declarator":
+                        value = _ts_find_child_by_type(
+                            decl, "arrow_function", "function_expression",
+                        )
+                        if value is not None:
+                            name_node = _ts_find_child_by_type(decl, "identifier")
+                            name = _ts_node_text(name_node, source_bytes) if name_node else None
+                            units.append(
+                                SemanticUnit(
+                                    unit_type="function",
+                                    unit_name=name,
+                                    content=_ts_node_text(child, source_bytes),
+                                    char_offset=child.start_byte,
+                                )
+                            )
+
+            elif child.type == "interface_declaration":
+                name_node = _ts_find_child_by_type(child, "type_identifier", "identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="interface",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type == "type_alias_declaration":
+                name_node = _ts_find_child_by_type(child, "type_identifier", "identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="type",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type == "enum_declaration":
+                name_node = _ts_find_child_by_type(child, "identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="enum",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type == "export_statement":
+                _walk(child, class_name=class_name)
+
+    _walk(tree.root_node)
+    return sorted(units, key=lambda u: u.char_offset)
+
+
+def parse_javascript(source: str) -> list[SemanticUnit]:
+    """Parse JavaScript source into SemanticUnits using tree-sitter."""
+    if not source:
+        return []
+
+    lang = _get_ts_javascript_language()
+    if lang is None:
+        warnings.warn(
+            "tree-sitter-javascript not installed — JS files will not be indexed",
+            stacklevel=2,
+        )
+        return []
+
+    import tree_sitter
+
+    parser = tree_sitter.Parser()
+    parser.language = lang
+    source_bytes = source.encode()
+    tree = parser.parse(source_bytes)
+    return _extract_js_ts_units(tree, source_bytes)
+
+
+def parse_typescript(source: str, tsx: bool = False) -> list[SemanticUnit]:
+    """Parse TypeScript/TSX source into SemanticUnits using tree-sitter."""
+    if not source:
+        return []
+
+    lang = _get_ts_tsx_language() if tsx else _get_ts_typescript_language()
+    label = "TSX" if tsx else "TypeScript"
+    if lang is None:
+        warnings.warn(
+            f"tree-sitter-typescript not installed — {label} files will not be indexed",
+            stacklevel=2,
+        )
+        return []
+
+    import tree_sitter
+
+    parser = tree_sitter.Parser()
+    parser.language = lang
+    source_bytes = source.encode()
+    tree = parser.parse(source_bytes)
+    return _extract_js_ts_units(tree, source_bytes)
+
+
+# ---------------------------------------------------------------------------
 # Go
 # ---------------------------------------------------------------------------
 
@@ -447,6 +647,13 @@ def parse_file(path: Path) -> list[SemanticUnit]:
         return parse_c(path.read_text(encoding="utf-8", errors="replace"))
     if suffix in _CPP_EXTENSIONS:
         return parse_cpp(path.read_text(encoding="utf-8", errors="replace"))
+    if suffix in _JS_EXTENSIONS:
+        return parse_javascript(path.read_text(encoding="utf-8", errors="replace"))
+    if suffix in _TS_EXTENSIONS:
+        return parse_typescript(
+            path.read_text(encoding="utf-8", errors="replace"),
+            tsx=(suffix in (".tsx",)),
+        )
     if suffix in (".md", ".mdx"):
         return parse_markdown(path.read_text(encoding="utf-8", errors="replace"))
     if suffix == ".sql":
