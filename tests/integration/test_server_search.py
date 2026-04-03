@@ -117,8 +117,9 @@ async def test_search_returns_list(configured_server):
 async def test_search_result_has_required_fields(configured_server):
     results = await _call("search", {"query": "token"})
     assert len(results) >= 1
-    for field in ("path", "content", "summary", "score"):
+    for field in ("path", "summary", "score"):
         assert field in results[0], f"missing field: {field}"
+    assert "content" not in results[0], "search should not return content"
 
 
 @pytest.mark.asyncio
@@ -136,10 +137,10 @@ async def test_search_results_ordered_by_score_descending(configured_server):
 
 
 @pytest.mark.asyncio
-async def test_search_returns_stored_content(configured_server):
+async def test_search_returns_matching_paths(configured_server):
     results = await _call("search", {"query": "token", "top_k": 5})
-    contents = [r["content"] for r in results]
-    assert any("validate_token" in c for c in contents)
+    paths = [r["path"] for r in results]
+    assert any("validate_token" in p for p in paths)
 
 
 @pytest.mark.asyncio
@@ -356,5 +357,101 @@ async def test_index_status_one_entry_per_root(tmp_path, embedder, summarizer):
         roots = {r["root"] for r in results}
         assert str(root_a) in roots
         assert str(root_b) in roots
+    finally:
+        server_module.configure(None, None)
+
+
+# ---------------------------------------------------------------------------
+# get_unit — shape and contract
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_unit_returns_content(configured_server):
+    results = await _call("get_unit", {"paths": ["auth.py:validate_token"]})
+    assert len(results) == 1
+    assert "validate_token" in results[0]["content"]
+    for field in ("path", "content", "summary"):
+        assert field in results[0], f"missing field: {field}"
+
+
+@pytest.mark.asyncio
+async def test_get_unit_multiple_paths(configured_server):
+    results = await _call(
+        "get_unit",
+        {"paths": ["auth.py:validate_token", "utils.py:format_name"]},
+    )
+    assert len(results) == 2
+    paths = {r["path"] for r in results}
+    assert "auth.py:validate_token" in paths
+    assert "utils.py:format_name" in paths
+
+
+@pytest.mark.asyncio
+async def test_get_unit_unknown_path_skipped(configured_server):
+    results = await _call("get_unit", {"paths": ["nonexistent.py:foo"]})
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_get_unit_empty_paths(configured_server):
+    results = await _call("get_unit", {"paths": []})
+    assert results == []
+
+
+# ---------------------------------------------------------------------------
+# list_units — shape and contract
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_units_returns_all(configured_server):
+    results = await _call("list_units", {})
+    assert len(results) >= 2
+    for r in results:
+        assert "path" in r
+        assert "summary" in r
+        assert "content" not in r
+
+
+@pytest.mark.asyncio
+async def test_list_units_ordered_by_path(configured_server):
+    results = await _call("list_units", {})
+    paths = [r["path"] for r in results]
+    assert paths == sorted(paths)
+
+
+@pytest.mark.asyncio
+async def test_list_units_path_glob_filters(configured_server):
+    results = await _call("list_units", {"path_glob": "auth*"})
+    assert len(results) >= 1
+    assert all("auth" in r["path"] for r in results)
+
+
+@pytest.mark.asyncio
+async def test_list_units_path_glob_no_match(configured_server):
+    results = await _call("list_units", {"path_glob": "nonexistent*"})
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_list_units_limit(configured_server):
+    results = await _call("list_units", {"limit": 1})
+    assert len(results) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_units_limit_capped_at_500(tmp_path, embedder, summarizer):
+    """limit > 500 is silently capped."""
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "a.py").write_text("def f(): pass\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
+    server_module.configure(db_path, embedder)
+    try:
+        # Just verify it doesn't error — the cap is internal
+        results = await _call("list_units", {"limit": 9999})
+        assert isinstance(results, list)
     finally:
         server_module.configure(None, None)

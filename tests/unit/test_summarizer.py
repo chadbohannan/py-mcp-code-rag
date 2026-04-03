@@ -74,11 +74,11 @@ def test_uses_correct_model(mock_client, summarizer):
     assert kwargs["model"] == MODEL
 
 
-def test_max_tokens_is_256(mock_client, summarizer):
+def test_max_tokens_is_128(mock_client, summarizer):
     mock_client.messages.create.return_value = _response()
     summarizer.summarize(_unit())
     kwargs = mock_client.messages.create.call_args.kwargs
-    assert kwargs["max_tokens"] == 256
+    assert kwargs["max_tokens"] == 128
 
 
 def test_message_role_is_user(mock_client, summarizer):

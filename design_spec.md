@@ -351,21 +351,21 @@ The server holds a single read-only SQLite connection for the lifetime of the se
 |---|---|---|---|
 | `query` | `str` | required | Natural language question about the codebase |
 | `top_k` | `int` | `5` | Results to return (max 20) |
+| `path_glob` | `str \| None` | `None` | SQLite GLOB filter on the qualified path |
 
-Returns a list of result objects, sorted by `score` descending:
+Returns a list of result objects, sorted by `score` descending.  **Does not include
+source content** — use `get_unit` to retrieve full code for specific paths.
 
 ```json
 [{
-  "path": "/home/user/myproject/src/auth/jwt.py",
-  "unit_type": "function",
-  "unit_name": "validate_token",
-  "content": "def validate_token(token: str) -> Claims:\n    ...",
-  "summary": "Validates a JWT token and returns its decoded claims. Checks expiry against a configurable clock skew. Raises AuthError on invalid or expired tokens.",
+  "path": "src/auth/jwt.py:validate_token",
+  "summary": "Validates a JWT token and returns decoded claims, checking expiry with configurable clock skew.",
   "score": 0.82
 }]
 ```
 
-**Path** — the absolute path from `mcp_rag_files.path`, returned as-is with no relativization.
+**Path** — the qualified path (``relative/file.py:Class:method``), using ``:`` to separate
+file path from unit hierarchy.
 
 **Score** — cosine similarity in `[0.0, 1.0]`; higher is better, 1.0 means identical vectors.
 Derived from `sqlite-vec`'s cosine distance: `score = 1.0 - (vec_distance_cosine(embedding, ?) / 2.0)`.
@@ -377,11 +377,10 @@ distance is in `[0.0, 2.0]` and the mapping is exact with no clipping required.
 instead:
 
 ```sql
-SELECT f.path, u.unit_type, u.unit_name, u.content, u.summary,
+SELECT u.path, u.summary,
        vec_distance_cosine(e.embedding, ?) AS dist
 FROM mcp_rag_embeddings e
 JOIN mcp_rag_units u ON u.id = e.unit_id
-JOIN mcp_rag_files f ON f.id = u.file_id
 ORDER BY dist ASC
 LIMIT ?
 ```
@@ -389,6 +388,47 @@ LIMIT ?
 Rationale: the `MATCH`/`k` ANN path only exposes the primary key and the raw embedding bytes,
 not the computed distance. The scalar-function approach is a full scan but is sufficient for
 typical index sizes; revisit if performance becomes a concern.
+
+### `get_unit`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `paths` | `list[str]` | required | Qualified paths to retrieve (exact match) |
+
+Returns the full source content for one or more units by qualified path.  Use after
+`search` or `list_units` to read code for specific results.  Unknown paths are silently
+skipped.
+
+```json
+[{
+  "path": "src/auth/jwt.py:validate_token",
+  "content": "def validate_token(token: str) -> Claims:\n    ...",
+  "summary": "Validates a JWT token and returns decoded claims, checking expiry with configurable clock skew."
+}]
+```
+
+### `list_units`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `path_glob` | `str \| None` | `None` | SQLite GLOB filter on the qualified path |
+| `limit` | `int` | `100` | Max results (capped at 500) |
+
+Returns qualified paths and summaries for structural browsing, ordered alphabetically
+by path.  No semantic ranking — use `search` when relevance matters.
+
+```json
+[{
+  "path": "src/auth/jwt.py:validate_token",
+  "summary": "Validates a JWT token and returns decoded claims, checking expiry with configurable clock skew."
+}]
+```
+
+The qualified path starts with the relative file path, so both file-level and
+unit-level filtering work via the same glob:
+- `*.py:*` — all Python units
+- `*:Router:*` — all Router members
+- `*/tests/*` — all test file units
 
 ### `index_status`
 

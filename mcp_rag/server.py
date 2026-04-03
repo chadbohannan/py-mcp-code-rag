@@ -55,8 +55,9 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
     fragments.
 
     Results include the qualified path (``file.py:Class:method``), the
-    original source content, the human-readable summary, and a relevance
-    score in [0.0, 1.0] (higher is better).  top_k is capped at 20.
+    human-readable summary, and a relevance score in [0.0, 1.0] (higher is
+    better).  top_k is capped at 20.  Use ``get_unit`` to retrieve full
+    source content for specific paths.
 
     **Recommended workflow:**
     - Start with ``*.md`` to find authored documentation and module overviews.
@@ -78,7 +79,6 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
         sql = """
             SELECT
                 u.path,
-                u.content,
                 u.summary,
                 sub.dist
             FROM (
@@ -100,7 +100,6 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
         sql = """
             SELECT
                 u.path,
-                u.content,
                 u.summary,
                 vec_distance_cosine(e.embedding, ?) AS dist
             FROM mcp_rag_embeddings e
@@ -113,12 +112,83 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
     return [
         {
             "path": row[0],
-            "content": row[1],
-            "summary": row[2],
-            "score": round(1.0 - row[3] / 2.0, 6),
+            "summary": row[1],
+            "score": round(1.0 - row[2] / 2.0, 6),
         }
         for row in rows
     ]
+
+
+@mcp.tool
+async def get_unit(paths: list[str]) -> list[dict]:
+    """Retrieve the full source content of one or more indexed units by
+    qualified path.
+
+    Use this after ``search`` or ``list_units`` to read the actual code for
+    specific results.  Paths must match exactly (use the ``path`` values
+    returned by those tools).
+
+    Returns the qualified path, source content, and summary for each matched
+    path.  Paths that do not match any indexed unit are silently skipped.
+    """
+    if _db_path is None or _embedder is None:
+        return []
+
+    if not paths:
+        return []
+
+    conn = _get_conn()
+    placeholders = ",".join("?" for _ in paths)
+    sql = f"""
+        SELECT u.path, u.content, u.summary
+        FROM mcp_rag_units u
+        WHERE u.path IN ({placeholders})
+        ORDER BY u.path
+    """
+    rows = conn.execute(sql, paths).fetchall()
+
+    return [
+        {"path": row[0], "content": row[1], "summary": row[2]}
+        for row in rows
+    ]
+
+
+@mcp.tool
+async def list_units(path_glob: str | None = None, limit: int = 100) -> list[dict]:
+    """List semantic units (functions, classes, methods, sections, etc.) in the
+    index.
+
+    Returns the qualified path (``file.py:Class:method``) and summary for
+    each unit, ordered alphabetically by path.  Use this to understand the
+    structure of a file, module, or the entire codebase without fetching
+    full source content.
+
+    Use path_glob to filter by qualified path with SQLite GLOB syntax.
+    The qualified path starts with the relative file path, so file-level
+    filtering works too:
+
+    - ``*.js:*``           — all JS units
+    - ``*:Router:*``       — all Router members across languages
+    - ``*/tests/*``        — all test file units
+    - ``*.md:*``           — documentation structure
+    """
+    if _db_path is None or _embedder is None:
+        return []
+
+    capped = min(limit, 500)
+    conn = _get_conn()
+    if path_glob is not None:
+        rows = conn.execute(
+            "SELECT path, summary FROM mcp_rag_units WHERE path GLOB ? ORDER BY path LIMIT ?",
+            (path_glob, capped),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT path, summary FROM mcp_rag_units ORDER BY path LIMIT ?",
+            (capped,),
+        ).fetchall()
+
+    return [{"path": row[0], "summary": row[1]} for row in rows]
 
 
 @mcp.tool

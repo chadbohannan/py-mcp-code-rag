@@ -49,6 +49,14 @@ async def test_server_exposes_index_status_tool(tools_by_name):
     assert "index_status" in tools_by_name, "index_status tool not registered"
 
 
+async def test_server_exposes_get_unit_tool(tools_by_name):
+    assert "get_unit" in tools_by_name, "get_unit tool not registered"
+
+
+async def test_server_exposes_list_units_tool(tools_by_name):
+    assert "list_units" in tools_by_name, "list_units tool not registered"
+
+
 # ---------------------------------------------------------------------------
 # search — schema discovery
 # ---------------------------------------------------------------------------
