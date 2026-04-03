@@ -9,11 +9,11 @@ from unittest.mock import MagicMock
 
 from mcp_rag.models import SemanticUnit
 from mcp_rag.summarizer import (
-    MODEL,
-    AgentSummarizer,
     AnthropicSummarizer,
     OllamaSummarizer,
 )
+
+MODEL = AnthropicSummarizer.MODEL
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +318,7 @@ def test_ollama_returns_response_text(mock_ollama_client, ollama_summarizer):
     assert ollama_summarizer.summarize(_unit()) == "ollama summary"
 
 
-def test_ollama_default_model_is_llama3_2(monkeypatch):
+def test_ollama_default_model_is_gemma4(monkeypatch):
     import sys
 
     client = MagicMock()
@@ -328,7 +328,7 @@ def test_ollama_default_model_is_llama3_2(monkeypatch):
     s = OllamaSummarizer()
     client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
     s.summarize(_unit())
-    assert client.chat.call_args.kwargs["model"] == "llama3.2"
+    assert client.chat.call_args.kwargs["model"] == "gemma4"
 
 
 def test_ollama_handles_anonymous_unit(mock_ollama_client, ollama_summarizer):
@@ -338,81 +338,3 @@ def test_ollama_handles_anonymous_unit(mock_ollama_client, ollama_summarizer):
         unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0
     )
     ollama_summarizer.summarize(unit)  # must not raise
-
-
-# ---------------------------------------------------------------------------
-# AgentSummarizer fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def mock_subprocess(monkeypatch):
-    result = MagicMock()
-    result.stdout = "agent summary\n"
-    run = MagicMock(return_value=result)
-    monkeypatch.setattr("mcp_rag.summarizer.subprocess.run", run)
-    return run
-
-
-@pytest.fixture
-def claude_summarizer():
-    return AgentSummarizer(command="claude")
-
-
-@pytest.fixture
-def pi_summarizer():
-    return AgentSummarizer(command="pi")
-
-
-# ---------------------------------------------------------------------------
-# AgentSummarizer tests
-# ---------------------------------------------------------------------------
-
-
-def test_agent_invokes_command_with_p_flag(mock_subprocess, claude_summarizer):
-    claude_summarizer.summarize(_unit())
-    args = mock_subprocess.call_args.args[0]
-    assert args[0] == "claude"
-    assert args[1] == "-p"
-
-
-def test_agent_pi_invokes_pi_command(mock_subprocess, pi_summarizer):
-    pi_summarizer.summarize(_unit())
-    args = mock_subprocess.call_args.args[0]
-    assert args[0] == "pi"
-    assert args[1] == "-p"
-
-
-def test_agent_prompt_includes_unit_type(mock_subprocess, claude_summarizer):
-    claude_summarizer.summarize(_unit(unit_type="class"))
-    prompt = mock_subprocess.call_args.args[0][2]
-    assert "class" in prompt
-
-
-def test_agent_prompt_includes_unit_name(mock_subprocess, claude_summarizer):
-    claude_summarizer.summarize(_unit(unit_name="authenticate_user"))
-    prompt = mock_subprocess.call_args.args[0][2]
-    assert "authenticate_user" in prompt
-
-
-def test_agent_prompt_includes_source_content(mock_subprocess, claude_summarizer):
-    claude_summarizer.summarize(_unit(content="def foo(): return 42"))
-    prompt = mock_subprocess.call_args.args[0][2]
-    assert "def foo(): return 42" in prompt
-
-
-def test_agent_returns_stripped_stdout(mock_subprocess, claude_summarizer):
-    assert claude_summarizer.summarize(_unit()) == "agent summary"
-
-
-def test_agent_uses_check_true(mock_subprocess, claude_summarizer):
-    claude_summarizer.summarize(_unit())
-    assert mock_subprocess.call_args.kwargs.get("check") is True
-
-
-def test_agent_handles_anonymous_unit(mock_subprocess, claude_summarizer):
-    """unit_name=None must not crash prompt construction."""
-    unit = SemanticUnit(
-        unit_type="sql", unit_name=None, content="SELECT 1", char_offset=0
-    )
-    claude_summarizer.summarize(unit)  # must not raise

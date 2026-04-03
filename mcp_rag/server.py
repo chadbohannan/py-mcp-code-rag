@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import struct
+import sqlite3
 from pathlib import Path
 
 from fastmcp import FastMCP
 
 from mcp_rag.db import open_db
-from mcp_rag.models import Embedder
+from mcp_rag.models import Embedder, encode_embedding
 
 mcp = FastMCP("mcp-rag")
 
@@ -18,13 +18,25 @@ mcp = FastMCP("mcp-rag")
 
 _db_path: Path | None = None
 _embedder: Embedder | None = None
+_conn: sqlite3.Connection | None = None
 
 
 def configure(db_path: Path | None, embedder: Embedder | None) -> None:
     """Inject the DB path and embedder. Called by the CLI and tests."""
-    global _db_path, _embedder
+    global _db_path, _embedder, _conn
+    if _conn is not None:
+        _conn.close()
+        _conn = None
     _db_path = db_path
     _embedder = embedder
+
+
+def _get_conn() -> sqlite3.Connection:
+    """Return the cached DB connection, opening it lazily on first use."""
+    global _conn
+    if _conn is None and _db_path is not None and _embedder is not None:
+        _conn = open_db(_db_path, embed_dim=_embedder.dim, embed_model=_embedder.model)
+    return _conn
 
 
 # ---------------------------------------------------------------------------
@@ -46,29 +58,28 @@ async def search(query: str, top_k: int = 5) -> list[dict]:
 
     k = min(top_k, 20)
     emb = _embedder.embed(query)
-    emb_bytes = struct.pack(f"{len(emb)}f", *emb)
 
-    conn = open_db(_db_path, embed_dim=_embedder.dim, embed_model=_embedder.model)
-    try:
-        rows = conn.execute(
+    rows = (
+        _get_conn()
+        .execute(
             """
-            SELECT
-                f.path,
-                u.unit_type,
-                u.unit_name,
-                u.content,
-                u.summary,
-                vec_distance_cosine(e.embedding, ?) AS dist
-            FROM mcp_rag_embeddings e
-            JOIN mcp_rag_units u ON u.id = e.unit_id
-            JOIN mcp_rag_files f ON f.id = u.file_id
-            ORDER BY dist ASC
-            LIMIT ?
-            """,
-            (emb_bytes, k),
-        ).fetchall()
-    finally:
-        conn.close()
+        SELECT
+            f.path,
+            u.unit_type,
+            u.unit_name,
+            u.content,
+            u.summary,
+            vec_distance_cosine(e.embedding, ?) AS dist
+        FROM mcp_rag_embeddings e
+        JOIN mcp_rag_units u ON u.id = e.unit_id
+        JOIN mcp_rag_files f ON f.id = u.file_id
+        ORDER BY dist ASC
+        LIMIT ?
+        """,
+            (encode_embedding(emb), k),
+        )
+        .fetchall()
+    )
 
     return [
         {
@@ -94,22 +105,22 @@ async def index_status() -> list[dict]:
     if _db_path is None or _embedder is None:
         return []
 
-    conn = open_db(_db_path, embed_dim=_embedder.dim, embed_model=_embedder.model)
-    try:
-        rows = conn.execute(
+    rows = (
+        _get_conn()
+        .execute(
             """
-            SELECT
-                f.root,
-                COUNT(DISTINCT f.id)  AS file_count,
-                COUNT(u.id)           AS unit_count,
-                MAX(f.indexed_at)     AS last_indexed_at
-            FROM mcp_rag_files f
-            LEFT JOIN mcp_rag_units u ON u.file_id = f.id
-            GROUP BY f.root
-            """,
-        ).fetchall()
-    finally:
-        conn.close()
+        SELECT
+            f.root,
+            COUNT(DISTINCT f.id)  AS file_count,
+            COUNT(u.id)           AS unit_count,
+            MAX(f.indexed_at)     AS last_indexed_at
+        FROM mcp_rag_files f
+        LEFT JOIN mcp_rag_units u ON u.file_id = f.id
+        GROUP BY f.root
+        """,
+        )
+        .fetchall()
+    )
 
     return [
         {

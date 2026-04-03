@@ -13,10 +13,10 @@ from mcp_rag.embedder import DEFAULT_MODEL, EmbedderLoadError, FastEmbedder
 from mcp_rag.indexer import IndexAbortError, run_index
 from mcp_rag.server import mcp
 from mcp_rag.summarizer import (
+    DEFAULT_OLLAMA_HOST,
+    DEFAULT_OLLAMA_MODEL,
     AnthropicSummarizer,
     OllamaSummarizer,
-    _DEFAULT_OLLAMA_HOST,
-    _DEFAULT_OLLAMA_MODEL,
 )
 
 _DEFAULT_DB = Path("index.db")
@@ -92,8 +92,8 @@ def _make_index_parser() -> argparse.ArgumentParser:
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
     p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
-    p.add_argument("--ollama-model", default=_DEFAULT_OLLAMA_MODEL, dest="ollama_model")
-    p.add_argument("--ollama-host", default=_DEFAULT_OLLAMA_HOST, dest="ollama_host")
+    p.add_argument("--ollama-model", default=DEFAULT_OLLAMA_MODEL, dest="ollama_model")
+    p.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, dest="ollama_host")
     return p
 
 
@@ -111,8 +111,8 @@ def _make_combined_parser() -> argparse.ArgumentParser:
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
     p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
-    p.add_argument("--ollama-model", default=_DEFAULT_OLLAMA_MODEL, dest="ollama_model")
-    p.add_argument("--ollama-host", default=_DEFAULT_OLLAMA_HOST, dest="ollama_host")
+    p.add_argument("--ollama-model", default=DEFAULT_OLLAMA_MODEL, dest="ollama_model")
+    p.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, dest="ollama_host")
     return p
 
 
@@ -124,9 +124,7 @@ def _make_combined_parser() -> argparse.ArgumentParser:
 def main() -> None:
     argv = sys.argv[1:]
 
-    # Determine mode by inspecting the first non-flag argument
-    first_pos = next((a for a in argv if not a.startswith("-")), None)
-    # Also skip values that follow a --flag (e.g. --db /path)
+    # Determine mode by inspecting positional args, skipping --flag values
     positionals = []
     skip_next = False
     for arg in argv:

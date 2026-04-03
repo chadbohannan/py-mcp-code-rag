@@ -192,11 +192,13 @@ async def test_search_top_k_capped_at_20(tmp_path, embedder, summarizer):
 
 @pytest.mark.asyncio
 async def test_search_exact_summary_scores_1(populated_db, embedder):
-    """Querying with the exact stored summary returns score ≈ 1.0."""
-    db_path, _ = populated_db
+    """Querying with the exact embed text (path::name | summary) returns score ≈ 1.0."""
+    db_path, root = populated_db
     # ast.get_source_segment does not include the trailing newline
     content = "def validate_token(token: str) -> bool:\n    return len(token) > 0"
-    exact = _fake_summary("function", "validate_token", content)
+    summary = _fake_summary("function", "validate_token", content)
+    # The indexer prefixes the embed text with the relative path and unit name
+    exact = f"auth.py::validate_token | {summary}"
 
     server_module.configure(db_path, embedder)
     try:

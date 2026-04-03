@@ -7,7 +7,6 @@ embeds the summary, and writes everything to SQLite.
 from __future__ import annotations
 
 import hashlib
-import struct
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -20,7 +19,13 @@ import sqlite_vec
 
 from mcp_rag.db import _DDL_EMBEDDINGS, _DDL_TRIGGER, open_db
 from mcp_rag.discovery import discover_files
-from mcp_rag.models import Embedder, SemanticUnit, Summarizer
+from mcp_rag.models import (
+    Embedder,
+    SemanticUnit,
+    Summarizer,
+    encode_embedding,
+    relative_path,
+)
 from mcp_rag.parsers import parse_file
 from mcp_rag.reconcile import StoredUnit, diff_units
 
@@ -112,10 +117,9 @@ def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
         rows = conn.execute("SELECT id, summary FROM mcp_rag_units").fetchall()
         for unit_id, summary in rows:
             embedding = embedder.embed(summary)
-            emb_bytes = struct.pack(f"{len(embedding)}f", *embedding)
             conn.execute(
                 "INSERT INTO mcp_rag_embeddings (unit_id, embedding) VALUES (?, ?)",
-                (unit_id, emb_bytes),
+                (unit_id, encode_embedding(embedding)),
             )
 
     return conn
@@ -134,12 +138,8 @@ def _embed_text(unit: SemanticUnit, summary: str) -> str:
     similarity for path- or name-based queries.
     """
     parts = []
-    if unit.file_path is not None and unit.root is not None:
-        try:
-            rel = unit.file_path.relative_to(unit.root)
-        except ValueError:
-            rel = unit.file_path
-        parts.append(str(rel))
+    if unit.file_path is not None:
+        parts.append(str(relative_path(unit.file_path, unit.root)))
     if unit.unit_name:
         parts.append(unit.unit_name)
     prefix = "::".join(parts)
@@ -272,7 +272,7 @@ def _process_file(
     # Truncate units that exceed the token estimate threshold
     processed: list[SemanticUnit] = []
     for unit in units:
-        if len(unit.content) // 4 > _MAX_TOKENS:
+        if len(unit.content) > _MAX_CHARS:
             print(
                 f"Warning: {file_path.name}:{unit.unit_name!r} exceeds "
                 f"{_MAX_TOKENS} estimated tokens; truncating.",
@@ -360,10 +360,9 @@ def _process_file(
             )
             unit_id = cur.lastrowid
             embedding = embedder.embed(_embed_text(unit, summary))
-            emb_bytes = struct.pack(f"{len(embedding)}f", *embedding)
             conn.execute(
                 "INSERT INTO mcp_rag_embeddings (unit_id, embedding) VALUES (?, ?)",
-                (unit_id, emb_bytes),
+                (unit_id, encode_embedding(embedding)),
             )
             if unit_bar is not None:
                 unit_bar.update(1)

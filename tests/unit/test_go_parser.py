@@ -1,8 +1,7 @@
 """Unit tests for the Go parser integration in mcp_rag.parsers.
 
 subprocess.run and shutil.which are monkeypatched so no real Go subprocess
-is spawned.  The _go_warned module flag is reset before each test via autouse
-fixture so warning-once logic is deterministic.
+is spawned.
 """
 
 import hashlib
@@ -12,7 +11,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import mcp_rag.parsers as parsers_module
 from mcp_rag.parsers import parse_file, parse_go
 
 
@@ -57,14 +55,6 @@ def _unit(
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def reset_go_warned():
-    """Reset _go_warned before/after each test to isolate warning-once logic."""
-    parsers_module._go_warned = False
-    yield
-    parsers_module._go_warned = False
-
-
 @pytest.fixture
 def go_available(monkeypatch):
     monkeypatch.setattr(
@@ -88,22 +78,11 @@ def test_parse_go_missing_binary_returns_empty(tmp_path, go_missing):
     assert parse_go(f) == []
 
 
-def test_parse_go_missing_binary_logs_warning(tmp_path, go_missing, caplog):
+def test_parse_go_missing_binary_logs_warning(tmp_path, go_missing):
     f = tmp_path / "main.go"
     f.write_text("package main\n")
-    with caplog.at_level(logging.WARNING, logger="mcp_rag.parsers"):
+    with pytest.warns(UserWarning, match="PATH"):
         parse_go(f)
-    assert "go" in caplog.text.lower()
-    assert "PATH" in caplog.text
-
-
-def test_parse_go_missing_binary_warns_only_once(tmp_path, go_missing, caplog):
-    f = tmp_path / "main.go"
-    f.write_text("package main\n")
-    with caplog.at_level(logging.WARNING, logger="mcp_rag.parsers"):
-        parse_go(f)
-        parse_go(f)
-    assert caplog.text.count("PATH") == 1
 
 
 # ---------------------------------------------------------------------------

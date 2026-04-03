@@ -1,6 +1,7 @@
 """Core data models for mcp-rag."""
 
 import hashlib
+import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -44,3 +45,23 @@ class Embedder(Protocol):
 
 class Summarizer(Protocol):
     def summarize(self, unit: SemanticUnit) -> str: ...
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+
+def relative_path(file_path: Path, root: Path | None) -> Path:
+    """Return *file_path* relative to *root*, falling back to *file_path* itself."""
+    if root is None:
+        return file_path
+    try:
+        return file_path.relative_to(root)
+    except ValueError:
+        return file_path
+
+
+def encode_embedding(embedding: list[float]) -> bytes:
+    """Pack a float vector into the binary format expected by sqlite-vec."""
+    return struct.pack(f"{len(embedding)}f", *embedding)

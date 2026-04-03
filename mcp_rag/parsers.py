@@ -10,6 +10,7 @@ import json
 import logging
 import shutil
 import subprocess
+import warnings
 from pathlib import Path
 
 from mcp_rag.models import SemanticUnit
@@ -17,7 +18,6 @@ from mcp_rag.models import SemanticUnit
 logger = logging.getLogger(__name__)
 
 _GO_PARSER = Path(__file__).parent / "go_parser" / "main.go"
-_go_warned = False  # emit the "go not in PATH" warning at most once
 
 _SQL_SIZE_LIMIT = 4096  # bytes; files strictly over this are skipped
 _BINARY_CHECK_BYTES = 512
@@ -176,11 +176,11 @@ def parse_go(path: Path) -> list[SemanticUnit]:
     Requires `go` in PATH.  Returns [] (with a one-time warning) if `go` is
     absent or if the helper exits non-zero.
     """
-    global _go_warned
     if shutil.which("go") is None:
-        if not _go_warned:
-            logger.warning("'go' not found in PATH — .go files will not be indexed")
-            _go_warned = True
+        warnings.warn(
+            "'go' not found in PATH — .go files will not be indexed",
+            stacklevel=2,
+        )
         return []
 
     # "--" separates go source files from program arguments so that `go run`

@@ -32,10 +32,6 @@ class StoredUnit:
     char_offset: int
 
 
-def _key(unit_type: str, unit_name: str | None, char_offset: int) -> _Key:
-    return (unit_type, unit_name, char_offset)
-
-
 def diff_units(
     existing: list[StoredUnit],
     incoming: list[SemanticUnit],
@@ -44,9 +40,8 @@ def diff_units(
 
     Returns ``(to_keep, to_add, to_delete)``.
     """
-    # Build a lookup of existing units by reconciliation key
     existing_by_key: dict[_Key, StoredUnit] = {
-        _key(u.unit_type, u.unit_name, u.char_offset): u for u in existing
+        (u.unit_type, u.unit_name, u.char_offset): u for u in existing
     }
 
     to_keep: list[StoredUnit] = []
@@ -55,24 +50,20 @@ def diff_units(
     matched_keys: set[_Key] = set()
 
     for new_unit in incoming:
-        k = _key(new_unit.unit_type, new_unit.unit_name, new_unit.char_offset)
+        k: _Key = (new_unit.unit_type, new_unit.unit_name, new_unit.char_offset)
         stored = existing_by_key.get(k)
 
         if stored is not None and stored.content_md5 == new_unit.content_md5:
-            # Identical — keep existing row and embedding
             to_keep.append(stored)
         else:
-            # New or content-changed — needs summarise + embed + insert
             to_add.append(new_unit)
             if stored is not None:
-                # Old row must be removed before the new one is inserted
                 to_delete.append(stored)
 
         matched_keys.add(k)
 
-    # Any existing unit not matched by an incoming unit has been removed
     for stored in existing:
-        k = _key(stored.unit_type, stored.unit_name, stored.char_offset)
+        k = (stored.unit_type, stored.unit_name, stored.char_offset)
         if k not in matched_keys:
             to_delete.append(stored)
 

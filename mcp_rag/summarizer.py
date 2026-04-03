@@ -5,15 +5,15 @@ from __future__ import annotations
 import random
 import time
 
-from mcp_rag.models import SemanticUnit
+from mcp_rag.models import SemanticUnit, relative_path
 
 _MAX_TOKENS = 256
 _RETRY_DELAYS = [1, 4, 16]  # seconds before each retry attempt
 _JITTER = 0.2
 _RETRY_STATUSES = frozenset({429, 529})
 
-_DEFAULT_OLLAMA_MODEL = "gemma4"
-_DEFAULT_OLLAMA_HOST = "http://localhost:11434"
+DEFAULT_OLLAMA_MODEL = "gemma4"
+DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 
 
 class AnthropicSummarizer:
@@ -63,8 +63,8 @@ class OllamaSummarizer:
 
     def __init__(
         self,
-        model: str = _DEFAULT_OLLAMA_MODEL,
-        host: str = _DEFAULT_OLLAMA_HOST,
+        model: str = DEFAULT_OLLAMA_MODEL,
+        host: str = DEFAULT_OLLAMA_HOST,
     ) -> None:
         import ollama  # lazy import — optional dependency
 
@@ -86,11 +86,7 @@ def _build_prompt(unit: SemanticUnit) -> str:
     path_clause = ""
     if unit.file_path is not None:
         base = unit.root if unit.root is not None else unit.file_path.parent
-        try:
-            rel = unit.file_path.relative_to(base)
-        except ValueError:
-            rel = unit.file_path
-        path_clause = f"File: {rel}\n\n"
+        path_clause = f"File: {relative_path(unit.file_path, base)}\n\n"
 
     return (
         f"You are indexing a codebase for semantic search. "

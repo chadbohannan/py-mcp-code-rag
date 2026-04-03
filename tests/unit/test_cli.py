@@ -310,21 +310,19 @@ def test_combined_serve_only_when_no_paths(
 # ---------------------------------------------------------------------------
 
 
-def test_index_default_summarizer_is_anthropic(
+def test_index_default_summarizer_is_ollama(
     tmp_path,
     monkeypatch,
     mock_embedder,
-    mock_summarizer,
+    mock_ollama_summarizer,
     mock_run_index,
 ):
     monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
     main()
-    from mcp_rag.__main__ import AnthropicSummarizer  # noqa: F401
-
-    # AnthropicSummarizer was patched via mock_summarizer; run_index was called
     mock_run_index.assert_called_once()
+    _, inst = mock_ollama_summarizer
     summarizer_arg = mock_run_index.call_args.kwargs["summarizer"]
-    assert summarizer_arg is mock_summarizer
+    assert summarizer_arg is inst
 
 
 def test_index_ollama_summarizer_flag(
@@ -354,12 +352,16 @@ def test_index_ollama_model_flag(
         ),
     )
     main()
-    mock_ollama_summarizer[0].assert_called_once_with(model="mymodel")
+    cls, _ = mock_ollama_summarizer
+    call_kwargs = cls.call_args.kwargs
+    assert call_kwargs["model"] == "mymodel"
 
 
 def test_index_no_api_key_exits_1(tmp_path, monkeypatch, mock_embedder, mock_run_index):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setattr("sys.argv", _argv("index", str(tmp_path)))
+    monkeypatch.setattr(
+        "sys.argv", _argv("index", "--summarizer", "anthropic", str(tmp_path))
+    )
     with pytest.raises(SystemExit) as ei:
         main()
     assert ei.value.code == 1
