@@ -46,15 +46,26 @@ def _get_conn() -> sqlite3.Connection | None:
 
 @mcp.tool
 async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> list[dict]:
-    """Search the indexed codebase using a natural language question.
+    """Search the indexed codebase using natural language.
 
-    Embeds the query and returns the closest matching semantic units by vector
-    similarity. Each result includes the qualified path
-    (``relative/file.py:Class:method``), original source content, a
-    human-readable summary, and a relevance score in [0.0, 1.0] (higher is
-    better). top_k is capped at 20.
+    Every indexed unit (function, class, markdown section, etc.) has a
+    pre-computed natural-language summary.  Queries are matched against these
+    summaries via vector similarity, so **ask questions the way you'd ask a
+    colleague** — e.g. "how does authentication work?" rather than keyword
+    fragments.
 
-    Use path_glob to filter results by qualified path using SQLite GLOB syntax
+    Results include the qualified path (``file.py:Class:method``), the
+    original source content, the human-readable summary, and a relevance
+    score in [0.0, 1.0] (higher is better).  top_k is capped at 20.
+
+    **Recommended workflow:**
+    - Start with ``*.md`` to find authored documentation and module overviews.
+    - Narrow into code (``*.py``, ``*.h``, ``*.cpp``) only after you have
+      the big picture from docs.
+    - Use semantic questions, not grep-style keywords — the index understands
+      intent, not just tokens.
+
+    Use path_glob to filter by qualified path with SQLite GLOB syntax
     (e.g. ``*.py:Router:*``, ``*/go/*``, ``*:Wire Format*``).
     """
     if _db_path is None or _embedder is None:
@@ -115,8 +126,12 @@ async def list_files(path_glob: str | None = None) -> list[dict]:
     """List files that have been indexed.
 
     Returns the file path, root, and last-indexed timestamp for every file
-    in the index.  Use path_glob to filter by file path using SQLite GLOB
-    syntax (e.g. ``*.py``, ``*/tests/*``).
+    in the index.  Call this early to understand what content is available
+    before searching — the index may contain documentation (``*.md``),
+    config files, and multiple languages alongside source code.
+
+    Use path_glob to filter by file path with SQLite GLOB syntax
+    (e.g. ``*.py``, ``*.md``, ``*/tests/*``).
     """
     if _db_path is None or _embedder is None:
         return []
@@ -142,9 +157,10 @@ async def list_files(path_glob: str | None = None) -> list[dict]:
 async def index_status() -> list[dict]:
     """Return the current state of the index.
 
-    Reports per-root file count, semantic unit count, and the timestamp of the
-    most recent indexing run. Returns one entry per distinct root path that has
-    been indexed into the active database.
+    Reports per-root file count, semantic unit count, and the timestamp of
+    the most recent indexing run.  Use this to orient yourself: see which
+    project roots are indexed and how much content is available before
+    choosing a search strategy.
     """
     if _db_path is None or _embedder is None:
         return []
