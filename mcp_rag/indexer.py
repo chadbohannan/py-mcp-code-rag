@@ -31,7 +31,11 @@ from mcp_rag.reconcile import StoredUnit, diff_units
 _MAX_TOKENS = 8000
 _MAX_CHARS = _MAX_TOKENS * 4
 
-_SUPPORTED_EXTENSIONS = frozenset({".py", ".go", ".md", ".mdx", ".sql"})
+_SUPPORTED_EXTENSIONS = frozenset({
+    ".py", ".go", ".md", ".mdx", ".sql",
+    ".c", ".h",
+    ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx",
+})
 
 
 class IndexAbortError(Exception):
@@ -168,11 +172,51 @@ def _index_root(
                 conn.execute("DELETE FROM mcp_rag_files WHERE id = ?", (file_id,))
             deleted_count += 1
 
-    # Process files present on disk
+    # Filter to parsable files
+    parsable_files = sorted(
+        f for f in disk_files if f.suffix.lower() in _SUPPORTED_EXTENSIONS
+    )
+
+    # Pre-scan: determine which parsable files actually need (re-)indexing
     disable_bars = not sys.stderr.isatty()
+    needs_indexing: list[Path] = []
     with tqdm(
-        total=len(disk_files),
-        desc="files",
+        total=len(parsable_files),
+        desc="scanning",
+        unit="file",
+        file=sys.stderr,
+        disable=disable_bars,
+    ) as scan_bar:
+        for file_path in parsable_files:
+            try:
+                raw = file_path.read_bytes()
+            except OSError:
+                scan_bar.update(1)
+                continue
+            if b"\x00" in raw[:512]:
+                scan_bar.update(1)
+                continue
+            file_info = db_map.get(file_path)
+            if file_info is not None:
+                _, stored_mtime, stored_md5 = file_info
+                mtime = file_path.stat().st_mtime
+                md5 = hashlib.md5(raw).hexdigest()
+                if stored_mtime == mtime and stored_md5 == md5:
+                    scan_bar.update(1)
+                    continue
+            needs_indexing.append(file_path)
+            scan_bar.update(1)
+
+    print(
+        f"{len(needs_indexing)} files to index of "
+        f"{len(parsable_files)} parsable ({len(disk_files)} total)",
+        file=sys.stderr,
+    )
+
+    # Index only the files that need it
+    with tqdm(
+        total=len(needs_indexing),
+        desc="indexing",
         unit="file",
         file=sys.stderr,
         position=0,
@@ -187,7 +231,7 @@ def _index_root(
             leave=False,
             disable=disable_bars,
         ) as unit_bar:
-            for file_path in sorted(disk_files):
+            for file_path in needs_indexing:
                 file_bar.set_postfix(
                     file=file_path.name, status="scanning", refresh=True
                 )

@@ -179,6 +179,199 @@ def parse_sql(source: str) -> list[SemanticUnit]:
 
 
 # ---------------------------------------------------------------------------
+# C / C++
+# ---------------------------------------------------------------------------
+
+_C_EXTENSIONS = frozenset({".c", ".h"})
+_CPP_EXTENSIONS = frozenset({".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx"})
+
+
+def _get_ts_c_language():
+    """Return the tree-sitter C Language object, or None if unavailable."""
+    try:
+        import tree_sitter
+        import tree_sitter_c
+
+        return tree_sitter.Language(tree_sitter_c.language())
+    except Exception:
+        return None
+
+
+def _get_ts_cpp_language():
+    """Return the tree-sitter C++ Language object, or None if unavailable."""
+    try:
+        import tree_sitter
+        import tree_sitter_cpp
+
+        return tree_sitter.Language(tree_sitter_cpp.language())
+    except Exception:
+        return None
+
+
+def _ts_node_text(node, source_bytes: bytes) -> str:
+    return source_bytes[node.start_byte : node.end_byte].decode(errors="replace")
+
+
+def _ts_find_child_by_type(node, *type_names: str):
+    """Return the first child matching any of the given type names, or None."""
+    for child in node.children:
+        if child.type in type_names:
+            return child
+    return None
+
+
+def _extract_c_cpp_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
+    """Walk a tree-sitter parse tree and extract semantic units for C/C++."""
+    units: list[SemanticUnit] = []
+
+    def _walk(node, class_name: str | None = None):
+        for child in node.children:
+            if child.type == "function_definition":
+                declarator = _ts_find_child_by_type(child, "function_declarator")
+                if declarator is None:
+                    declarator = _ts_find_child_by_type(child, "pointer_declarator")
+                name = None
+                if declarator is not None:
+                    ident = _ts_find_child_by_type(
+                        declarator, "identifier", "field_identifier",
+                        "destructor_name", "qualified_identifier",
+                    )
+                    if ident is not None:
+                        name = _ts_node_text(ident, source_bytes)
+
+                if class_name:
+                    unit_type = "method"
+                    unit_name = f"{class_name}:{name}" if name else class_name
+                else:
+                    unit_type = "function"
+                    unit_name = name
+
+                units.append(
+                    SemanticUnit(
+                        unit_type=unit_type,
+                        unit_name=unit_name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type == "struct_specifier":
+                body = _ts_find_child_by_type(child, "field_declaration_list")
+                if body is None:
+                    continue
+                name_node = _ts_find_child_by_type(child, "type_identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="struct",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type == "class_specifier":
+                body = _ts_find_child_by_type(child, "field_declaration_list")
+                if body is None:
+                    continue
+                name_node = _ts_find_child_by_type(child, "type_identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="class",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+                if body is not None:
+                    _walk(body, class_name=name)
+
+            elif child.type == "enum_specifier":
+                body = _ts_find_child_by_type(child, "enumerator_list")
+                if body is None:
+                    continue
+                name_node = _ts_find_child_by_type(child, "type_identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                units.append(
+                    SemanticUnit(
+                        unit_type="enum",
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+            elif child.type in (
+                "declaration",
+                "declaration_list",
+                "type_definition",
+                "template_declaration",
+                "namespace_definition",
+                "linkage_specification",
+                "preproc_ifdef",
+                "preproc_ifndef",
+                "preproc_if",
+                "preproc_else",
+                "preproc_elif",
+            ):
+                _walk(child, class_name=class_name)
+
+    _walk(tree.root_node)
+    return sorted(units, key=lambda u: u.char_offset)
+
+
+def parse_c(source: str) -> list[SemanticUnit]:
+    """Parse C source into SemanticUnits using tree-sitter.
+
+    Returns [] with a warning if tree-sitter-c is not installed.
+    """
+    if not source:
+        return []
+
+    lang = _get_ts_c_language()
+    if lang is None:
+        warnings.warn(
+            "tree-sitter-c not installed — .c/.h files will not be indexed",
+            stacklevel=2,
+        )
+        return []
+
+    import tree_sitter
+
+    parser = tree_sitter.Parser()
+    parser.language = lang
+    source_bytes = source.encode()
+    tree = parser.parse(source_bytes)
+    return _extract_c_cpp_units(tree, source_bytes)
+
+
+def parse_cpp(source: str) -> list[SemanticUnit]:
+    """Parse C++ source into SemanticUnits using tree-sitter.
+
+    Returns [] with a warning if tree-sitter-cpp is not installed.
+    """
+    if not source:
+        return []
+
+    lang = _get_ts_cpp_language()
+    if lang is None:
+        warnings.warn(
+            "tree-sitter-cpp not installed — C++ files will not be indexed",
+            stacklevel=2,
+        )
+        return []
+
+    import tree_sitter
+
+    parser = tree_sitter.Parser()
+    parser.language = lang
+    source_bytes = source.encode()
+    tree = parser.parse(source_bytes)
+    return _extract_c_cpp_units(tree, source_bytes)
+
+
+# ---------------------------------------------------------------------------
 # Go
 # ---------------------------------------------------------------------------
 
@@ -250,6 +443,10 @@ def parse_file(path: Path) -> list[SemanticUnit]:
         return parse_python(path.read_text(encoding="utf-8", errors="replace"))
     if suffix == ".go":
         return parse_go(path)
+    if suffix in _C_EXTENSIONS:
+        return parse_c(path.read_text(encoding="utf-8", errors="replace"))
+    if suffix in _CPP_EXTENSIONS:
+        return parse_cpp(path.read_text(encoding="utf-8", errors="replace"))
     if suffix in (".md", ".mdx"):
         return parse_markdown(path.read_text(encoding="utf-8", errors="replace"))
     if suffix == ".sql":

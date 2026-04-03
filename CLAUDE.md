@@ -20,6 +20,9 @@ WHY THIS MATTERS:
 - Creates audit trail of design decisions (who chose what tech and why)
 - Technical debt in understanding (code doesn't match spec) is treated as critical bug
 
+GOTCHAS:
+- When adding support for a new language, you MUST update `_SUPPORTED_EXTENSIONS` in `mcp_rag/indexer.py` in addition to adding the parser in `mcp_rag/parsers.py`. The indexer's extension allowlist gates file processing before `parse_file` is ever called. Missing this causes new parsers to silently do nothing.
+
 CONSTRAINTS:
 - Spec deviations require comments explaining the change
 - The spec must be kept current — it's a living document

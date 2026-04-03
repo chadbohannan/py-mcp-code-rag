@@ -166,6 +166,8 @@ leaves the DB fully consistent (old state or new state, never a mix).
 |---|---|---|
 | `.py` | stdlib `ast` | module-level, class, function, method |
 | `.go` | `go/ast` via subprocess | function, method, struct, interface |
+| `.c`, `.h` | tree-sitter (C grammar) | function, struct, enum |
+| `.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx` | tree-sitter (C++ grammar) | function, method, class, struct, enum |
 | `.md`, `.mdx` | heading/paragraph splitter | heading sections, paragraphs |
 | `.sql` | document-level | whole file (skip if > 4 KB) |
 | binary (null bytes in first 512 B) | — | skip silently |
@@ -211,6 +213,24 @@ warning: skipping src/foo.go — go parser error (see stderr)
 **Performance** — `go run` compiles the helper on each invocation, adding approximately 200–500 ms
 per `.go` file. This is acceptable because indexing is incremental (unchanged files are skipped)
 and Go developers are the target audience.
+
+**C/C++ parsing** — uses `tree-sitter` with `tree-sitter-c` and `tree-sitter-cpp` Python packages
+(in-process, no subprocess). The parser extracts `function_definition`, `struct_specifier`,
+`class_specifier`, and `enum_specifier` nodes that have bodies (forward declarations are skipped).
+Methods inside `class_specifier` are extracted with `ClassName:method` naming, consistent with the
+Go and Python parser conventions. Declarations inside `namespace_definition`,
+`template_declaration`, and `linkage_specification` are traversed recursively.
+
+If `tree-sitter-c` or `tree-sitter-cpp` is not installed, the corresponding file extensions are
+skipped with a one-time warning:
+
+```
+warning: tree-sitter-c not installed — .c/.h files will not be indexed
+warning: tree-sitter-cpp not installed — C++ files will not be indexed
+```
+
+**C header ambiguity** — `.h` files are parsed with the C grammar. Projects using C++ headers with
+a `.h` extension should rename them to `.hpp` or another C++ extension for correct parsing.
 
 ### Summarization
 

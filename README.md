@@ -143,6 +143,8 @@ All targets that operate on a source directory accept `SRC=` (defaults to `.`). 
 |---|---|---|
 | `.py` | stdlib `ast` | module-level, class, function, method |
 | `.go` | `go/ast` via subprocess | function, method, struct, interface |
+| `.c`, `.h` | tree-sitter (C) | function, struct, enum |
+| `.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx` | tree-sitter (C++) | function, method, class, struct, enum |
 | `.md`, `.mdx` | heading splitter | heading sections, paragraphs |
 | `.sql` | document-level | whole file (skipped if > 4 KB) |
 
