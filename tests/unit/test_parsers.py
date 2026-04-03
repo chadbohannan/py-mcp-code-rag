@@ -3,7 +3,7 @@
 import textwrap
 
 
-from mcp_rag.parsers import parse_file, parse_markdown, parse_python, parse_sql
+from mcp_rag.parsers import parse_file, parse_markdown, parse_python, parse_sql, parse_terraform
 
 
 # ---------------------------------------------------------------------------
@@ -374,3 +374,235 @@ def test_parse_file_binary_check_uses_first_512_bytes(tmp_path):
     f.write_bytes(content)
     units = parse_file(f)
     assert units == []
+
+
+# ---------------------------------------------------------------------------
+# Terraform parser
+# ---------------------------------------------------------------------------
+
+
+def test_parse_terraform_empty_string():
+    assert parse_terraform("") == []
+
+
+def test_parse_terraform_resource_block():
+    source = textwrap.dedent("""\
+        resource "aws_instance" "web" {
+          ami           = "ami-0c55b159cbfafe1f0"
+          instance_type = "t2.micro"
+        }
+    """)
+    units = parse_terraform(source)
+    assert len(units) == 1
+    assert units[0].unit_type == "resource"
+    assert units[0].unit_name == "aws_instance.web"
+
+
+def test_parse_terraform_resource_content_includes_body():
+    source = textwrap.dedent("""\
+        resource "aws_s3_bucket" "data" {
+          bucket = "my-bucket"
+          acl    = "private"
+        }
+    """)
+    units = parse_terraform(source)
+    assert "aws_s3_bucket" in units[0].content
+    assert "my-bucket" in units[0].content
+
+
+def test_parse_terraform_variable_block():
+    source = textwrap.dedent("""\
+        variable "region" {
+          default = "us-east-1"
+        }
+    """)
+    units = parse_terraform(source)
+    assert len(units) == 1
+    assert units[0].unit_type == "variable"
+    assert units[0].unit_name == "region"
+
+
+def test_parse_terraform_output_block():
+    source = textwrap.dedent("""\
+        output "vpc_id" {
+          value = aws_vpc.main.id
+        }
+    """)
+    units = parse_terraform(source)
+    assert units[0].unit_type == "output"
+    assert units[0].unit_name == "vpc_id"
+
+
+def test_parse_terraform_module_block():
+    source = textwrap.dedent("""\
+        module "vpc" {
+          source = "./modules/vpc"
+        }
+    """)
+    units = parse_terraform(source)
+    assert units[0].unit_type == "module"
+    assert units[0].unit_name == "vpc"
+
+
+def test_parse_terraform_data_block():
+    source = textwrap.dedent("""\
+        data "aws_ami" "ubuntu" {
+          most_recent = true
+        }
+    """)
+    units = parse_terraform(source)
+    assert units[0].unit_type == "data"
+    assert units[0].unit_name == "aws_ami.ubuntu"
+
+
+def test_parse_terraform_locals_block_name_is_none():
+    source = textwrap.dedent("""\
+        locals {
+          env = "prod"
+        }
+    """)
+    units = parse_terraform(source)
+    assert units[0].unit_type == "locals"
+    assert units[0].unit_name is None
+
+
+def test_parse_terraform_provider_block():
+    source = textwrap.dedent("""\
+        provider "aws" {
+          region = "us-west-2"
+        }
+    """)
+    units = parse_terraform(source)
+    assert units[0].unit_type == "provider"
+    assert units[0].unit_name == "aws"
+
+
+def test_parse_terraform_terraform_block_name_is_none():
+    source = textwrap.dedent("""\
+        terraform {
+          required_version = ">= 1.0"
+        }
+    """)
+    units = parse_terraform(source)
+    assert units[0].unit_type == "terraform"
+    assert units[0].unit_name is None
+
+
+def test_parse_terraform_multiple_blocks():
+    source = textwrap.dedent("""\
+        variable "env" {
+          default = "dev"
+        }
+
+        resource "aws_instance" "app" {
+          ami = "ami-123"
+        }
+
+        output "ip" {
+          value = aws_instance.app.public_ip
+        }
+    """)
+    units = parse_terraform(source)
+    assert len(units) == 3
+    types = [u.unit_type for u in units]
+    assert "variable" in types
+    assert "resource" in types
+    assert "output" in types
+
+
+def test_parse_terraform_char_offset_increases_monotonically():
+    source = textwrap.dedent("""\
+        variable "a" {
+          default = 1
+        }
+
+        variable "b" {
+          default = 2
+        }
+    """)
+    units = parse_terraform(source)
+    offsets = [u.char_offset for u in units]
+    assert offsets == sorted(offsets)
+    assert offsets[0] < offsets[1]
+
+
+def test_parse_terraform_nested_braces_in_block():
+    # Nested blocks (e.g. lifecycle, tags) must not confuse block-end detection.
+    source = textwrap.dedent("""\
+        resource "aws_instance" "web" {
+          tags = {
+            Name = "web"
+            Env  = "prod"
+          }
+          lifecycle {
+            prevent_destroy = true
+          }
+        }
+    """)
+    units = parse_terraform(source)
+    assert len(units) == 1
+    assert "prevent_destroy" in units[0].content
+
+
+def test_parse_terraform_string_with_braces_not_confused():
+    # Template expressions ${...} inside strings must not throw off brace depth.
+    source = textwrap.dedent("""\
+        resource "aws_instance" "web" {
+          user_data = "echo ${var.name}"
+        }
+    """)
+    units = parse_terraform(source)
+    assert len(units) == 1
+    assert units[0].unit_name == "aws_instance.web"
+
+
+def test_parse_terraform_content_md5_set():
+    import hashlib
+
+    source = textwrap.dedent("""\
+        variable "x" {
+          default = 1
+        }
+    """)
+    units = parse_terraform(source)
+    assert units[0].content_md5 == hashlib.md5(units[0].content.encode()).hexdigest()
+
+
+def test_parse_terraform_tfvars_single_unit():
+    source = textwrap.dedent("""\
+        region = "us-east-1"
+        env    = "prod"
+    """)
+    units = parse_terraform(source, is_tfvars=True)
+    assert len(units) == 1
+    assert units[0].unit_type == "tfvars"
+    assert units[0].unit_name is None
+    assert units[0].char_offset == 0
+    assert "us-east-1" in units[0].content
+
+
+def test_parse_terraform_tfvars_empty_returns_empty():
+    assert parse_terraform("", is_tfvars=True) == []
+
+
+# ---------------------------------------------------------------------------
+# parse_file Terraform dispatch
+# ---------------------------------------------------------------------------
+
+
+def test_parse_file_tf_dispatches_to_terraform_parser(tmp_path):
+    tf_file = tmp_path / "main.tf"
+    tf_file.write_text(
+        'resource "aws_instance" "web" {\n  ami = "ami-123"\n}\n',
+        encoding="utf-8",
+    )
+    units = parse_file(tf_file)
+    assert any(u.unit_type == "resource" and u.unit_name == "aws_instance.web" for u in units)
+
+
+def test_parse_file_tfvars_dispatches_to_terraform_parser(tmp_path):
+    tfvars_file = tmp_path / "prod.tfvars"
+    tfvars_file.write_text('region = "us-east-1"\n', encoding="utf-8")
+    units = parse_file(tfvars_file)
+    assert len(units) == 1
+    assert units[0].unit_type == "tfvars"

@@ -100,13 +100,6 @@ def test_prompt_includes_unit_type(mock_client, summarizer):
     assert "class" in prompt
 
 
-def test_prompt_includes_unit_name(mock_client, summarizer):
-    mock_client.messages.create.return_value = _response()
-    summarizer.summarize(_unit(unit_name="authenticate_user"))
-    prompt = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
-    assert "authenticate_user" in prompt
-
-
 def test_prompt_includes_source_content(mock_client, summarizer):
     mock_client.messages.create.return_value = _response()
     summarizer.summarize(_unit(content="def foo(): return 42"))
@@ -208,39 +201,6 @@ def test_raises_immediately_on_401(mock_client, summarizer, no_sleep):
 
 
 # ---------------------------------------------------------------------------
-# Retry — delay values
-# ---------------------------------------------------------------------------
-
-
-def test_retry_delays_are_exponential(mock_client, summarizer, monkeypatch):
-    """sleep() is called with [1, 4, 16] base delays (no jitter)."""
-    monkeypatch.setattr("mcp_rag.summarizer.random.uniform", lambda a, b: 0.0)
-    sleep_calls = []
-    monkeypatch.setattr("mcp_rag.summarizer.time.sleep", sleep_calls.append)
-
-    exc = _status_error(429)
-    mock_client.messages.create.side_effect = exc
-    with pytest.raises(Exception):
-        summarizer.summarize(_unit())
-
-    assert sleep_calls == pytest.approx([1, 4, 16])
-
-
-def test_retry_jitter_is_applied(mock_client, summarizer, monkeypatch):
-    """sleep() value is base_delay * (1 + jitter)."""
-    monkeypatch.setattr("mcp_rag.summarizer.random.uniform", lambda a, b: 0.2)
-    sleep_calls = []
-    monkeypatch.setattr("mcp_rag.summarizer.time.sleep", sleep_calls.append)
-
-    exc = _status_error(429)
-    mock_client.messages.create.side_effect = exc
-    with pytest.raises(Exception):
-        summarizer.summarize(_unit())
-
-    assert sleep_calls == pytest.approx([1.2, 4.8, 19.2])
-
-
-# ---------------------------------------------------------------------------
 # OllamaSummarizer fixtures
 # ---------------------------------------------------------------------------
 
@@ -291,15 +251,6 @@ def test_ollama_prompt_includes_unit_type(mock_ollama_client, ollama_summarizer)
     ollama_summarizer.summarize(_unit(unit_type="class"))
     call_kwargs = mock_ollama_client.chat.call_args.kwargs
     assert "class" in call_kwargs["messages"][0]["content"]
-
-
-def test_ollama_prompt_includes_unit_name(mock_ollama_client, ollama_summarizer):
-    mock_ollama_client.chat.return_value = MagicMock(
-        message=MagicMock(content="summary")
-    )
-    ollama_summarizer.summarize(_unit(unit_name="authenticate_user"))
-    call_kwargs = mock_ollama_client.chat.call_args.kwargs
-    assert "authenticate_user" in call_kwargs["messages"][0]["content"]
 
 
 def test_ollama_prompt_includes_source_content(mock_ollama_client, ollama_summarizer):

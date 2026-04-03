@@ -8,6 +8,7 @@ check.
 import ast
 import json
 import logging
+import re
 import shutil
 import subprocess
 import warnings
@@ -767,6 +768,108 @@ def _is_binary(path: Path) -> bool:
         return True
 
 
+# ---------------------------------------------------------------------------
+# Terraform / HCL
+# ---------------------------------------------------------------------------
+
+_TF_EXTENSIONS = frozenset({".tf", ".tfvars"})
+
+# Matches top-level HCL block headers, e.g.:
+#   resource "aws_instance" "web" {
+#   variable "region" {
+#   locals {
+_TF_BLOCK_RE = re.compile(
+    r'^[ \t]*'
+    r'(resource|variable|output|module|data|locals|provider|terraform|moved|import|check)'
+    r'(?:[ \t]+"([^"]*)")?'
+    r'(?:[ \t]+"([^"]*)")?'
+    r'[ \t]*\{',
+    re.MULTILINE,
+)
+
+
+def _tf_find_block_end(source: str, open_brace: int) -> int:
+    """Return the index just past the closing brace matching open_brace."""
+    depth = 0
+    i = open_brace
+    in_string = False
+    escape_next = False
+    while i < len(source):
+        ch = source[i]
+        if escape_next:
+            escape_next = False
+        elif in_string:
+            if ch == "\\":
+                escape_next = True
+            elif ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return i + 1
+        i += 1
+    return len(source)
+
+
+def parse_terraform(source: str, is_tfvars: bool = False) -> list[SemanticUnit]:
+    """Parse a Terraform HCL source string into SemanticUnits.
+
+    For .tf files: each top-level block (resource, variable, output, module,
+    data, locals, provider, terraform, moved, import, check) becomes one unit.
+    unit_name is the dot-joined block labels, e.g. "aws_instance.web" for
+    ``resource "aws_instance" "web" { ... }``.
+
+    For .tfvars files: the entire file is returned as a single "tfvars" unit
+    (analogous to the SQL parser's single-unit approach).
+    """
+    if not source.strip():
+        return []
+
+    if is_tfvars:
+        return [
+            SemanticUnit(
+                unit_type="tfvars",
+                unit_name=None,
+                content=source,
+                char_offset=0,
+            )
+        ]
+
+    units = []
+    for match in _TF_BLOCK_RE.finditer(source):
+        block_type = match.group(1)
+        label1 = match.group(2)
+        label2 = match.group(3)
+
+        if label1 and label2:
+            unit_name = f"{label1}.{label2}"
+        elif label1:
+            unit_name = label1
+        else:
+            unit_name = None
+
+        # The opening brace is the last character of the match.
+        open_brace = match.end() - 1
+        end = _tf_find_block_end(source, open_brace)
+        content = source[match.start() : end].strip()
+
+        units.append(
+            SemanticUnit(
+                unit_type=block_type,
+                unit_name=unit_name,
+                content=content,
+                char_offset=match.start(),
+            )
+        )
+
+    return units
+
+
 def parse_file(path: Path) -> list[SemanticUnit]:
     """Dispatch to the appropriate parser based on file extension.
 
@@ -798,6 +901,11 @@ def parse_file(path: Path) -> list[SemanticUnit]:
         return parse_markdown(path.read_text(encoding="utf-8", errors="replace"))
     if suffix == ".sql":
         return parse_sql(path.read_text(encoding="utf-8", errors="replace"))
+    if suffix in _TF_EXTENSIONS:
+        return parse_terraform(
+            path.read_text(encoding="utf-8", errors="replace"),
+            is_tfvars=(suffix == ".tfvars"),
+        )
 
     logger.debug("skipping %s: unsupported extension %r", path, suffix)
     return []

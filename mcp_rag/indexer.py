@@ -38,6 +38,7 @@ _SUPPORTED_EXTENSIONS = frozenset({
     ".js", ".jsx", ".mjs", ".cjs",
     ".ts", ".tsx", ".mts", ".cts",
     ".java",
+    ".tf", ".tfvars",
 })
 
 

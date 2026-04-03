@@ -8,7 +8,7 @@ import time
 from mcp_rag.models import SemanticUnit, relative_path
 
 _MAX_TOKENS = 128
-_RETRY_DELAYS = [1, 2, 3]  # seconds before each retry attempt
+_RETRY_DELAYS = [1, 2, 4]  # seconds before each retry attempt
 _JITTER = 0.2
 _RETRY_STATUSES = frozenset({429, 529})
 
@@ -88,8 +88,8 @@ class OllamaSummarizer:
 
 def _build_prompt(unit: SemanticUnit) -> str:
     return (
-        f"Summarize this {unit.unit_type} in 2-3 sentences. Say what it does"
-        f"and why using terse, dense natural language a developer would "
+        f"Summarize this {unit.unit_type} in 2-3 sentences. "
+        f"Say what it does and why using terse, dense natural language a developer would "
         f"search for. No preamble, no headings, no bullet points.\n\n"
         f"{unit.content}"
     )
