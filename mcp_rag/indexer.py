@@ -34,7 +34,7 @@ _MAX_CHARS = _MAX_TOKENS * 4
 _SUPPORTED_EXTENSIONS = frozenset({
     ".py", ".go", ".md", ".mdx", ".sql",
     ".c", ".h",
-    ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx",
+    ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".ino",
 })
 
 
@@ -164,6 +164,18 @@ def _index_root(
         Path(row[1]): (row[0], row[2], row[3]) for row in rows
     }
 
+    # Identify files that have units with empty summaries so they are
+    # re-processed even when their mtime/md5 are unchanged.
+    empty_summary_file_ids: set[int] = {
+        row[0]
+        for row in conn.execute(
+            "SELECT DISTINCT f.id FROM mcp_rag_files f "
+            "JOIN mcp_rag_units u ON u.file_id = f.id "
+            "WHERE f.root = ? AND length(u.summary) = 0",
+            (str(root),),
+        ).fetchall()
+    }
+
     # Remove entries for files that no longer exist on disk
     deleted_count = 0
     for path, (file_id, _, _) in db_map.items():
@@ -198,10 +210,11 @@ def _index_root(
                 continue
             file_info = db_map.get(file_path)
             if file_info is not None:
-                _, stored_mtime, stored_md5 = file_info
+                file_id, stored_mtime, stored_md5 = file_info
                 mtime = file_path.stat().st_mtime
                 md5 = hashlib.md5(raw).hexdigest()
-                if stored_mtime == mtime and stored_md5 == md5:
+                if stored_mtime == mtime and stored_md5 == md5 \
+                        and file_id not in empty_summary_file_ids:
                     scan_bar.update(1)
                     continue
             needs_indexing.append(file_path)
@@ -255,6 +268,77 @@ def _index_root(
 # ---------------------------------------------------------------------------
 
 
+def _backfill_empty_summaries(
+    conn: sqlite3.Connection,
+    file_id: int,
+    file_path: Path,
+    root: Path,
+    embedder,
+    summarizer,
+    file_bar: tqdm | None,
+    unit_bar: tqdm | None,
+    _file_status,
+) -> None:
+    """Re-summarise and re-embed units whose summary is empty."""
+    rows = conn.execute(
+        "SELECT id, path, content, char_offset "
+        "FROM mcp_rag_units WHERE file_id = ? AND length(summary) = 0",
+        (file_id,),
+    ).fetchall()
+
+    if not rows:
+        _file_status("unchanged")
+        return
+
+    _file_status(f"backfill {len(rows)} unit(s)")
+    if unit_bar is not None:
+        unit_bar.reset(total=len(rows))
+        unit_bar.set_description(file_path.name)
+
+    for unit_id, qpath, content, char_offset in rows:
+        # Reconstruct a SemanticUnit for the summariser prompt
+        parts = qpath.rsplit(":", 1)
+        unit_name = parts[1] if len(parts) > 1 else None
+        unit = SemanticUnit(
+            unit_type="unit",
+            unit_name=unit_name,
+            content=content,
+            char_offset=char_offset,
+            file_path=file_path,
+            root=root,
+        )
+        unit_label = unit_name or "unit"
+        if unit_bar is not None:
+            unit_bar.set_postfix(name=unit_label, refresh=True)
+        try:
+            summary = summarizer.summarize(unit)
+        except subprocess.TimeoutExpired:
+            tqdm.write(
+                f"Warning: {file_path.name}:{unit_label!r} timed out — skipping.",
+                file=sys.stderr,
+            )
+            if unit_bar is not None:
+                unit_bar.update(1)
+            continue
+
+        embedding = embedder.embed(_embed_text(unit, summary))
+        with conn:
+            conn.execute(
+                "UPDATE mcp_rag_units SET summary = ? WHERE id = ?",
+                (summary, unit_id),
+            )
+            conn.execute(
+                "DELETE FROM mcp_rag_embeddings WHERE unit_id = ?",
+                (unit_id,),
+            )
+            conn.execute(
+                "INSERT INTO mcp_rag_embeddings (unit_id, embedding) VALUES (?, ?)",
+                (unit_id, encode_embedding(embedding)),
+            )
+        if unit_bar is not None:
+            unit_bar.update(1)
+
+
 def _process_file(
     conn: sqlite3.Connection,
     root: Path,
@@ -289,14 +373,23 @@ def _process_file(
                 conn.execute("DELETE FROM mcp_rag_files WHERE id = ?", (file_id,))
         return
 
-    # Compute fingerprint and skip if unchanged
+    # Compute fingerprint — check whether file content changed
     mtime = file_path.stat().st_mtime
     md5 = hashlib.md5(raw).hexdigest()
+    content_unchanged = False
     if file_info is not None:
         file_id, stored_mtime, stored_md5 = file_info
         if stored_mtime == mtime and stored_md5 == md5:
-            _file_status("unchanged")
-            return
+            content_unchanged = True
+
+    # If content is unchanged, only backfill units with empty summaries
+    if content_unchanged:
+        file_id = file_info[0]  # type: ignore[index]
+        _backfill_empty_summaries(
+            conn, file_id, file_path, root, embedder, summarizer,
+            file_bar, unit_bar, _file_status,
+        )
+        return
 
     # Parse into semantic units (may be [] for oversized SQL, empty files, etc.)
     _file_status("parsing")

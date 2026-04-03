@@ -76,8 +76,14 @@ class OllamaSummarizer:
             model=self._model,
             messages=[{"role": "user", "content": _build_prompt(unit)}],
             options={"num_predict": _MAX_TOKENS},
+            think=False,
         )
-        return response.message.content
+        content = response.message.content
+        # Some thinking models (e.g. gemma4) may put output in the thinking
+        # field and return empty content even with think=False; fall back.
+        if not content and getattr(response.message, "thinking", None):
+            content = response.message.thinking
+        return content or ""
 
 
 def _build_prompt(unit: SemanticUnit) -> str:

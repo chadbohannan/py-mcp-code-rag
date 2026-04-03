@@ -111,6 +111,34 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
 
 
 @mcp.tool
+async def list_files(path_glob: str | None = None) -> list[dict]:
+    """List files that have been indexed.
+
+    Returns the file path, root, and last-indexed timestamp for every file
+    in the index.  Use path_glob to filter by file path using SQLite GLOB
+    syntax (e.g. ``*.py``, ``*/tests/*``).
+    """
+    if _db_path is None or _embedder is None:
+        return []
+
+    conn = _get_conn()
+    if path_glob is not None:
+        rows = conn.execute(
+            "SELECT root, path, indexed_at FROM mcp_rag_files WHERE path GLOB ? ORDER BY path",
+            (path_glob,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT root, path, indexed_at FROM mcp_rag_files ORDER BY path",
+        ).fetchall()
+
+    return [
+        {"root": row[0], "path": row[1], "indexed_at": row[2]}
+        for row in rows
+    ]
+
+
+@mcp.tool
 async def index_status() -> list[dict]:
     """Return the current state of the index.
 

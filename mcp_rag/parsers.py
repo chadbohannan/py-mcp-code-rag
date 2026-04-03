@@ -183,7 +183,7 @@ def parse_sql(source: str) -> list[SemanticUnit]:
 # ---------------------------------------------------------------------------
 
 _C_EXTENSIONS = frozenset({".c", ".h"})
-_CPP_EXTENSIONS = frozenset({".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx"})
+_CPP_EXTENSIONS = frozenset({".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".ino"})
 
 
 def _get_ts_c_language():
