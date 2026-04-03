@@ -1,6 +1,7 @@
 """Unit tests for mcp_rag.models — SemanticUnit dataclass."""
 
 import hashlib
+from pathlib import Path
 
 from mcp_rag.models import SemanticUnit
 
@@ -85,3 +86,59 @@ def test_semantic_unit_summary_settable():
         summary="Does nothing.",
     )
     assert unit.summary == "Does nothing."
+
+
+# ---------------------------------------------------------------------------
+# qualified_path property
+# ---------------------------------------------------------------------------
+
+
+def test_qualified_path_with_file_and_unit_name():
+    root = Path("/project")
+    unit = SemanticUnit(
+        unit_type="method",
+        unit_name="Router:send",
+        content="def send(): pass",
+        char_offset=0,
+        file_path=root / "src" / "net.py",
+        root=root,
+    )
+    assert unit.qualified_path == "src/net.py:Router:send"
+
+
+def test_qualified_path_with_file_no_unit_name():
+    root = Path("/project")
+    unit = SemanticUnit(
+        unit_type="sql",
+        unit_name=None,
+        content="SELECT 1",
+        char_offset=0,
+        file_path=root / "query.sql",
+        root=root,
+    )
+    assert unit.qualified_path == "query.sql"
+
+
+def test_qualified_path_no_file_no_name():
+    unit = SemanticUnit(
+        unit_type="function",
+        unit_name=None,
+        content="def f(): pass",
+        char_offset=0,
+    )
+    assert unit.qualified_path == ""
+
+
+def test_qualified_path_uses_colon_delimiter():
+    root = Path("/r")
+    unit = SemanticUnit(
+        unit_type="function",
+        unit_name="foo",
+        content="def foo(): pass",
+        char_offset=0,
+        file_path=root / "mod.py",
+        root=root,
+    )
+    # File path separated from unit name by single colon
+    assert unit.qualified_path == "mod.py:foo"
+    assert "::" not in unit.qualified_path

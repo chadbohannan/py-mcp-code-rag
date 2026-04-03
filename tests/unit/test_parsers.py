@@ -65,7 +65,7 @@ def test_parse_python_method():
                 return a + b
     """)
     units = parse_python(source)
-    methods = [u for u in units if u.unit_type == "method" and u.unit_name == "add"]
+    methods = [u for u in units if u.unit_type == "method" and u.unit_name == "Calc:add"]
     assert len(methods) == 1
 
 
@@ -79,6 +79,8 @@ def test_parse_python_class_and_method_are_separate_units():
     types = {u.unit_type for u in units}
     assert "class" in types
     assert "method" in types
+    method = next(u for u in units if u.unit_type == "method")
+    assert method.unit_name == "Service:run"
 
 
 def test_parse_python_multiple_functions():
@@ -224,6 +226,32 @@ def test_parse_markdown_heading_content_includes_text():
     units = parse_markdown(source)
     setup_unit = next(u for u in units if u.unit_name == "Setup")
     assert "Install" in setup_unit.content
+
+
+def test_parse_markdown_hierarchical_heading_names():
+    source = textwrap.dedent("""\
+        # Top
+
+        Intro text.
+
+        ## Section A
+
+        Section A content.
+
+        ### Subsection A1
+
+        Subsection A1 content.
+
+        ## Section B
+
+        Section B content.
+    """)
+    units = parse_markdown(source)
+    names = [u.unit_name for u in units]
+    assert "Top" in names
+    assert "Top:Section A" in names
+    assert "Top:Section A:Subsection A1" in names
+    assert "Top:Section B" in names
 
 
 def test_parse_markdown_content_md5_set():

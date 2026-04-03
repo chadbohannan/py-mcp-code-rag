@@ -30,6 +30,20 @@ class SemanticUnit:
     def __post_init__(self) -> None:
         self.content_md5 = hashlib.md5(self.content.encode()).hexdigest()
 
+    @property
+    def qualified_path(self) -> str:
+        """Build the full qualified path: ``relative/file.py:Class:method``.
+
+        The file's relative path uses ``/`` separators; the unit hierarchy
+        uses ``:`` so there is no ambiguity at the file boundary.
+        """
+        parts: list[str] = []
+        if self.file_path is not None:
+            parts.append(str(relative_path(self.file_path, self.root)))
+        if self.unit_name:
+            parts.append(self.unit_name)
+        return ":".join(parts)
+
 
 # ---------------------------------------------------------------------------
 # Test-seam protocols

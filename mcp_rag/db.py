@@ -34,8 +34,7 @@ _DDL_UNITS = """\
 CREATE TABLE mcp_rag_units (
     id          INTEGER PRIMARY KEY,
     file_id     INTEGER NOT NULL REFERENCES mcp_rag_files(id) ON DELETE CASCADE,
-    unit_type   TEXT NOT NULL,
-    unit_name   TEXT,
+    path        TEXT NOT NULL,
     content     TEXT NOT NULL,
     content_md5 TEXT NOT NULL,
     summary     TEXT NOT NULL,

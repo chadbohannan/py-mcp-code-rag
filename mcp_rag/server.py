@@ -31,7 +31,7 @@ def configure(db_path: Path | None, embedder: Embedder | None) -> None:
     _embedder = embedder
 
 
-def _get_conn() -> sqlite3.Connection:
+def _get_conn() -> sqlite3.Connection | None:
     """Return the cached DB connection, opening it lazily on first use."""
     global _conn
     if _conn is None and _db_path is not None and _embedder is not None:
@@ -45,13 +45,17 @@ def _get_conn() -> sqlite3.Connection:
 
 
 @mcp.tool
-async def search(query: str, top_k: int = 5) -> list[dict]:
+async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> list[dict]:
     """Search the indexed codebase using a natural language question.
 
     Embeds the query and returns the closest matching semantic units by vector
-    similarity. Each result includes the source path, unit type, unit name,
-    original source content, a human-readable summary, and a relevance score
-    in [0.0, 1.0] (higher is better). top_k is capped at 20.
+    similarity. Each result includes the qualified path
+    (``relative/file.py:Class:method``), original source content, a
+    human-readable summary, and a relevance score in [0.0, 1.0] (higher is
+    better). top_k is capped at 20.
+
+    Use path_glob to filter results by qualified path using SQLite GLOB syntax
+    (e.g. ``*.py:Router:*``, ``*/go/*``, ``*:Wire Format*``).
     """
     if _db_path is None or _embedder is None:
         return []
@@ -59,36 +63,48 @@ async def search(query: str, top_k: int = 5) -> list[dict]:
     k = min(top_k, 20)
     emb = _embedder.embed(query)
 
-    rows = (
-        _get_conn()
-        .execute(
-            """
-        SELECT
-            f.path,
-            u.unit_type,
-            u.unit_name,
-            u.content,
-            u.summary,
-            vec_distance_cosine(e.embedding, ?) AS dist
-        FROM mcp_rag_embeddings e
-        JOIN mcp_rag_units u ON u.id = e.unit_id
-        JOIN mcp_rag_files f ON f.id = u.file_id
-        ORDER BY dist ASC
-        LIMIT ?
-        """,
-            (encode_embedding(emb), k),
-        )
-        .fetchall()
-    )
+    if path_glob is not None:
+        sql = """
+            SELECT
+                u.path,
+                u.content,
+                u.summary,
+                sub.dist
+            FROM (
+                SELECT e.unit_id, vec_distance_cosine(e.embedding, ?) AS dist
+                FROM mcp_rag_embeddings e
+                ORDER BY dist ASC
+                LIMIT ?
+            ) sub
+            JOIN mcp_rag_units u ON u.id = sub.unit_id
+            WHERE u.path GLOB ?
+            ORDER BY sub.dist ASC
+        """
+        # Fetch more candidates from the vector search so filtering still
+        # returns enough results.  Cap at 200 to keep the scan reasonable.
+        candidates = min(k * 10, 200)
+        rows = _get_conn().execute(sql, (encode_embedding(emb), candidates, path_glob)).fetchall()
+        rows = rows[:k]
+    else:
+        sql = """
+            SELECT
+                u.path,
+                u.content,
+                u.summary,
+                vec_distance_cosine(e.embedding, ?) AS dist
+            FROM mcp_rag_embeddings e
+            JOIN mcp_rag_units u ON u.id = e.unit_id
+            ORDER BY dist ASC
+            LIMIT ?
+        """
+        rows = _get_conn().execute(sql, (encode_embedding(emb), k)).fetchall()
 
     return [
         {
             "path": row[0],
-            "unit_type": row[1],
-            "unit_name": row[2],
-            "content": row[3],
-            "summary": row[4],
-            "score": round(1.0 - row[5] / 2.0, 6),
+            "content": row[1],
+            "summary": row[2],
+            "score": round(1.0 - row[3] / 2.0, 6),
         }
         for row in rows
     ]

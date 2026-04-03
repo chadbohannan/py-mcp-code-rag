@@ -86,13 +86,12 @@ def test_first_run_indexes_python_file(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    units = conn.execute("SELECT unit_type, unit_name FROM mcp_rag_units").fetchall()
+    paths = [
+        row[0] for row in conn.execute("SELECT path FROM mcp_rag_units").fetchall()
+    ]
     conn.close()
 
-    assert any(
-        unit_type == "function" and unit_name == "process"
-        for unit_type, unit_name in units
-    )
+    assert any("process" in p for p in paths)
 
 
 def test_first_run_indexes_markdown_file(tmp_path, embedder, summarizer):
@@ -119,11 +118,11 @@ def test_first_run_indexes_sql_file_under_4kb(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    units = conn.execute(
-        "SELECT unit_type FROM mcp_rag_units WHERE unit_type = 'sql'"
-    ).fetchall()
+    paths = [
+        row[0] for row in conn.execute("SELECT path FROM mcp_rag_units").fetchall()
+    ]
     conn.close()
-    assert len(units) == 1
+    assert any("query.sql" in p for p in paths)
 
 
 def test_first_run_skips_binary_file(tmp_path, embedder, summarizer):
@@ -150,11 +149,11 @@ def test_first_run_skips_oversized_sql(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    sql_units = conn.execute(
-        "SELECT COUNT(*) FROM mcp_rag_units WHERE unit_type = 'sql'"
+    unit_count = conn.execute(
+        "SELECT COUNT(*) FROM mcp_rag_units"
     ).fetchone()[0]
     conn.close()
-    assert sql_units == 0
+    assert unit_count == 0
 
 
 def test_first_run_calls_summarizer_per_unit(tmp_path, embedder, summarizer):
@@ -179,7 +178,7 @@ def test_first_run_stores_summary_in_units(tmp_path, embedder, summarizer):
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
     rows = conn.execute(
-        "SELECT summary FROM mcp_rag_units WHERE unit_name = 'compute'"
+        "SELECT summary FROM mcp_rag_units WHERE path LIKE '%compute'"
     ).fetchall()
     conn.close()
     assert len(rows) == 1
@@ -282,11 +281,11 @@ def test_changed_file_triggers_new_unit(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    names = [
-        row[0] for row in conn.execute("SELECT unit_name FROM mcp_rag_units").fetchall()
+    paths = [
+        row[0] for row in conn.execute("SELECT path FROM mcp_rag_units").fetchall()
     ]
     conn.close()
-    assert "beta" in names
+    assert any("beta" in p for p in paths)
 
 
 def test_changed_unit_content_triggers_resummarize(tmp_path, embedder, summarizer):
@@ -607,7 +606,7 @@ def test_reindex_preserves_summaries(tmp_path, embedder, summarizer):
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
     summary_before = conn.execute(
-        "SELECT summary FROM mcp_rag_units WHERE unit_name = 'foo'"
+        "SELECT summary FROM mcp_rag_units WHERE path LIKE '%foo'"
     ).fetchone()[0]
     conn.close()
 
@@ -622,7 +621,7 @@ def test_reindex_preserves_summaries(tmp_path, embedder, summarizer):
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
     summary_after = conn.execute(
-        "SELECT summary FROM mcp_rag_units WHERE unit_name = 'foo'"
+        "SELECT summary FROM mcp_rag_units WHERE path LIKE '%foo'"
     ).fetchone()[0]
     conn.close()
 

@@ -141,9 +141,9 @@ def test_cascade_delete_units_on_file_delete(tmp_path):
     )
     file_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.execute(
-        "INSERT INTO mcp_rag_units (file_id, unit_type, unit_name, content, content_md5, summary, char_offset) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (file_id, "function", "foo", "def foo(): pass", "md5", "summary", 0),
+        "INSERT INTO mcp_rag_units (file_id, path, content, content_md5, summary, char_offset) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (file_id, "file.py:foo", "def foo(): pass", "md5", "summary", 0),
     )
     conn.commit()
 
@@ -168,9 +168,9 @@ def test_cascade_delete_embeddings_on_unit_delete(tmp_path):
     )
     file_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.execute(
-        "INSERT INTO mcp_rag_units (file_id, unit_type, unit_name, content, content_md5, summary, char_offset) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (file_id, "function", "bar", "def bar(): pass", "md5bar", "sumbar", 0),
+        "INSERT INTO mcp_rag_units (file_id, path, content, content_md5, summary, char_offset) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (file_id, "file.py:bar", "def bar(): pass", "md5bar", "sumbar", 0),
     )
     unit_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     import struct

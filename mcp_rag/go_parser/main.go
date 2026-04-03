@@ -97,10 +97,13 @@ func extractUnits(fset *token.FileSet, f *ast.File, src []byte) []Unit {
 
 func extractFunc(fset *token.FileSet, d *ast.FuncDecl, src []byte) Unit {
 	unitType := "function"
+	name := d.Name.Name
 	if d.Recv != nil && len(d.Recv.List) > 0 {
 		unitType = "method"
+		if recvType := receiverTypeName(d.Recv.List[0].Type); recvType != "" {
+			name = recvType + ":" + name
+		}
 	}
-	name := d.Name.Name
 	start := fset.Position(d.Pos()).Offset
 	end := fset.Position(d.End()).Offset
 	content := string(src[start:end])
@@ -110,6 +113,20 @@ func extractFunc(fset *token.FileSet, d *ast.FuncDecl, src []byte) Unit {
 		Content:    content,
 		CharOffset: start,
 	}
+}
+
+// receiverTypeName extracts the type name from a method receiver expression,
+// unwrapping pointer indirection (e.g. *Router -> Router).
+func receiverTypeName(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.StarExpr:
+		if ident, ok := t.X.(*ast.Ident); ok {
+			return ident.Name
+		}
+	}
+	return ""
 }
 
 func extractTypeDecl(fset *token.FileSet, d *ast.GenDecl, ts *ast.TypeSpec, unitType string, src []byte) Unit {

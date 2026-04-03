@@ -81,7 +81,7 @@ def parse_python(source: str) -> list[SemanticUnit]:
                         units.append(
                             SemanticUnit(
                                 unit_type="method",
-                                unit_name=item.name,
+                                unit_name=f"{node.name}:{item.name}",
                                 content=method_content,
                                 char_offset=_char_offset(item),
                             )
@@ -111,6 +111,8 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
     current_name: str | None = None
     current_lines: list[str] = []
     char_pos = 0
+    # Track heading stack for hierarchical names: [(level, text), ...]
+    heading_stack: list[tuple[int, str]] = []
 
     for line in source.splitlines(keepends=True):
         if line.startswith("#"):
@@ -118,8 +120,19 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
             content = "".join(current_lines).strip()
             if content:
                 sections.append((current_offset, current_name, current_lines[:]))
-            # Start new section at this heading
-            current_name = line.lstrip("#").strip()
+            # Parse heading level and text
+            stripped = line.lstrip("#")
+            level = len(line) - len(stripped)
+            heading_text = stripped.strip()
+            # Pop headings at same or deeper level
+            while heading_stack and heading_stack[-1][0] >= level:
+                heading_stack.pop()
+            # Build hierarchical name
+            if heading_stack:
+                current_name = ":".join(h[1] for h in heading_stack) + ":" + heading_text
+            else:
+                current_name = heading_text
+            heading_stack.append((level, heading_text))
             current_offset = char_pos
             current_lines = [line]
         else:

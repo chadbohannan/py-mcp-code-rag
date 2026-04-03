@@ -117,7 +117,7 @@ async def test_search_returns_list(configured_server):
 async def test_search_result_has_required_fields(configured_server):
     results = await _call("search", {"query": "token"})
     assert len(results) >= 1
-    for field in ("path", "unit_type", "unit_name", "content", "summary", "score"):
+    for field in ("path", "content", "summary", "score"):
         assert field in results[0], f"missing field: {field}"
 
 
@@ -143,10 +143,13 @@ async def test_search_returns_stored_content(configured_server):
 
 
 @pytest.mark.asyncio
-async def test_search_path_is_absolute(configured_server):
+async def test_search_path_is_qualified(configured_server):
     results = await _call("search", {"query": "token", "top_k": 5})
     for r in results:
-        assert Path(r["path"]).is_absolute(), f"non-absolute path: {r['path']}"
+        # Qualified paths contain a file extension and : separator
+        assert ":" in r["path"] or r["path"].endswith((".py", ".md", ".sql")), (
+            f"unexpected path format: {r['path']}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -192,13 +195,13 @@ async def test_search_top_k_capped_at_20(tmp_path, embedder, summarizer):
 
 @pytest.mark.asyncio
 async def test_search_exact_summary_scores_1(populated_db, embedder):
-    """Querying with the exact embed text (path::name | summary) returns score ≈ 1.0."""
+    """Querying with the exact embed text (qualified_path | summary) returns score ≈ 1.0."""
     db_path, root = populated_db
     # ast.get_source_segment does not include the trailing newline
     content = "def validate_token(token: str) -> bool:\n    return len(token) > 0"
     summary = _fake_summary("function", "validate_token", content)
-    # The indexer prefixes the embed text with the relative path and unit name
-    exact = f"auth.py::validate_token | {summary}"
+    # The indexer embeds: qualified_path | summary
+    exact = f"auth.py:validate_token | {summary}"
 
     server_module.configure(db_path, embedder)
     try:
@@ -207,6 +210,51 @@ async def test_search_exact_summary_scores_1(populated_db, embedder):
         assert results[0]["score"] == pytest.approx(1.0, abs=1e-6)
     finally:
         server_module.configure(None, None)
+
+
+# ---------------------------------------------------------------------------
+# search — path_glob filtering
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_search_path_glob_filters_by_file(configured_server):
+    """path_glob=`auth*` should only return units from auth.py."""
+    results = await _call("search", {"query": "function", "top_k": 5, "path_glob": "auth*"})
+    assert len(results) >= 1
+    assert all("auth.py" in r["path"] for r in results)
+
+
+@pytest.mark.asyncio
+async def test_search_path_glob_excludes_non_matching(configured_server):
+    """path_glob that matches nothing returns empty list."""
+    results = await _call("search", {"query": "function", "top_k": 5, "path_glob": "nonexistent*"})
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_search_path_glob_wildcard_unit_name(configured_server):
+    """path_glob=`*:validate_token` matches by unit name."""
+    results = await _call("search", {"query": "token", "top_k": 5, "path_glob": "*:validate_token"})
+    assert len(results) == 1
+    assert "validate_token" in results[0]["path"]
+
+
+@pytest.mark.asyncio
+async def test_search_path_glob_none_returns_all(configured_server):
+    """Omitting path_glob returns results from all files."""
+    results = await _call("search", {"query": "function", "top_k": 5})
+    paths = {r["path"] for r in results}
+    assert len(paths) >= 2
+
+
+@pytest.mark.asyncio
+async def test_search_path_glob_is_optional():
+    """path_glob must be an optional parameter."""
+    async with Client(server_module.mcp) as client:
+        tools = await client.list_tools()
+    schema = {t.name: t for t in tools}["search"].inputSchema
+    assert "path_glob" not in schema.get("required", [])
 
 
 # ---------------------------------------------------------------------------

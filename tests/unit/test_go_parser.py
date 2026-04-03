@@ -128,13 +128,14 @@ def test_parse_go_returns_function(tmp_path, go_available, monkeypatch):
 
 def test_parse_go_returns_method(tmp_path, go_available, monkeypatch):
     data = _units(
-        _unit(unit_type="method", unit_name="Run", content="func (s *Srv) Run() {}")
+        _unit(unit_type="method", unit_name="Srv:Run", content="func (s *Srv) Run() {}")
     )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _run_ok(data))
     f = tmp_path / "srv.go"
     f.write_text("package main\n")
     units = parse_go(f)
     assert units[0].unit_type == "method"
+    assert units[0].unit_name == "Srv:Run"
 
 
 def test_parse_go_returns_struct(tmp_path, go_available, monkeypatch):

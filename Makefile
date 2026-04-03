@@ -28,21 +28,21 @@ lint:
 format:
 	uv run ruff format mcp_rag tests
 
-# Index the current directory into index.db (skips unchanged files)
+# Index a directory into index.db (skips unchanged files). Usage: make index SRC=../some-repo DB=my.db
 index:
-	uv run mcp-rag index .
+	uv run mcp-rag index --db $(or $(DB),index.db) $(or $(SRC),.)
 
-# Re-embed everything from scratch (use after changing embed model)
+# Re-embed everything from scratch (use after changing embed model). Usage: make reindex SRC=../some-repo DB=my.db
 reindex:
-	uv run mcp-rag index --reindex .
+	uv run mcp-rag index --reindex --db $(or $(DB),index.db) $(or $(SRC),.)
 
-# Start the MCP stdio server against the local index.db
+# Start the MCP stdio server. Usage: make serve DB=my.db
 serve:
-	uv run mcp-rag serve --db index.db
+	uv run mcp-rag serve --db $(or $(DB),index.db)
 
-# Register this server with Claude Code (run once after cloning)
+# Register this server with Claude Code (run once after cloning). Usage: make add-claude-mcp DB=my.db
 add-claude-mcp:
-	claude mcp add --transport stdio mcp-rag -- uv run --directory $(DIR) mcp-rag serve --db $(DIR)/index.db
+	claude mcp add --transport stdio mcp-rag -- uv run --directory $(DIR) mcp-rag serve --db $(abspath $(or $(DB),index.db))
 
 # Unregister this server from Claude Code
 remove-claude-mcp:

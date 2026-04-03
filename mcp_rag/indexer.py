@@ -24,7 +24,6 @@ from mcp_rag.models import (
     SemanticUnit,
     Summarizer,
     encode_embedding,
-    relative_path,
 )
 from mcp_rag.parsers import parse_file
 from mcp_rag.reconcile import StoredUnit, diff_units
@@ -32,7 +31,7 @@ from mcp_rag.reconcile import StoredUnit, diff_units
 _MAX_TOKENS = 8000
 _MAX_CHARS = _MAX_TOKENS * 4
 
-_SUPPORTED_EXTENSIONS = frozenset({".py", ".md", ".mdx", ".sql"})
+_SUPPORTED_EXTENSIONS = frozenset({".py", ".go", ".md", ".mdx", ".sql"})
 
 
 class IndexAbortError(Exception):
@@ -113,10 +112,13 @@ def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
             "INSERT OR REPLACE INTO mcp_rag_meta (key, value) VALUES ('embed_model', ?)",
             (new_model,),
         )
-        # Re-embed all existing units from their stored summaries (no API calls)
-        rows = conn.execute("SELECT id, summary FROM mcp_rag_units").fetchall()
-        for unit_id, summary in rows:
-            embedding = embedder.embed(summary)
+        # Re-embed all existing units using the stored qualified path
+        rows = conn.execute(
+            "SELECT id, path, summary FROM mcp_rag_units"
+        ).fetchall()
+        for unit_id, path, summary in rows:
+            embed_input = f"{path} | {summary}" if path else summary
+            embedding = embedder.embed(embed_input)
             conn.execute(
                 "INSERT INTO mcp_rag_embeddings (unit_id, embedding) VALUES (?, ?)",
                 (unit_id, encode_embedding(embedding)),
@@ -131,19 +133,9 @@ def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
 
 
 def _embed_text(unit: SemanticUnit, summary: str) -> str:
-    """Build the string to embed: path::name prefix + summary.
-
-    The raw summary is stored in the DB and returned to callers; this prefix
-    is applied only to the vector so that path and identifier tokens strengthen
-    similarity for path- or name-based queries.
-    """
-    parts = []
-    if unit.file_path is not None:
-        parts.append(str(relative_path(unit.file_path, unit.root)))
-    if unit.unit_name:
-        parts.append(unit.unit_name)
-    prefix = "::".join(parts)
-    return f"{prefix} | {summary}" if prefix else summary
+    """Build the string to embed: ``qualified_path | summary``."""
+    qp = unit.qualified_path
+    return f"{qp} | {summary}" if qp else summary
 
 
 # ---------------------------------------------------------------------------
@@ -293,11 +285,11 @@ def _process_file(
     if file_info is not None:
         file_id, _, _ = file_info
         stored_rows = conn.execute(
-            "SELECT id, unit_type, unit_name, content_md5, char_offset "
+            "SELECT id, path, content_md5, char_offset "
             "FROM mcp_rag_units WHERE file_id = ?",
             (file_id,),
         ).fetchall()
-        existing = [StoredUnit(r[0], r[1], r[2], r[3], r[4]) for r in stored_rows]
+        existing = [StoredUnit(r[0], r[1], r[2], r[3]) for r in stored_rows]
     else:
         file_id = None
         existing = []
@@ -346,15 +338,14 @@ def _process_file(
                 continue
             cur = conn.execute(
                 "INSERT INTO mcp_rag_units "
-                "(file_id, unit_type, unit_name, content, content_md5, summary, char_offset) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(file_id, path, content, content_md5, summary, char_offset) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (
                     file_id,
-                    unit.unit_type,
-                    unit.unit_name,
+                    unit.qualified_path,
                     unit.content,
                     unit.content_md5,
-                    summary,  # raw summary stored; prefix applied only for embedding
+                    summary,
                     unit.char_offset,
                 ),
             )

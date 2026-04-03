@@ -10,7 +10,7 @@ parsed units from a file and returns three buckets:
 - to_delete — StoredUnit rows that have no matching incoming unit, or whose
               content changed (old row replaced by new); caller must DELETE.
 
-The reconciliation key is the triple ``(unit_type, unit_name, char_offset)``.
+The reconciliation key is the pair ``(path, char_offset)``.
 """
 
 from dataclasses import dataclass
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from mcp_rag.models import SemanticUnit
 
 # Type alias for the reconciliation key
-_Key = tuple[str, str | None, int]
+_Key = tuple[str, int]
 
 
 @dataclass
@@ -26,8 +26,7 @@ class StoredUnit:
     """Lightweight representation of a unit row already in the DB."""
 
     id: int
-    unit_type: str
-    unit_name: str | None
+    path: str
     content_md5: str
     char_offset: int
 
@@ -41,7 +40,7 @@ def diff_units(
     Returns ``(to_keep, to_add, to_delete)``.
     """
     existing_by_key: dict[_Key, StoredUnit] = {
-        (u.unit_type, u.unit_name, u.char_offset): u for u in existing
+        (u.path, u.char_offset): u for u in existing
     }
 
     to_keep: list[StoredUnit] = []
@@ -50,7 +49,7 @@ def diff_units(
     matched_keys: set[_Key] = set()
 
     for new_unit in incoming:
-        k: _Key = (new_unit.unit_type, new_unit.unit_name, new_unit.char_offset)
+        k: _Key = (new_unit.qualified_path, new_unit.char_offset)
         stored = existing_by_key.get(k)
 
         if stored is not None and stored.content_md5 == new_unit.content_md5:
@@ -63,7 +62,7 @@ def diff_units(
         matched_keys.add(k)
 
     for stored in existing:
-        k = (stored.unit_type, stored.unit_name, stored.char_offset)
+        k = (stored.path, stored.char_offset)
         if k not in matched_keys:
             to_delete.append(stored)
 
