@@ -7,6 +7,7 @@ FakeSummarizer — deterministic strings + call log, no Anthropic API dependency
 
 import hashlib
 import math
+import subprocess
 import textwrap
 from pathlib import Path
 
@@ -63,6 +64,55 @@ class FakeSummarizer:
 
 
 # ---------------------------------------------------------------------------
+# Git helpers
+# ---------------------------------------------------------------------------
+
+
+def git_init(path: Path) -> None:
+    """Initialize a git repo at *path* with a dummy commit."""
+    subprocess.run(["git", "init", str(path)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        check=True, capture_output=True, cwd=str(path),
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        check=True, capture_output=True, cwd=str(path),
+    )
+
+
+def git_add_commit(path: Path, message: str = "init") -> None:
+    """Stage all files and commit in the repo at *path*."""
+    subprocess.run(
+        ["git", "add", "."], check=True, capture_output=True, cwd=str(path),
+    )
+    subprocess.run(
+        ["git", "commit", "-m", message, "--allow-empty"],
+        check=True, capture_output=True, cwd=str(path),
+    )
+
+
+def make_git_project(path: Path, files: dict[str, str | bytes] | None = None) -> Path:
+    """Create a git-initialized project at *path* with optional files.
+
+    *files* maps relative names to content (str for text, bytes for binary).
+    Returns *path* for convenient inline use.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    if files:
+        for name, content in files.items():
+            fp = path / name
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(content, bytes):
+                fp.write_bytes(content)
+            else:
+                fp.write_text(content, encoding="utf-8")
+    git_init(path)
+    git_add_commit(path)
+    return path
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -86,7 +136,7 @@ def tmp_db_path(tmp_path: Path) -> Path:
 @pytest.fixture
 def sample_project_dir(tmp_path: Path) -> Path:
     """
-    A small realistic project directory written to disk.
+    A small realistic project directory written to disk (git-initialized).
 
     Structure
     ---------
@@ -144,5 +194,8 @@ def sample_project_dir(tmp_path: Path) -> Path:
     (root / "src" / "huge.sql").write_text(
         "-- x\n" * 820, encoding="utf-8"
     )  # ~4,920 bytes
+
+    git_init(root)
+    git_add_commit(root)
 
     return root

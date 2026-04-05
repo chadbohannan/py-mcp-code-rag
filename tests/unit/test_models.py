@@ -142,3 +142,60 @@ def test_qualified_path_uses_colon_delimiter():
     # File path separated from unit name by single colon
     assert unit.qualified_path == "mod.py:foo"
     assert "::" not in unit.qualified_path
+
+
+# ---------------------------------------------------------------------------
+# qualified_path with repo_name
+# ---------------------------------------------------------------------------
+
+
+def test_qualified_path_with_repo_name():
+    root = Path("/project")
+    unit = SemanticUnit(
+        unit_type="method",
+        unit_name="Router:send",
+        content="def send(): pass",
+        char_offset=0,
+        file_path=root / "src" / "net.py",
+        root=root,
+        repo_name="backend",
+    )
+    assert unit.qualified_path == "backend/src/net.py:Router:send"
+
+
+def test_qualified_path_repo_name_no_unit_name():
+    root = Path("/project")
+    unit = SemanticUnit(
+        unit_type="sql",
+        unit_name=None,
+        content="SELECT 1",
+        char_offset=0,
+        file_path=root / "query.sql",
+        root=root,
+        repo_name="backend",
+    )
+    assert unit.qualified_path == "backend/query.sql"
+
+
+def test_qualified_path_repo_name_no_file():
+    unit = SemanticUnit(
+        unit_type="function",
+        unit_name="foo",
+        content="def foo(): pass",
+        char_offset=0,
+        repo_name="backend",
+    )
+    assert unit.qualified_path == "backend:foo"
+
+
+def test_qualified_path_without_repo_name_unchanged():
+    root = Path("/project")
+    unit = SemanticUnit(
+        unit_type="function",
+        unit_name="foo",
+        content="def foo(): pass",
+        char_offset=0,
+        file_path=root / "mod.py",
+        root=root,
+    )
+    assert unit.qualified_path == "mod.py:foo"

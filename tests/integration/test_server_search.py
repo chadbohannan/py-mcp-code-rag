@@ -18,7 +18,7 @@ from fastmcp import Client
 import mcp_rag.server as server_module
 from mcp_rag.indexer import run_index
 from mcp_rag.models import SemanticUnit
-from tests.conftest import FakeEmbedder, FakeSummarizer
+from tests.conftest import FakeEmbedder, FakeSummarizer, make_git_project
 
 
 # ---------------------------------------------------------------------------
@@ -64,22 +64,16 @@ def summarizer():
 @pytest.fixture
 def populated_db(tmp_path, embedder, summarizer):
     """DB with two Python files: auth.py (validate_token) and utils.py (format_name)."""
-    root = tmp_path / "proj"
-    root.mkdir()
-    (root / "auth.py").write_text(
-        textwrap.dedent("""\
+    root = make_git_project(tmp_path / "proj", {
+        "auth.py": textwrap.dedent("""\
             def validate_token(token: str) -> bool:
                 return len(token) > 0
         """),
-        encoding="utf-8",
-    )
-    (root / "utils.py").write_text(
-        textwrap.dedent("""\
+        "utils.py": textwrap.dedent("""\
             def format_name(first: str, last: str) -> str:
                 return f"{first} {last}"
         """),
-        encoding="utf-8",
-    )
+    })
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     return db_path, root
@@ -95,8 +89,7 @@ def configured_server(populated_db, embedder):
 
 @pytest.fixture
 def empty_db(tmp_path, embedder, summarizer):
-    root = tmp_path / "proj"
-    root.mkdir()
+    root = make_git_project(tmp_path / "proj")
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     return db_path
@@ -147,7 +140,7 @@ async def test_search_returns_matching_paths(configured_server):
 async def test_search_path_is_qualified(configured_server):
     results = await _call("search", {"query": "token", "top_k": 5})
     for r in results:
-        # Qualified paths contain a file extension and : separator
+        # Qualified paths contain repo_name/ prefix and : separator
         assert ":" in r["path"] or r["path"].endswith((".py", ".md", ".sql")), (
             f"unexpected path format: {r['path']}"
         )
@@ -174,11 +167,9 @@ async def test_search_top_k_default_is_5(configured_server):
 @pytest.mark.asyncio
 async def test_search_top_k_capped_at_20(tmp_path, embedder, summarizer):
     """top_k=100 must not return more than 20 results."""
-    root = tmp_path / "proj"
-    root.mkdir()
-    # Write 25 distinct functions so there are > 20 units to return
-    lines = "\n".join(f"def fn_{i}(): pass" for i in range(25))
-    (root / "big.py").write_text(lines + "\n", encoding="utf-8")
+    root = make_git_project(tmp_path / "proj", {
+        "big.py": "\n".join(f"def fn_{i}(): pass" for i in range(25)) + "\n",
+    })
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     server_module.configure(db_path, embedder)
@@ -201,8 +192,8 @@ async def test_search_exact_summary_scores_1(populated_db, embedder):
     # ast.get_source_segment does not include the trailing newline
     content = "def validate_token(token: str) -> bool:\n    return len(token) > 0"
     summary = _fake_summary("function", "validate_token", content)
-    # The indexer embeds: qualified_path | summary
-    exact = f"auth.py:validate_token | {summary}"
+    # The indexer embeds: qualified_path | summary (now with repo name)
+    exact = f"proj/auth.py:validate_token | {summary}"
 
     server_module.configure(db_path, embedder)
     try:
@@ -214,48 +205,60 @@ async def test_search_exact_summary_scores_1(populated_db, embedder):
 
 
 # ---------------------------------------------------------------------------
-# search — path_glob filtering
+# search — globs filtering
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_search_path_glob_filters_by_file(configured_server):
-    """path_glob=`auth*` should only return units from auth.py."""
-    results = await _call("search", {"query": "function", "top_k": 5, "path_glob": "auth*"})
+async def test_search_globs_filters_by_file(configured_server):
+    """globs=["*auth*"] should only return units from auth.py."""
+    results = await _call("search", {"query": "function", "top_k": 5, "globs": ["*auth*"]})
     assert len(results) >= 1
     assert all("auth.py" in r["path"] for r in results)
 
 
 @pytest.mark.asyncio
-async def test_search_path_glob_excludes_non_matching(configured_server):
-    """path_glob that matches nothing returns empty list."""
-    results = await _call("search", {"query": "function", "top_k": 5, "path_glob": "nonexistent*"})
+async def test_search_globs_excludes_non_matching(configured_server):
+    """globs that match nothing returns empty list."""
+    results = await _call("search", {"query": "function", "top_k": 5, "globs": ["nonexistent*"]})
     assert results == []
 
 
 @pytest.mark.asyncio
-async def test_search_path_glob_wildcard_unit_name(configured_server):
-    """path_glob=`*:validate_token` matches by unit name."""
-    results = await _call("search", {"query": "token", "top_k": 5, "path_glob": "*:validate_token"})
+async def test_search_globs_wildcard_unit_name(configured_server):
+    """globs=["*:validate_token"] matches by unit name."""
+    results = await _call("search", {"query": "token", "top_k": 5, "globs": ["*:validate_token"]})
     assert len(results) == 1
     assert "validate_token" in results[0]["path"]
 
 
 @pytest.mark.asyncio
-async def test_search_path_glob_none_returns_all(configured_server):
-    """Omitting path_glob returns results from all files."""
+async def test_search_globs_none_returns_all(configured_server):
+    """Omitting globs returns results from all files."""
     results = await _call("search", {"query": "function", "top_k": 5})
     paths = {r["path"] for r in results}
     assert len(paths) >= 2
 
 
 @pytest.mark.asyncio
-async def test_search_path_glob_is_optional():
-    """path_glob must be an optional parameter."""
+async def test_search_globs_multiple_and(configured_server):
+    """Multiple globs are AND'd — all must match."""
+    results = await _call("search", {
+        "query": "function",
+        "top_k": 5,
+        "globs": ["proj/*", "*:validate_token"],
+    })
+    assert len(results) == 1
+    assert "validate_token" in results[0]["path"]
+
+
+@pytest.mark.asyncio
+async def test_search_globs_is_optional():
+    """globs must be an optional parameter."""
     async with Client(server_module.mcp) as client:
         tools = await client.list_tools()
     schema = {t.name: t for t in tools}["search"].inputSchema
-    assert "path_glob" not in schema.get("required", [])
+    assert "globs" not in schema.get("required", [])
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +291,7 @@ async def test_index_status_returns_list(configured_server):
 async def test_index_status_result_has_required_fields(configured_server):
     results = await _call("index_status", {})
     assert len(results) >= 1
-    for field in ("root", "file_count", "unit_count", "last_indexed_at"):
+    for field in ("repo", "file_count", "unit_count", "last_indexed_at"):
         assert field in results[0], f"missing field: {field}"
 
 
@@ -311,19 +314,19 @@ async def test_index_status_last_indexed_at_is_iso8601(configured_server):
 
 
 @pytest.mark.asyncio
-async def test_index_status_root_matches_indexed_path(populated_db, embedder):
+async def test_index_status_repo_matches_indexed_name(populated_db, embedder):
     db_path, root = populated_db
     server_module.configure(db_path, embedder)
     try:
         results = await _call("index_status", {})
-        roots = {r["root"] for r in results}
-        assert str(root) in roots
+        repos = {r["repo"] for r in results}
+        assert "proj" in repos
     finally:
         server_module.configure(None, None)
 
 
 # ---------------------------------------------------------------------------
-# index_status — empty DB and multi-root
+# index_status — empty DB and multi-repo
 # ---------------------------------------------------------------------------
 
 
@@ -338,13 +341,9 @@ async def test_index_status_empty_db_returns_empty_list(empty_db, embedder):
 
 
 @pytest.mark.asyncio
-async def test_index_status_one_entry_per_root(tmp_path, embedder, summarizer):
-    root_a = tmp_path / "proj_a"
-    root_b = tmp_path / "proj_b"
-    root_a.mkdir()
-    root_b.mkdir()
-    (root_a / "a.py").write_text("def fa(): pass\n", encoding="utf-8")
-    (root_b / "b.py").write_text("def fb(): pass\n", encoding="utf-8")
+async def test_index_status_one_entry_per_repo(tmp_path, embedder, summarizer):
+    root_a = make_git_project(tmp_path / "proj_a", {"a.py": "def fa(): pass\n"})
+    root_b = make_git_project(tmp_path / "proj_b", {"b.py": "def fb(): pass\n"})
     db_path = tmp_path / "index.db"
     run_index(
         [root_a, root_b], db_path=db_path, embedder=embedder, summarizer=summarizer
@@ -354,9 +353,9 @@ async def test_index_status_one_entry_per_root(tmp_path, embedder, summarizer):
     try:
         results = await _call("index_status", {})
         assert len(results) == 2
-        roots = {r["root"] for r in results}
-        assert str(root_a) in roots
-        assert str(root_b) in roots
+        repos = {r["repo"] for r in results}
+        assert "proj_a" in repos
+        assert "proj_b" in repos
     finally:
         server_module.configure(None, None)
 
@@ -368,7 +367,7 @@ async def test_index_status_one_entry_per_root(tmp_path, embedder, summarizer):
 
 @pytest.mark.asyncio
 async def test_get_unit_returns_content(configured_server):
-    results = await _call("get_unit", {"paths": ["auth.py:validate_token"]})
+    results = await _call("get_unit", {"paths": ["proj/auth.py:validate_token"]})
     assert len(results) == 1
     assert "validate_token" in results[0]["content"]
     for field in ("path", "content", "summary"):
@@ -379,12 +378,12 @@ async def test_get_unit_returns_content(configured_server):
 async def test_get_unit_multiple_paths(configured_server):
     results = await _call(
         "get_unit",
-        {"paths": ["auth.py:validate_token", "utils.py:format_name"]},
+        {"paths": ["proj/auth.py:validate_token", "proj/utils.py:format_name"]},
     )
     assert len(results) == 2
     paths = {r["path"] for r in results}
-    assert "auth.py:validate_token" in paths
-    assert "utils.py:format_name" in paths
+    assert "proj/auth.py:validate_token" in paths
+    assert "proj/utils.py:format_name" in paths
 
 
 @pytest.mark.asyncio
@@ -422,15 +421,15 @@ async def test_list_units_ordered_by_path(configured_server):
 
 
 @pytest.mark.asyncio
-async def test_list_units_path_glob_filters(configured_server):
-    results = await _call("list_units", {"path_glob": "auth*"})
+async def test_list_units_globs_filters(configured_server):
+    results = await _call("list_units", {"globs": ["*auth*"]})
     assert len(results) >= 1
     assert all("auth" in r["path"] for r in results)
 
 
 @pytest.mark.asyncio
-async def test_list_units_path_glob_no_match(configured_server):
-    results = await _call("list_units", {"path_glob": "nonexistent*"})
+async def test_list_units_globs_no_match(configured_server):
+    results = await _call("list_units", {"globs": ["nonexistent*"]})
     assert results == []
 
 
@@ -443,9 +442,7 @@ async def test_list_units_limit(configured_server):
 @pytest.mark.asyncio
 async def test_list_units_limit_capped_at_500(tmp_path, embedder, summarizer):
     """limit > 500 is silently capped."""
-    root = tmp_path / "proj"
-    root.mkdir()
-    (root / "a.py").write_text("def f(): pass\n", encoding="utf-8")
+    root = make_git_project(tmp_path / "proj", {"a.py": "def f(): pass\n"})
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     server_module.configure(db_path, embedder)
@@ -455,3 +452,22 @@ async def test_list_units_limit_capped_at_500(tmp_path, embedder, summarizer):
         assert isinstance(results, list)
     finally:
         server_module.configure(None, None)
+
+
+# ---------------------------------------------------------------------------
+# list_repos — shape and contract
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_repos_returns_list(configured_server):
+    results = await _call("list_repos", {})
+    assert isinstance(results, list)
+    assert len(results) >= 1
+
+
+@pytest.mark.asyncio
+async def test_list_repos_has_required_fields(configured_server):
+    results = await _call("list_repos", {})
+    for field in ("name", "root", "description"):
+        assert field in results[0], f"missing field: {field}"

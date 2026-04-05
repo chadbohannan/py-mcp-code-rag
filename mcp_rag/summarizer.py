@@ -87,6 +87,13 @@ class OllamaSummarizer:
 
 
 def _build_prompt(unit: SemanticUnit) -> str:
+    if unit.unit_type == "module":
+        return (
+            "Summarize this file's purpose, key exports, and role relative to the "
+            "modules it depends on. 2-3 sentences, terse and dense. "
+            "No preamble, no headings, no bullet points.\n\n"
+            f"{unit.content}"
+        )
     return (
         f"Summarize this {unit.unit_type} in 2-3 sentences. "
         f"Say what it does and why using terse, dense natural language a developer would "

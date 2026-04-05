@@ -7,7 +7,8 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from mcp_rag.db import open_db
+from mcp_rag.db import list_repos_db, open_db
+from mcp_rag.discovery import read_git_description
 from mcp_rag.models import Embedder, encode_embedding
 
 mcp = FastMCP("mcp-rag")
@@ -40,12 +41,29 @@ def _get_conn() -> sqlite3.Connection | None:
 
 
 # ---------------------------------------------------------------------------
+# Glob helpers
+# ---------------------------------------------------------------------------
+
+
+def _glob_where(globs: list[str] | None, column: str = "u.path") -> tuple[str, list]:
+    """Build a WHERE clause from GLOB filters.
+
+    Returns ``("", [])`` when *globs* is empty/None, or
+    ``("WHERE col GLOB ? AND col GLOB ?", [g1, g2])`` otherwise.
+    """
+    if not globs:
+        return "", []
+    clauses = " AND ".join(f"{column} GLOB ?" for _ in globs)
+    return f"WHERE {clauses}", list(globs)
+
+
+# ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 
 
 @mcp.tool
-async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> list[dict]:
+async def search(query: str, top_k: int = 5, globs: list[str] | None = None) -> list[dict]:
     """Search the indexed codebase using natural language.
 
     Every indexed unit (function, class, markdown section, etc.) has a
@@ -54,7 +72,7 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
     colleague** — e.g. "how does authentication work?" rather than keyword
     fragments.
 
-    Results include the qualified path (``file.py:Class:method``), the
+    Results include the qualified path (``repo/file.py:Class:method``), the
     human-readable summary, and a relevance score in [0.0, 1.0] (higher is
     better).  top_k is capped at 20.  Use ``get_unit`` to retrieve full
     source content for specific paths.
@@ -66,8 +84,9 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
     - Use semantic questions, not grep-style keywords — the index understands
       intent, not just tokens.
 
-    Use path_glob to filter by qualified path with SQLite GLOB syntax
-    (e.g. ``*.py:Router:*``, ``*/go/*``, ``*:Wire Format*``).
+    Use globs to filter by qualified path with SQLite GLOB syntax.  Multiple
+    globs are AND'd together — all must match.
+    (e.g. ``["backend/*", "*.py:*"]`` → only Python units in the backend repo).
     """
     if _db_path is None or _embedder is None:
         return []
@@ -75,26 +94,27 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
     k = min(top_k, 20)
     emb = _embedder.embed(query)
 
-    if path_glob is not None:
-        sql = """
+    if globs:
+        where, glob_params = _glob_where(globs)
+        sql = f"""
             SELECT
                 u.path,
                 u.summary,
                 sub.dist
             FROM (
                 SELECT e.unit_id, vec_distance_cosine(e.embedding, ?) AS dist
-                FROM mcp_rag_embeddings e
+                FROM embeddings e
                 ORDER BY dist ASC
                 LIMIT ?
             ) sub
-            JOIN mcp_rag_units u ON u.id = sub.unit_id
-            WHERE u.path GLOB ?
+            JOIN units u ON u.id = sub.unit_id
+            {where}
             ORDER BY sub.dist ASC
         """
         # Fetch more candidates from the vector search so filtering still
         # returns enough results.  Cap at 200 to keep the scan reasonable.
         candidates = min(k * 10, 200)
-        rows = _get_conn().execute(sql, (encode_embedding(emb), candidates, path_glob)).fetchall()
+        rows = _get_conn().execute(sql, [encode_embedding(emb), candidates] + glob_params).fetchall()
         rows = rows[:k]
     else:
         sql = """
@@ -102,8 +122,8 @@ async def search(query: str, top_k: int = 5, path_glob: str | None = None) -> li
                 u.path,
                 u.summary,
                 vec_distance_cosine(e.embedding, ?) AS dist
-            FROM mcp_rag_embeddings e
-            JOIN mcp_rag_units u ON u.id = e.unit_id
+            FROM embeddings e
+            JOIN units u ON u.id = e.unit_id
             ORDER BY dist ASC
             LIMIT ?
         """
@@ -141,7 +161,7 @@ async def get_unit(paths: list[str]) -> list[dict]:
     placeholders = ",".join("?" for _ in paths)
     sql = f"""
         SELECT u.path, u.content, u.summary
-        FROM mcp_rag_units u
+        FROM units u
         WHERE u.path IN ({placeholders})
         ORDER BY u.path
     """
@@ -154,71 +174,73 @@ async def get_unit(paths: list[str]) -> list[dict]:
 
 
 @mcp.tool
-async def list_units(path_glob: str | None = None, limit: int = 100) -> list[dict]:
+async def list_units(globs: list[str] | None = None, limit: int = 100) -> list[dict]:
     """List semantic units (functions, classes, methods, sections, etc.) in the
     index.
 
-    Returns the qualified path (``file.py:Class:method``) and summary for
+    Returns the qualified path (``repo/file.py:Class:method``) and summary for
     each unit, ordered alphabetically by path.  Use this to understand the
     structure of a file, module, or the entire codebase without fetching
     full source content.
 
-    Use path_glob to filter by qualified path with SQLite GLOB syntax.
-    The qualified path starts with the relative file path, so file-level
-    filtering works too:
+    Use globs to filter by qualified path with SQLite GLOB syntax.  Multiple
+    globs are AND'd together.  The qualified path starts with the repo name
+    then the relative file path:
 
-    - ``*.js:*``           — all JS units
-    - ``*:Router:*``       — all Router members across languages
-    - ``*/tests/*``        — all test file units
-    - ``*.md:*``           — documentation structure
+    - ``["backend/*"]``          — all units in the backend repo
+    - ``["*.js:*"]``             — all JS units
+    - ``["*:Router:*"]``         — all Router members across languages
+    - ``["backend/*", "*.py:*"]`` — Python units in backend only
     """
     if _db_path is None or _embedder is None:
         return []
 
     capped = min(limit, 500)
     conn = _get_conn()
-    if path_glob is not None:
-        rows = conn.execute(
-            "SELECT path, summary FROM mcp_rag_units WHERE path GLOB ? ORDER BY path LIMIT ?",
-            (path_glob, capped),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT path, summary FROM mcp_rag_units ORDER BY path LIMIT ?",
-            (capped,),
-        ).fetchall()
+
+    where, params = _glob_where(globs)
+    sql = f"SELECT u.path, u.summary FROM units u {where} ORDER BY u.path LIMIT ?"
+    params.append(capped)
+    rows = conn.execute(sql, params).fetchall()
 
     return [{"path": row[0], "summary": row[1]} for row in rows]
 
 
 @mcp.tool
-async def list_files(path_glob: str | None = None) -> list[dict]:
+async def list_files(globs: list[str] | None = None) -> list[dict]:
     """List files that have been indexed.
 
-    Returns the file path, root, and last-indexed timestamp for every file
-    in the index.  Call this early to understand what content is available
-    before searching — the index may contain documentation (``*.md``),
-    config files, and multiple languages alongside source code.
+    Returns the repo name, relative file path, and last-indexed timestamp for
+    every file in the index.  Call this early to understand what content is
+    available before searching.
 
-    Use path_glob to filter by file path with SQLite GLOB syntax
-    (e.g. ``*.py``, ``*.md``, ``*/tests/*``).
+    Use globs to filter by file path with SQLite GLOB syntax.  Multiple globs
+    are AND'd together (e.g. ``["backend/*", "*.py"]``).
     """
     if _db_path is None or _embedder is None:
         return []
 
     conn = _get_conn()
-    if path_glob is not None:
-        rows = conn.execute(
-            "SELECT root, path, indexed_at FROM mcp_rag_files WHERE path GLOB ? ORDER BY path",
-            (path_glob,),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT root, path, indexed_at FROM mcp_rag_files ORDER BY path",
-        ).fetchall()
+
+    # Can't reuse _glob_where here: files table has no single qualified
+    # path column, so we GLOB against the concatenated repo_name/path.
+    from_clause = (
+        "SELECT r.name, f.path, f.indexed_at "
+        "FROM files f JOIN repos r ON r.id = f.repo_id"
+    )
+    params: list = []
+    if globs:
+        clauses = " AND ".join(
+            "(r.name || '/' || f.path) GLOB ?" for _ in globs
+        )
+        from_clause += f" WHERE {clauses}"
+        params = list(globs)
+
+    from_clause += " ORDER BY r.name, f.path"
+    rows = conn.execute(from_clause, params).fetchall()
 
     return [
-        {"root": row[0], "path": row[1], "indexed_at": row[2]}
+        {"repo": row[0], "path": row[1], "indexed_at": row[2]}
         for row in rows
     ]
 
@@ -227,9 +249,9 @@ async def list_files(path_glob: str | None = None) -> list[dict]:
 async def index_status() -> list[dict]:
     """Return the current state of the index.
 
-    Reports per-root file count, semantic unit count, and the timestamp of
+    Reports per-repo file count, semantic unit count, and the timestamp of
     the most recent indexing run.  Use this to orient yourself: see which
-    project roots are indexed and how much content is available before
+    repositories are indexed and how much content is available before
     choosing a search strategy.
     """
     if _db_path is None or _embedder is None:
@@ -240,13 +262,15 @@ async def index_status() -> list[dict]:
         .execute(
             """
         SELECT
-            f.root,
+            r.name,
             COUNT(DISTINCT f.id)  AS file_count,
             COUNT(u.id)           AS unit_count,
             MAX(f.indexed_at)     AS last_indexed_at
-        FROM mcp_rag_files f
-        LEFT JOIN mcp_rag_units u ON u.file_id = f.id
-        GROUP BY f.root
+        FROM repos r
+        JOIN files f ON f.repo_id = r.id
+        LEFT JOIN units u ON u.file_id = f.id
+        GROUP BY r.id
+        ORDER BY r.name
         """,
         )
         .fetchall()
@@ -254,10 +278,28 @@ async def index_status() -> list[dict]:
 
     return [
         {
-            "root": row[0],
+            "repo": row[0],
             "file_count": row[1],
             "unit_count": row[2],
             "last_indexed_at": row[3],
         }
         for row in rows
     ]
+
+
+@mcp.tool
+async def list_repos() -> list[dict]:
+    """List all indexed repositories.
+
+    Returns the repo name, absolute root path, and git description for each
+    repository in the index.
+    """
+    if _db_path is None or _embedder is None:
+        return []
+
+    conn = _get_conn()
+    repos = list_repos_db(conn)
+    for repo in repos:
+        root = Path(repo["root"])
+        repo["description"] = read_git_description(root)
+    return repos

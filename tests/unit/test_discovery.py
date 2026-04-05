@@ -1,83 +1,49 @@
-"""Unit tests for mcp_rag.discovery — file enumeration logic.
+"""Unit tests for mcp_rag.discovery — file and repo enumeration logic.
 
 These tests use real filesystem I/O (tmp_path) but no database or network.
 Git-based tests require `git` to be in PATH.
 """
 
-import subprocess
 from pathlib import Path
 
-
-from mcp_rag.discovery import discover_files
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _git_init(path: Path) -> None:
-    subprocess.run(["git", "init", str(path)], check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        check=True,
-        capture_output=True,
-        cwd=str(path),
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        check=True,
-        capture_output=True,
-        cwd=str(path),
-    )
-
-
-def _git_add_commit(path: Path, file: Path) -> None:
-    subprocess.run(
-        ["git", "add", str(file)], check=True, capture_output=True, cwd=str(path)
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "init"],
-        check=True,
-        capture_output=True,
-        cwd=str(path),
-    )
+from mcp_rag.discovery import discover_files, discover_git_repos
+from tests.conftest import git_init, git_add_commit
 
 
 # ---------------------------------------------------------------------------
-# Git-based discovery
+# Git-based file discovery
 # ---------------------------------------------------------------------------
 
 
 def test_discover_files_git_repo_returns_committed_file(tmp_path):
-    _git_init(tmp_path)
+    git_init(tmp_path)
     f = tmp_path / "main.py"
     f.write_text("print('hi')\n", encoding="utf-8")
-    _git_add_commit(tmp_path, f)
+    git_add_commit(tmp_path)
 
     files = discover_files(tmp_path)
     assert f in files
 
 
 def test_discover_files_git_excludes_gitignored(tmp_path):
-    _git_init(tmp_path)
+    git_init(tmp_path)
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("secret.txt\n", encoding="utf-8")
     secret = tmp_path / "secret.txt"
     secret.write_text("top secret", encoding="utf-8")
     main = tmp_path / "main.py"
     main.write_text("pass\n", encoding="utf-8")
-    _git_add_commit(tmp_path, gitignore)
+    git_add_commit(tmp_path)
     # main.py is untracked but not ignored → should appear via --others
     files = discover_files(tmp_path)
     assert secret not in files
 
 
 def test_discover_files_returns_absolute_paths(tmp_path):
-    _git_init(tmp_path)
+    git_init(tmp_path)
     f = tmp_path / "a.py"
     f.write_text("x = 1\n", encoding="utf-8")
-    _git_add_commit(tmp_path, f)
+    git_add_commit(tmp_path)
 
     files = discover_files(tmp_path)
     for path in files:
@@ -86,10 +52,10 @@ def test_discover_files_returns_absolute_paths(tmp_path):
 
 def test_discover_files_untracked_not_ignored_included(tmp_path):
     """git ls-files --others includes untracked, non-ignored files."""
-    _git_init(tmp_path)
+    git_init(tmp_path)
     committed = tmp_path / "committed.py"
     committed.write_text("pass\n", encoding="utf-8")
-    _git_add_commit(tmp_path, committed)
+    git_add_commit(tmp_path)
     untracked = tmp_path / "untracked.py"
     untracked.write_text("pass\n", encoding="utf-8")
 
@@ -176,3 +142,85 @@ def test_discover_files_non_git_absolute_paths(tmp_path):
     files = discover_files(tmp_path)
     for path in files:
         assert path.is_absolute()
+
+
+# ---------------------------------------------------------------------------
+# Git repo discovery — discover_git_repos
+# ---------------------------------------------------------------------------
+
+
+def test_discover_git_repos_inside_repo(tmp_path):
+    """When path is inside a git repo, returns that single repo."""
+    git_init(tmp_path)
+    (tmp_path / "main.py").write_text("pass\n", encoding="utf-8")
+    git_add_commit(tmp_path)
+
+    repos = discover_git_repos(tmp_path)
+    assert len(repos) == 1
+    name, root, _desc = repos[0]
+    assert root == tmp_path.resolve()
+
+
+def test_discover_git_repos_name_is_basename(tmp_path):
+    proj = tmp_path / "myproject"
+    proj.mkdir()
+    git_init(proj)
+    (proj / "f.py").write_text("pass\n", encoding="utf-8")
+    git_add_commit(proj)
+
+    repos = discover_git_repos(proj)
+    assert repos[0][0] == "myproject"
+
+
+def test_discover_git_repos_finds_nested_repos(tmp_path):
+    """BFS from parent dir finds child repos."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    for name in ("alpha", "beta"):
+        r = workspace / name
+        r.mkdir()
+        git_init(r)
+        (r / "f.py").write_text("pass\n", encoding="utf-8")
+        git_add_commit(r)
+
+    repos = discover_git_repos(workspace)
+    names = {r[0] for r in repos}
+    assert "alpha" in names
+    assert "beta" in names
+
+
+def test_discover_git_repos_name_collision_resolved(tmp_path):
+    """Two repos with the same basename get disambiguated."""
+    for parent in ("a", "b"):
+        r = tmp_path / parent / "shared"
+        r.mkdir(parents=True)
+        git_init(r)
+        (r / "f.py").write_text("pass\n", encoding="utf-8")
+        git_add_commit(r)
+
+    repos = discover_git_repos(tmp_path)
+    names = [r[0] for r in repos]
+    assert len(names) == 2
+    assert len(set(names)) == 2  # all unique
+
+
+def test_discover_git_repos_empty_for_non_repo_dir(tmp_path):
+    """Dir with no repos returns empty list."""
+    (tmp_path / "f.txt").write_text("hello\n", encoding="utf-8")
+    repos = discover_git_repos(tmp_path)
+    assert repos == []
+
+
+def test_discover_git_repos_reads_description(tmp_path):
+    proj = tmp_path / "myproj"
+    proj.mkdir()
+    git_init(proj)
+    (proj / "f.py").write_text("pass\n", encoding="utf-8")
+    git_add_commit(proj)
+
+    # Write a custom description
+    (proj / ".git" / "description").write_text("My cool project\n", encoding="utf-8")
+
+    repos = discover_git_repos(proj)
+    assert repos[0][2] == "My cool project"

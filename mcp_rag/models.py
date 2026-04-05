@@ -26,20 +26,27 @@ class SemanticUnit:
     summary: str = ""
     file_path: Path | None = None
     root: Path | None = None
+    repo_name: str | None = None
 
     def __post_init__(self) -> None:
         self.content_md5 = hashlib.md5(self.content.encode()).hexdigest()
 
     @property
     def qualified_path(self) -> str:
-        """Build the full qualified path: ``relative/file.py:Class:method``.
+        """Build the full qualified path: ``repo/relative/file.py:Class:method``.
 
+        When ``repo_name`` is set, it is prepended as the first path segment.
         The file's relative path uses ``/`` separators; the unit hierarchy
         uses ``:`` so there is no ambiguity at the file boundary.
         """
         parts: list[str] = []
         if self.file_path is not None:
-            parts.append(str(relative_path(self.file_path, self.root)))
+            rel = str(relative_path(self.file_path, self.root))
+            if self.repo_name:
+                rel = f"{self.repo_name}/{rel}"
+            parts.append(rel)
+        elif self.repo_name:
+            parts.append(self.repo_name)
         if self.unit_name:
             parts.append(self.unit_name)
         return ":".join(parts)

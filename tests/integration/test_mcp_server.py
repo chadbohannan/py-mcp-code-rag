@@ -57,6 +57,10 @@ async def test_server_exposes_list_units_tool(tools_by_name):
     assert "list_units" in tools_by_name, "list_units tool not registered"
 
 
+async def test_server_exposes_list_repos_tool(tools_by_name):
+    assert "list_repos" in tools_by_name, "list_repos tool not registered"
+
+
 # ---------------------------------------------------------------------------
 # search — schema discovery
 # ---------------------------------------------------------------------------

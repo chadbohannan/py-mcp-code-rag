@@ -36,7 +36,7 @@ def _read_embed_meta(db_path: Path) -> tuple[str, int]:
     """
     try:
         conn = sqlite3.connect(str(db_path))
-        meta = dict(conn.execute("SELECT key, value FROM mcp_rag_meta").fetchall())
+        meta = dict(conn.execute("SELECT key, value FROM metadata").fetchall())
         conn.close()
         return meta["embed_model"], int(meta["embed_dim"])
     except Exception:
