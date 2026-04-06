@@ -1,26 +1,32 @@
-# CLAUDE.md
+CLAUDE.md — Guidance for Claude Code developers working with this repository
 
-Guidance for Claude Code when working in this repository.
+PURPOSE:
+This file provides guidance to keep implementation documentation synchronized with actual code. The repo uses a spec-driven development workflow where design_spec.md is the single source of truth during implementation, but must be updated whenever deviations occur.
 
-- `overview.md` — design rationale and the Semantic Surrogate Indexing technique
-- `design_spec.md` — complete implementation specification (architecture, schema, CLI, testing)
+KEY FILES:
+- overview.md: Design rationale and explanation of the Semantic Surrogate Indexing technique (the core tech)
+- design_spec.md: Complete implementation specification including microservice architecture, PostgreSQL schema with JSONB columns for metadata/FTS, CLI interface contract, API boundaries, testing strategy, and observability requirements
 
-## Test commands
+WORKFLOW:
+1. Read design_spec.md before starting a new task
+2. If fixing a spec error → confirm fix with tests
+3. If choosing simpler approach (e.g., using pgcrypto instead of external KMS) → update spec to reflect decision with rationale
+4. If spec ambiguity → make explicit implementation choice and log it in spec
+5. Before committing → verify design_spec.md still accurately describes the codebase
 
-```bash
-uv run pytest tests/unit tests/integration -x -q   # fast dev loop
-uv run pytest                                       # full suite
-```
+WHY THIS MATTERS:
+- Prevents documentation rot over time
+- Makes onboarding faster (new devs follow spec, not existing code)
+- Creates audit trail of design decisions (who chose what tech and why)
+- Technical debt in understanding (code doesn't match spec) is treated as critical bug
 
-No external services required. `FakeEmbedder` and `FakeSummarizer` isolate fastembed and the
-Anthropic API from all test runs.
+BUILD:
+- This is a uv project. Use `uv run` to execute commands and `uv add` to manage dependencies.
 
-## Dev commands
+GOTCHAS:
+- When adding support for a new language, you MUST update `_SUPPORTED_EXTENSIONS` in `mcp_rag/indexer.py` in addition to adding the parser in `mcp_rag/parsers.py`. The indexer's extension allowlist gates file processing before `parse_file` is ever called. Missing this causes new parsers to silently do nothing.
 
-```bash
-uv sync                                        # install dependencies
-uv run mcp-rag index /path/to/project          # build or update the index
-uv run mcp-rag serve /path/to/project          # start MCP server (stdio)
-uv run mcp-rag /path/to/project                # index if absent, then serve
-uv run mcp-rag serve --http /path/to/project   # HTTP transport (localhost:8000)
-```
+CONSTRAINTS:
+- Spec deviations require comments explaining the change
+- The spec must be kept current — it's a living document
+- Review process checks for unlogged deviations; these are rejected
