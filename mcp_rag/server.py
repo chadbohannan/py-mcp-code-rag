@@ -249,10 +249,12 @@ async def list_files(globs: list[str] | None = None) -> list[dict]:
 async def index_status() -> list[dict]:
     """Return the current state of the index.
 
+    Call this before any other RAG tool to confirm the index is populated
+    and fresh.  If ``unit_count`` is 0 or ``last_indexed_at`` is stale,
+    search results will be empty or incomplete.
+
     Reports per-repo file count, semantic unit count, and the timestamp of
-    the most recent indexing run.  Use this to orient yourself: see which
-    repositories are indexed and how much content is available before
-    choosing a search strategy.
+    the most recent indexing run.
     """
     if _db_path is None or _embedder is None:
         return []

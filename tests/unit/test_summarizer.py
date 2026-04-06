@@ -279,7 +279,7 @@ def test_ollama_default_model_is_gemma4(monkeypatch):
     s = OllamaSummarizer()
     client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
     s.summarize(_unit())
-    assert client.chat.call_args.kwargs["model"] == "gemma4"
+    assert client.chat.call_args.kwargs["model"] == "gemma4:e2b"
 
 
 def test_ollama_handles_anonymous_unit(mock_ollama_client, ollama_summarizer):

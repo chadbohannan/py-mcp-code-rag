@@ -6,19 +6,14 @@ check.
 """
 
 import ast
-import json
 import logging
 import re
-import shutil
-import subprocess
 import warnings
 from pathlib import Path
 
 from mcp_rag.models import SemanticUnit
 
 logger = logging.getLogger(__name__)
-
-_GO_PARSER = Path(__file__).parent / "go_parser" / "main.go"
 
 _SQL_SIZE_LIMIT = 4096  # bytes; files strictly over this are skipped
 _BINARY_CHECK_BYTES = 512
@@ -715,42 +710,105 @@ def parse_java(source: str) -> list[SemanticUnit]:
 # ---------------------------------------------------------------------------
 
 
-def parse_go(path: Path) -> list[SemanticUnit]:
-    """Parse a Go source file into SemanticUnits via the bundled go_parser helper.
+def _get_ts_go_language():
+    """Return the tree-sitter Go Language object, or None if unavailable."""
+    try:
+        import tree_sitter
+        import tree_sitter_go
 
-    Requires `go` in PATH.  Returns [] (with a one-time warning) if `go` is
-    absent or if the helper exits non-zero.
+        return tree_sitter.Language(tree_sitter_go.language())
+    except Exception:
+        return None
+
+
+def _extract_go_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
+    """Walk a tree-sitter parse tree and extract semantic units for Go."""
+    units: list[SemanticUnit] = []
+
+    for child in tree.root_node.children:
+        if child.type == "function_declaration":
+            name_node = _ts_find_child_by_type(child, "identifier")
+            name = _ts_node_text(name_node, source_bytes) if name_node else None
+            units.append(
+                SemanticUnit(
+                    unit_type="function",
+                    unit_name=name,
+                    content=_ts_node_text(child, source_bytes),
+                    char_offset=child.start_byte,
+                )
+            )
+
+        elif child.type == "method_declaration":
+            # receiver is the first parameter_list: (s *Server)
+            recv_list = _ts_find_child_by_type(child, "parameter_list")
+            receiver_type = None
+            if recv_list is not None:
+                param = _ts_find_child_by_type(recv_list, "parameter_declaration")
+                if param is not None:
+                    type_node = _ts_find_child_by_type(param, "pointer_type", "type_identifier")
+                    if type_node is not None:
+                        if type_node.type == "pointer_type":
+                            ident = _ts_find_child_by_type(type_node, "type_identifier")
+                            receiver_type = _ts_node_text(ident, source_bytes) if ident else None
+                        else:
+                            receiver_type = _ts_node_text(type_node, source_bytes)
+            name_node = _ts_find_child_by_type(child, "field_identifier")
+            method_name = _ts_node_text(name_node, source_bytes) if name_node else None
+            unit_name = f"{receiver_type}:{method_name}" if receiver_type and method_name else method_name
+            units.append(
+                SemanticUnit(
+                    unit_type="method",
+                    unit_name=unit_name,
+                    content=_ts_node_text(child, source_bytes),
+                    char_offset=child.start_byte,
+                )
+            )
+
+        elif child.type == "type_declaration":
+            for spec in child.children:
+                if spec.type != "type_spec":
+                    continue
+                name_node = _ts_find_child_by_type(spec, "type_identifier")
+                name = _ts_node_text(name_node, source_bytes) if name_node else None
+                body = _ts_find_child_by_type(spec, "struct_type", "interface_type")
+                if body is None:
+                    continue
+                unit_type = "struct" if body.type == "struct_type" else "interface"
+                units.append(
+                    SemanticUnit(
+                        unit_type=unit_type,
+                        unit_name=name,
+                        content=_ts_node_text(child, source_bytes),
+                        char_offset=child.start_byte,
+                    )
+                )
+
+    return sorted(units, key=lambda u: u.char_offset)
+
+
+def parse_go(source: str) -> list[SemanticUnit]:
+    """Parse a Go source string into SemanticUnits using tree-sitter.
+
+    Returns [] with a warning if tree-sitter-go is not installed.
     """
-    if shutil.which("go") is None:
+    if not source:
+        return []
+
+    lang = _get_ts_go_language()
+    if lang is None:
         warnings.warn(
-            "'go' not found in PATH — .go files will not be indexed",
+            "tree-sitter-go not installed — .go files will not be indexed",
             stacklevel=2,
         )
         return []
 
-    # "--" separates go source files from program arguments so that `go run`
-    # does not treat the target .go file as a source file to compile.
-    result = subprocess.run(
-        ["go", "run", str(_GO_PARSER), "--", str(path)],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        logger.warning("skipping %s — go parser error (see stderr)", path)
-        return []
+    import tree_sitter
 
-    data = json.loads(result.stdout)
-    units = []
-    for item in data:
-        units.append(
-            SemanticUnit(
-                unit_type=item["unit_type"],
-                unit_name=item.get("unit_name"),
-                content=item["content"],
-                char_offset=item["char_offset"],
-            )
-        )
-    return units
+    parser = tree_sitter.Parser()
+    parser.language = lang
+    source_bytes = source.encode()
+    tree = parser.parse(source_bytes)
+    return _extract_go_units(tree, source_bytes)
 
 
 # ---------------------------------------------------------------------------
@@ -883,7 +941,7 @@ def parse_file(path: Path) -> list[SemanticUnit]:
     if suffix == ".py":
         return parse_python(path.read_text(encoding="utf-8", errors="replace"))
     if suffix == ".go":
-        return parse_go(path)
+        return parse_go(path.read_text(encoding="utf-8", errors="replace"))
     if suffix in _C_EXTENSIONS:
         return parse_c(path.read_text(encoding="utf-8", errors="replace"))
     if suffix in _CPP_EXTENSIONS:
