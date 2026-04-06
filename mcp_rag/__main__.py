@@ -149,6 +149,10 @@ def main() -> None:
 
 
 def _run_index_cmd(args: argparse.Namespace) -> None:
+    for p in args.paths:
+        if not p.exists():
+            print(f"error: path does not exist: {p}", file=sys.stderr)
+            sys.exit(1)
     try:
         _do_index(
             roots=[p.resolve() for p in args.paths],
@@ -177,6 +181,10 @@ def _run_serve_cmd(args: argparse.Namespace) -> None:
 def _run_combined_cmd(args: argparse.Namespace) -> None:
     try:
         if args.paths and not args.db.exists():
+            for p in args.paths:
+                if not p.exists():
+                    print(f"error: path does not exist: {p}", file=sys.stderr)
+                    sys.exit(1)
             _do_index(
                 roots=[p.resolve() for p in args.paths],
                 db_path=args.db,
