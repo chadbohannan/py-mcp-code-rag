@@ -1,4 +1,4 @@
-.PHONY: install test test-unit test-integration lint format index reindex serve clean add-claude-mcp remove-claude-mcp
+.PHONY: install test test-unit test-integration lint format index reindex serve clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
 
 # Resolve absolute path at make-time so the registered command works from any working directory
 DIR := $(shell pwd)
@@ -47,6 +47,14 @@ add-claude-mcp:
 # Unregister this server from Claude Code
 remove-claude-mcp:
 	claude mcp remove code-rag
+
+# Register this server with the pi agent (run once after cloning). Usage: make add-pi-mcp DB=my.db
+add-pi-mcp:
+	python3 scripts/add_pi_mcp.py $(DIR) $(abspath $(or $(DB),index.db))
+
+# Unregister this server from the pi agent
+remove-pi-mcp:
+	python3 scripts/remove_pi_mcp.py
 
 # Remove the local index database and any SQLite WAL artifacts
 clean:
