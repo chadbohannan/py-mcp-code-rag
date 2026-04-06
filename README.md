@@ -24,9 +24,7 @@ This means queries like "how does token expiry work?" match a summary like *"Val
 
 - Python >= 3.12
 - [uv](https://github.com/astral-sh/uv) package manager
-- `go` in `PATH` (for indexing `.go` files)
-- [Ollama](https://ollama.com/) 
-- gemma4:e2b
+- [Ollama](https://ollama.com/) with gemma4:e2b
 
 ## Quickstart
 
@@ -141,11 +139,16 @@ All targets that operate on a source directory accept `SRC=` (defaults to `.`). 
 
 | Extension | Parser | Unit boundaries |
 |---|---|---|
-| `.py` | stdlib `ast` | module-level, class, function, method |
-| `.go` | `go/ast` via subprocess | function, method, struct, interface |
+| `.py` | stdlib `ast` | module-level function, class, method |
+| `.go` | tree-sitter (Go) | function, method, struct, interface |
 | `.c`, `.h` | tree-sitter (C) | function, struct, enum |
-| `.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx` | tree-sitter (C++) | function, method, class, struct, enum |
-| `.md`, `.mdx` | heading splitter | heading sections, paragraphs |
+| `.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx`, `.ino` | tree-sitter (C++) | function, method, class, struct, enum |
+| `.js`, `.jsx`, `.mjs`, `.cjs` | tree-sitter (JavaScript) | function, class, method, arrow function |
+| `.ts`, `.tsx`, `.mts`, `.cts` | tree-sitter (TypeScript) | function, class, method, interface, type, enum |
+| `.java` | tree-sitter (Java) | class, interface, enum, method, constructor |
+| `.tf` | HCL block splitter | resource, variable, output, module, data, locals, … |
+| `.tfvars` | document-level | whole file |
+| `.md`, `.mdx` | heading splitter | heading sections |
 | `.sql` | document-level | whole file (skipped if > 4 KB) |
 
 Binary files are detected and skipped automatically. Unrecognized extensions are skipped silently.
