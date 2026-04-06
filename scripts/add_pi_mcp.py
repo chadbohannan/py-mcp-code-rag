@@ -14,7 +14,8 @@ def main():
     directory, db_path = sys.argv[1], sys.argv[2]
     mcp_json = Path.home() / ".pi" / "agent" / "mcp.json"
 
-    cfg = json.loads(mcp_json.read_text())
+    mcp_json.parent.mkdir(parents=True, exist_ok=True)
+    cfg = json.loads(mcp_json.read_text()) if mcp_json.exists() else {}
     cfg.setdefault("mcpServers", {})["code-rag"] = {
         "command": "uv",
         "args": ["run", "--directory", directory, "code-rag", "serve", "--db", db_path],

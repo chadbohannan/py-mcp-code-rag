@@ -50,6 +50,7 @@ remove-claude-mcp:
 
 # Register this server with the pi agent (run once after cloning). Usage: make add-pi-mcp DB=my.db
 add-pi-mcp:
+	pi install npm:pi-mcp-adapter
 	python3 scripts/add_pi_mcp.py $(DIR) $(abspath $(or $(DB),index.db))
 
 # Unregister this server from the pi agent
