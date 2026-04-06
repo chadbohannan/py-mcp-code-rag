@@ -235,7 +235,37 @@ contextualized but still useful.
 
 **Schema** — module units are stored as regular rows in `units` with `unit_type = "module"`,
 `unit_name = ""`, and `char_offset = -1` (sentinel distinguishing them from parsed units).
-No new tables or columns.
+
+### Directory-level summary units
+
+After all files in a repository are processed, the indexer synthesizes **directory units** —
+summaries for each directory in the repo, built bottom-up from child file and subdirectory
+summaries.
+
+**Processing order** — directories are sorted deepest-first so that subdirectory summaries are
+available when their parent directory is summarized. The repo root directory is processed last,
+producing a repo-level summary that synthesizes all top-level file and subdirectory summaries.
+
+**Content assembly** — each directory unit's content lists its direct child file module summaries
+and direct child subdirectory summaries. Directories with no indexed content (e.g. only binary
+files or oversized SQL) are skipped.
+
+**Schema** — directory units use `unit_type = "directory"`, `char_offset = -2`, and
+`file_id = NULL` (they have no parent file). The `repo_id` column on `units` provides
+ownership and enables cascade deletion when a repo is removed.
+
+**Orphan cleanup** — after each indexing run, directory units whose directories no longer
+contain any indexed files are deleted.
+
+### Schema v3 changes
+
+Schema version 3 modifies the `units` table:
+- Adds `repo_id INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE`
+- Makes `file_id` nullable (was `NOT NULL`) to support directory units
+
+Migration from v2 is automatic: the `units` table is recreated with the new schema and
+`repo_id` is populated from `files.repo_id` via a join. Embeddings and the cascade trigger
+are preserved.
 
 **Reconciliation** — module units are excluded from the normal `diff_units` reconciliation
 and handled separately. The module unit's `content_md5` is derived from the assembled content

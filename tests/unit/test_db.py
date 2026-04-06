@@ -79,7 +79,7 @@ def test_open_db_stores_schema_version_in_meta(tmp_path):
     ).fetchone()
     conn.close()
     assert row is not None
-    assert row[0] == "2"
+    assert row[0] == "3"
 
 
 def test_open_db_idempotent_on_existing_db(tmp_path):
@@ -184,10 +184,10 @@ def test_cascade_delete_units_on_file_delete(tmp_path):
     )
     file_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.execute(
-        "INSERT INTO units (file_id, path, content, content_md5, summary, "
+        "INSERT INTO units (repo_id, file_id, path, content, content_md5, summary, "
         "unit_type, unit_name, char_offset) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (file_id, "file.py:foo", "def foo(): pass", "md5", "summary",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (repo_id, file_id, "file.py:foo", "def foo(): pass", "md5", "summary",
          "function", "foo", 0),
     )
     conn.commit()
@@ -214,10 +214,10 @@ def test_cascade_delete_embeddings_on_unit_delete(tmp_path):
     )
     file_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.execute(
-        "INSERT INTO units (file_id, path, content, content_md5, summary, "
+        "INSERT INTO units (repo_id, file_id, path, content, content_md5, summary, "
         "unit_type, unit_name, char_offset) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (file_id, "file.py:bar", "def bar(): pass", "md5bar", "sumbar",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (repo_id, file_id, "file.py:bar", "def bar(): pass", "md5bar", "sumbar",
          "function", "bar", 0),
     )
     unit_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]

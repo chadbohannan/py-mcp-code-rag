@@ -140,8 +140,9 @@ async def test_search_returns_matching_paths(configured_server):
 async def test_search_path_is_qualified(configured_server):
     results = await _call("search", {"query": "token", "top_k": 5})
     for r in results:
-        # Qualified paths contain repo_name/ prefix and : separator
-        assert ":" in r["path"] or r["path"].endswith((".py", ".md", ".sql")), (
+        # Qualified paths start with repo name; file units have : or extension,
+        # module/directory units may be bare paths like "proj" or "proj/src"
+        assert r["path"].startswith("proj"), (
             f"unexpected path format: {r['path']}"
         )
 

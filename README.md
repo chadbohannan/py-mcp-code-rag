@@ -26,7 +26,7 @@ This means queries like "how does token expiry work?" match a summary like *"Val
 - [uv](https://github.com/astral-sh/uv) package manager
 - `go` in `PATH` (for indexing `.go` files)
 - [Ollama](https://ollama.com/) 
-- gemma4:latest
+- gemma4:e2b
 
 ## Quickstart
 

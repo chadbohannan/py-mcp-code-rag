@@ -87,6 +87,13 @@ class OllamaSummarizer:
 
 
 def _build_prompt(unit: SemanticUnit) -> str:
+    if unit.unit_type == "directory":
+        return (
+            "Summarize this directory's purpose and what it contains based on its "
+            "files and subdirectories below. 2-3 sentences, terse and dense. "
+            "No preamble, no headings, no bullet points.\n\n"
+            f"{unit.content}"
+        )
     if unit.unit_type == "module":
         return (
             "Summarize this file's purpose, key exports, and role relative to the "

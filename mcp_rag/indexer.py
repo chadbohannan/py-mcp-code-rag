@@ -250,6 +250,7 @@ def _topological_sort(graph: dict[Path, list[Path]]) -> tuple[list[Path], set[Pa
 # ---------------------------------------------------------------------------
 
 MODULE_UNIT_OFFSET = -1  # Sentinel char_offset for module units
+DIRECTORY_UNIT_OFFSET = -2  # Sentinel char_offset for directory units
 
 
 def _build_module_content(
@@ -324,6 +325,225 @@ def _append_unit_summaries(
         parts = [f"{r[0]} {r[1]}: {r[2]}" for r in rows if r[2]]
         if parts:
             lines.append(f"- {file_qpath}: [{'; '.join(parts)}]")
+
+
+# ---------------------------------------------------------------------------
+# Directory unit builder
+# ---------------------------------------------------------------------------
+
+
+def _collect_directories(
+    parsable_files: list[Path], git_root: Path,
+) -> list[Path]:
+    """Return unique directories containing parsable files, deepest first.
+
+    Includes all ancestor directories up to (and including) git_root.
+    """
+    dirs: set[Path] = set()
+    resolved_root = git_root.resolve()
+    for f in parsable_files:
+        d = f.parent.resolve()
+        while d >= resolved_root:
+            dirs.add(d)
+            if d == resolved_root:
+                break
+            d = d.parent
+    # Sort deepest first (longest path), then alphabetically for determinism
+    return sorted(dirs, key=lambda d: (-len(d.parts), d))
+
+
+def _build_directory_content(
+    dir_path: Path,
+    repo_name: str,
+    git_root: Path,
+    conn: sqlite3.Connection,
+    repo_id: int,
+) -> str:
+    """Build the structured content for a directory summary unit.
+
+    Assembles summaries of direct child files (module units) and direct
+    child subdirectories (directory units).
+    """
+    rel = str(relative_path(dir_path, git_root))
+    qpath = f"{repo_name}/{rel}" if repo_name and rel != "." else repo_name
+
+    lines = [f"Directory: {qpath}"]
+
+    # Child file module summaries (direct children only)
+    dir_rel = str(relative_path(dir_path, git_root))
+    if dir_rel == ".":
+        # Root directory: files have paths without subdirectory prefix
+        file_rows = conn.execute(
+            "SELECT path, summary FROM units "
+            "WHERE repo_id = ? AND char_offset = ? "
+            "AND path NOT LIKE ? "
+            "ORDER BY path",
+            (repo_id, MODULE_UNIT_OFFSET, f"{repo_name}/%/%"),
+        ).fetchall()
+    else:
+        # Match files directly in this directory (not in subdirectories)
+        prefix = f"{repo_name}/{dir_rel}/"
+        file_rows = conn.execute(
+            "SELECT path, summary FROM units "
+            "WHERE repo_id = ? AND char_offset = ? "
+            "AND path LIKE ? "
+            "AND path NOT LIKE ? "
+            "ORDER BY path",
+            (repo_id, MODULE_UNIT_OFFSET, f"{prefix}%", f"{prefix}%/%"),
+        ).fetchall()
+
+    # Child directory summaries (direct subdirectories only)
+    child_dir_rows = conn.execute(
+        "SELECT path, summary FROM units "
+        "WHERE repo_id = ? AND char_offset = ? "
+        "ORDER BY path",
+        (repo_id, DIRECTORY_UNIT_OFFSET),
+    ).fetchall()
+
+    # Filter to direct children of this directory
+    direct_child_dirs = []
+    for path, summary in child_dir_rows:
+        # Directory paths look like "repo/a/b" — check if parent is our dir
+        if not summary:
+            continue
+        # Strip repo prefix to get relative path
+        if path.startswith(f"{repo_name}/"):
+            child_rel = path[len(repo_name) + 1:]
+        elif path == repo_name:
+            continue  # skip self
+        else:
+            child_rel = path
+        child_abs = (git_root / child_rel).resolve()
+        if child_abs.parent == dir_path.resolve():
+            direct_child_dirs.append((path, summary))
+
+    if file_rows:
+        lines.append("")
+        lines.append("Files:")
+        for path, summary in file_rows:
+            lines.append(f"- {path}: {summary}")
+
+    if direct_child_dirs:
+        lines.append("")
+        lines.append("Subdirectories:")
+        for path, summary in direct_child_dirs:
+            lines.append(f"- {path}: {summary}")
+
+    # If no module units, fall back to listing individual units in direct child files
+    if not file_rows and not direct_child_dirs:
+        if dir_rel == ".":
+            unit_rows = conn.execute(
+                "SELECT path, summary FROM units "
+                "WHERE repo_id = ? AND char_offset >= 0 "
+                "AND path NOT LIKE ? "
+                "ORDER BY path",
+                (repo_id, f"{repo_name}/%/%:%"),
+            ).fetchall()
+        else:
+            prefix = f"{repo_name}/{dir_rel}/"
+            unit_rows = conn.execute(
+                "SELECT path, summary FROM units "
+                "WHERE repo_id = ? AND char_offset >= 0 "
+                "AND path LIKE ? "
+                "AND path NOT LIKE ? "
+                "ORDER BY path",
+                (repo_id, f"{prefix}%", f"{prefix}%/%"),
+            ).fetchall()
+        if unit_rows:
+            lines.append("")
+            lines.append("Units:")
+            for path, summary in unit_rows:
+                lines.append(f"- {path}: {summary}")
+
+    return "\n".join(lines)
+
+
+def _upsert_directory_unit(
+    conn: sqlite3.Connection,
+    repo_id: int,
+    dir_path: Path,
+    repo_name: str,
+    git_root: Path,
+    embedder,
+    summarizer,
+) -> None:
+    """Create or update a directory-level summary unit."""
+    content = _build_directory_content(
+        dir_path, repo_name, git_root, conn, repo_id,
+    )
+
+    # Skip if directory content has no child summaries to synthesize
+    if "\n- " not in content:
+        # Clean up any existing directory unit
+        rel = str(relative_path(dir_path, git_root))
+        qpath = f"{repo_name}/{rel}" if rel != "." else repo_name
+        with conn:
+            conn.execute(
+                "DELETE FROM units WHERE repo_id = ? AND path = ? AND char_offset = ?",
+                (repo_id, qpath, DIRECTORY_UNIT_OFFSET),
+            )
+        return
+
+    # Build a SemanticUnit for summarization and content_md5.
+    # For the repo root directory, set file_path=None so qualified_path
+    # returns just repo_name (not "repo_name/.").
+    is_root = dir_path.resolve() == git_root.resolve()
+    dir_unit = SemanticUnit(
+        unit_type="directory",
+        unit_name=None,
+        content=content,
+        char_offset=DIRECTORY_UNIT_OFFSET,
+        file_path=None if is_root else dir_path,
+        root=git_root,
+        repo_name=repo_name,
+    )
+
+    # Check if unchanged
+    existing = conn.execute(
+        "SELECT id, content_md5 FROM units "
+        "WHERE repo_id = ? AND path = ? AND char_offset = ?",
+        (repo_id, dir_unit.qualified_path, DIRECTORY_UNIT_OFFSET),
+    ).fetchone()
+
+    if existing and existing[1] == dir_unit.content_md5:
+        return
+
+    try:
+        summary = summarizer.summarize(dir_unit)
+    except subprocess.TimeoutExpired:
+        tqdm.write(
+            f"Warning: directory {dir_path.name} summary timed out — skipping.",
+            file=sys.stderr,
+        )
+        return
+
+    with conn:
+        if existing:
+            conn.execute("DELETE FROM units WHERE id = ?", (existing[0],))
+
+        cur = conn.execute(
+            "INSERT INTO units "
+            "(repo_id, file_id, path, content, content_md5, summary, "
+            "unit_type, unit_name, char_offset) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                repo_id,
+                None,
+                dir_unit.qualified_path,
+                "",
+                dir_unit.content_md5,
+                summary,
+                dir_unit.unit_type,
+                "",
+                DIRECTORY_UNIT_OFFSET,
+            ),
+        )
+        unit_id = cur.lastrowid
+        embedding = embedder.embed(_embed_text(dir_unit, summary))
+        conn.execute(
+            "INSERT INTO embeddings (unit_id, embedding) VALUES (?, ?)",
+            (unit_id, encode_embedding(embedding)),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +683,53 @@ def _index_repo(
                 )
                 file_bar.update(1)
 
+    # Bottom-up directory summaries (deepest first, then repo root)
+    directories = _collect_directories(parsable_files, git_root)
+    if directories:
+        for dir_path in directories:
+            _upsert_directory_unit(
+                conn, repo_id, dir_path, repo_name, git_root,
+                embedder, summarizer,
+            )
+
+    # Clean up directory units for directories that no longer have indexed files
+    _cleanup_orphan_directory_units(conn, repo_id, repo_name, git_root, parsable_files)
+
     return deleted_count
+
+
+def _cleanup_orphan_directory_units(
+    conn: sqlite3.Connection,
+    repo_id: int,
+    repo_name: str,
+    git_root: Path,
+    parsable_files: list[Path],
+) -> None:
+    """Remove directory units whose directories no longer contain indexed files."""
+    # Collect current valid directory paths
+    valid_dirs = set()
+    resolved_root = git_root.resolve()
+    for f in parsable_files:
+        d = f.parent.resolve()
+        while d >= resolved_root:
+            rel = str(relative_path(d, git_root))
+            qpath = f"{repo_name}/{rel}" if rel != "." else repo_name
+            valid_dirs.add(qpath)
+            if d == resolved_root:
+                break
+            d = d.parent
+
+    # Find and delete orphan directory units
+    existing_dir_units = conn.execute(
+        "SELECT id, path FROM units "
+        "WHERE repo_id = ? AND char_offset = ?",
+        (repo_id, DIRECTORY_UNIT_OFFSET),
+    ).fetchall()
+
+    with conn:
+        for unit_id, path in existing_dir_units:
+            if path not in valid_dirs:
+                conn.execute("DELETE FROM units WHERE id = ?", (unit_id,))
 
 
 # ---------------------------------------------------------------------------
@@ -546,6 +812,7 @@ def _backfill_empty_summaries(
 
 def _upsert_module_unit(
     conn: sqlite3.Connection,
+    repo_id: int,
     file_id: int,
     file_path: Path,
     repo_name: str,
@@ -624,10 +891,11 @@ def _upsert_module_unit(
 
         cur = conn.execute(
             "INSERT INTO units "
-            "(file_id, path, content, content_md5, summary, "
+            "(repo_id, file_id, path, content, content_md5, summary, "
             "unit_type, unit_name, char_offset) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
+                repo_id,
                 file_id,
                 module_unit.qualified_path,
                 "",
@@ -792,10 +1060,11 @@ def _process_file(
                 continue
             cur = conn.execute(
                 "INSERT INTO units "
-                "(file_id, path, content, content_md5, summary, "
+                "(repo_id, file_id, path, content, content_md5, summary, "
                 "unit_type, unit_name, char_offset) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
+                    repo_id,
                     file_id,
                     unit.qualified_path,
                     unit.content,
@@ -817,7 +1086,7 @@ def _process_file(
 
     # Build and insert module-level summary unit after child units are committed.
     _upsert_module_unit(
-        conn, file_id, file_path, repo_name, git_root,
+        conn, repo_id, file_id, file_path, repo_name, git_root,
         import_paths or [], cycle_members or set(),
         embedder, summarizer,
     )

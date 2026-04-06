@@ -6,7 +6,7 @@ from pathlib import Path
 
 import sqlite_vec
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
 # ---------------------------------------------------------------------------
 # DDL
@@ -43,7 +43,8 @@ CREATE TABLE files (
 _DDL_UNITS = """\
 CREATE TABLE units (
     id          INTEGER PRIMARY KEY,
-    file_id     INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    repo_id     INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+    file_id     INTEGER REFERENCES files(id) ON DELETE CASCADE,
     path        TEXT NOT NULL,
     content     TEXT NOT NULL,
     content_md5 TEXT NOT NULL,
@@ -205,3 +206,64 @@ def _validate_meta(conn: sqlite3.Connection, embed_dim: int, embed_model: str) -
             f"Current model is {embed_model} (dim={embed_dim}).\n"
             "Run: mcp-rag index --reindex <paths...>"
         )
+    stored_version = meta.get("schema_version", "1")
+    if stored_version < SCHEMA_VERSION:
+        _migrate_schema(conn, stored_version)
+
+
+def _migrate_schema(conn: sqlite3.Connection, from_version: str) -> None:
+    """Run incremental schema migrations."""
+    version = int(from_version)
+    if version < 3:
+        _migrate_to_v3(conn)
+
+
+def _migrate_to_v3(conn: sqlite3.Connection) -> None:
+    """Add repo_id column and make file_id nullable on units table.
+
+    SQLite cannot alter column constraints, so the table is recreated.
+    """
+    with conn:
+        # Drop the cascade trigger (references units table)
+        conn.execute("DROP TRIGGER IF EXISTS units_delete_cascade")
+        # Recreate units with new schema
+        conn.execute("""\
+            CREATE TABLE units_new (
+                id          INTEGER PRIMARY KEY,
+                repo_id     INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+                file_id     INTEGER REFERENCES files(id) ON DELETE CASCADE,
+                path        TEXT NOT NULL,
+                content     TEXT NOT NULL,
+                content_md5 TEXT NOT NULL,
+                summary     TEXT NOT NULL,
+                unit_type   TEXT NOT NULL,
+                unit_name   TEXT NOT NULL,
+                char_offset INTEGER NOT NULL
+            )
+        """)
+        # Copy data, deriving repo_id from files.repo_id
+        conn.execute("""\
+            INSERT INTO units_new
+                (id, repo_id, file_id, path, content, content_md5,
+                 summary, unit_type, unit_name, char_offset)
+            SELECT u.id, f.repo_id, u.file_id, u.path, u.content, u.content_md5,
+                   u.summary, u.unit_type, u.unit_name, u.char_offset
+            FROM units u
+            JOIN files f ON f.id = u.file_id
+        """)
+        conn.execute("DROP TABLE units")
+        conn.execute("ALTER TABLE units_new RENAME TO units")
+        # Recreate the cascade trigger
+        conn.execute("""\
+            CREATE TRIGGER units_delete_cascade
+            AFTER DELETE ON units
+            FOR EACH ROW
+            BEGIN
+                DELETE FROM embeddings WHERE unit_id = OLD.id;
+            END
+        """)
+        conn.execute(
+            "UPDATE metadata SET value = ? WHERE key = 'schema_version'",
+            (SCHEMA_VERSION,),
+        )
+    conn.commit()
