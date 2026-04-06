@@ -30,23 +30,23 @@ format:
 
 # Index a directory into index.db (skips unchanged files). Usage: make index SRC=../some-repo DB=my.db
 index:
-	uv run mcp-rag index --db $(or $(DB),index.db) $(or $(SRC),.)
+	uv run code-rag index --db $(or $(DB),index.db) $(or $(SRC),.)
 
 # Re-embed everything from scratch (use after changing embed model). Usage: make reindex SRC=../some-repo DB=my.db
 reindex:
-	uv run mcp-rag index --reindex --db $(or $(DB),index.db) $(or $(SRC),.)
+	uv run code-rag index --reindex --db $(or $(DB),index.db) $(or $(SRC),.)
 
 # Start the MCP stdio server. Usage: make serve DB=my.db
 serve:
-	uv run mcp-rag serve --db $(or $(DB),index.db)
+	uv run code-rag serve --db $(or $(DB),index.db)
 
 # Register this server with Claude Code (run once after cloning). Usage: make add-claude-mcp DB=my.db
 add-claude-mcp:
-	claude mcp add --transport stdio mcp-rag -- uv run --directory $(DIR) mcp-rag serve --db $(abspath $(or $(DB),index.db))
+	claude mcp add --transport stdio code-rag -- uv run --directory $(DIR) code-rag serve --db $(abspath $(or $(DB),index.db))
 
 # Unregister this server from Claude Code
 remove-claude-mcp:
-	claude mcp remove mcp-rag
+	claude mcp remove code-rag
 
 # Remove the local index database and any SQLite WAL artifacts
 clean:

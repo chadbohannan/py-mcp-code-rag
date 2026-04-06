@@ -1,4 +1,4 @@
-"""mcp-rag CLI entry point."""
+"""code-rag CLI entry point."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def _do_index(
     if summarizer_type == "anthropic":
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise IndexAbortError(
-                "ANTHROPIC_API_KEY is not set. Export it before running mcp-rag index."
+                "ANTHROPIC_API_KEY is not set. Export it before running code-rag index."
             )
         summarizer = AnthropicSummarizer()
     else:
@@ -86,7 +86,7 @@ def _do_serve(db_path: Path, http: bool = False, port: int = 8000) -> None:
 
 
 def _make_index_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="mcp-rag index")
+    p = argparse.ArgumentParser(prog="code-rag index")
     p.add_argument("paths", nargs="+", type=Path, metavar="PATH")
     p.add_argument("--reindex", action="store_true")
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")
@@ -98,7 +98,7 @@ def _make_index_parser() -> argparse.ArgumentParser:
 
 
 def _make_serve_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="mcp-rag serve")
+    p = argparse.ArgumentParser(prog="code-rag serve")
     p.add_argument("--http", action="store_true")
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
@@ -106,7 +106,7 @@ def _make_serve_parser() -> argparse.ArgumentParser:
 
 
 def _make_combined_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="mcp-rag")
+    p = argparse.ArgumentParser(prog="code-rag")
     p.add_argument("paths", nargs="*", type=Path, metavar="PATH")
     p.add_argument("--db", type=Path, default=_DEFAULT_DB)
     p.add_argument("--embed-model", default=DEFAULT_MODEL, dest="embed_model")

@@ -11,7 +11,7 @@ from mcp_rag.db import list_repos_db, open_db
 from mcp_rag.discovery import read_git_description
 from mcp_rag.models import Embedder, encode_embedding
 
-mcp = FastMCP("mcp-rag")
+mcp = FastMCP("code-rag")
 
 # ---------------------------------------------------------------------------
 # Runtime state — injected by configure() before serving or in tests

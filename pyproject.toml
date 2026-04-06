@@ -1,5 +1,5 @@
 [project]
-name = "mcp-rag"
+name = "code-rag"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
@@ -20,7 +20,10 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-rag = "mcp_rag.__main__:main"
+code-rag = "mcp_rag.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcp_rag"]
 
 [build-system]
 requires = ["hatchling"]

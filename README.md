@@ -1,4 +1,4 @@
-# mcp-rag
+# code-rag
 
 Semantic code search over local codebases, exposed as an [MCP](https://modelcontextprotocol.io/) stdio server. Designed for navigating complex, sprawling codebases — surfacing architectural intent rather than matching surface text.
 
@@ -6,7 +6,7 @@ Semantic code search over local codebases, exposed as an [MCP](https://modelcont
 
 Raw source code embeds poorly against natural language queries. A developer asking "how does authentication work?" shares almost no embedding space with the code that implements it.
 
-**mcp-rag** uses Semantic Surrogate Indexing: files are parsed into language-aware units (functions, classes, methods, SQL, markdown sections), each unit is summarized by Claude, and the *summary* — not the raw source — is embedded. The raw source is stored alongside and returned on a match.
+**code-rag** uses Semantic Surrogate Indexing: files are parsed into language-aware units (functions, classes, methods, SQL, markdown sections), each unit is summarized by Claude, and the *summary* — not the raw source — is embedded. The raw source is stored alongside and returned on a match.
 
 ```
 source file → semantic parser → semantic units
@@ -52,8 +52,8 @@ make install
 ### CLI
 
 ```
-mcp-rag index [paths...] [options]    Build or update the index
-mcp-rag serve [options]               Start the MCP server (stdio)
+code-rag index [paths...] [options]    Build or update the index
+code-rag serve [options]               Start the MCP server (stdio)
 ```
 
 ### Indexing
@@ -62,19 +62,19 @@ Index one or more directories. Incremental by default — only changed files are
 
 ```bash
 # Index the current directory
-mcp-rag index .
+code-rag index .
 
 # Index specific directories into a single DB
-mcp-rag index /path/to/backend /path/to/frontend
+code-rag index /path/to/backend /path/to/frontend
 
 # Use a custom database path
-mcp-rag index --db myproject.db ../my-project
+code-rag index --db myproject.db ../my-project
 
 # Rebuild embeddings after changing the embed model (preserves summaries)
-mcp-rag index --reindex .
+code-rag index --reindex .
 
 # Use Ollama for summarization instead of Anthropic API
-mcp-rag index --summarizer ollama --ollama-model gemma3 .
+code-rag index --summarizer ollama --ollama-model gemma3 .
 ```
 
 **Index options:**
@@ -93,7 +93,7 @@ mcp-rag index --summarizer ollama --ollama-model gemma3 .
 Start the MCP stdio server. Read-only — no API key required.
 
 ```bash
-mcp-rag serve --db index.db
+code-rag serve --db index.db
 ```
 
 **Serve options:**
@@ -104,7 +104,7 @@ mcp-rag serve --db index.db
 
 ### Claude Code integration
 
-Register mcp-rag as an MCP server in Claude Code:
+Register code-rag as an MCP server in Claude Code:
 
 ```bash
 make add-claude-mcp
