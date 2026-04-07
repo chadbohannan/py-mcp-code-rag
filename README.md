@@ -102,19 +102,22 @@ code-rag serve --db index.db
 |---|---|---|
 | `--db PATH` | `./index.db` | Index file location |
 
-### Claude Code integration
+### Agent integration
 
-Register code-rag as an MCP server in Claude Code:
+Register code-rag with your agent of choice. Both commands accept `DB=` to point at a non-default index file.
 
-```bash
-make add-claude-mcp
-```
+| Agent | Register | Unregister |
+|---|---|---|
+| Claude Code | `make add-claude-mcp` | `make remove-claude-mcp` |
+| pi-agent | `make add-pi-mcp` | `make remove-pi-mcp` |
 
-This lets Claude Code search your indexed codebase directly. To unregister:
+#### System prompt
 
-```bash
-make remove-claude-mcp
-```
+For best results, include the following in your agent's system prompt or persona config:
+
+> code-rag is a stdio RAG server for an index of code repositories indexed to accelerate design, debugging, and discovery of relevant code prior to the use of filesystem tools. Use code-rag for vague or exploratory queries about a codebase; start with `index_status` then discover relevant code using the search tool with natural language topic descriptions.
+
+For agents that support per-project instruction files (e.g. `AGENTS.md` for Claude Code), place this text there so it applies automatically whenever you work in an indexed repo.
 
 ## Make targets
 
@@ -133,6 +136,8 @@ All targets that operate on a source directory accept `SRC=` (defaults to `.`). 
 | `format` | Auto-format code | `make format` |
 | `add-claude-mcp` | Register with Claude Code | `make add-claude-mcp` |
 | `remove-claude-mcp` | Unregister from Claude Code | `make remove-claude-mcp` |
+| `add-pi-mcp` | Register with pi-agent | `make add-pi-mcp` |
+| `remove-pi-mcp` | Unregister from pi-agent | `make remove-pi-mcp` |
 | `clean` | Remove index.db and WAL files | `make clean` |
 
 ## Supported file types
