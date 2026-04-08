@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5-Q"
 
@@ -26,7 +27,9 @@ class FastEmbedder:
 
         self.model = model_name
         try:
-            self._fe = TextEmbedding(model_name)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                self._fe = TextEmbedding(model_name)
             # Probe dimension once at construction time
             probe = next(iter(self._fe.embed(["probe"])))
             self.dim = len(probe)
