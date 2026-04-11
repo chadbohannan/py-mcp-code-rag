@@ -384,23 +384,7 @@ def test_changed_file_updates_fingerprint(tmp_path, embedder, summarizer):
 # ---------------------------------------------------------------------------
 
 
-def test_deleted_file_removed_from_db(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "ephemeral.py": "def temp(): pass\n",
-    })
-    db_path = tmp_path / "index.db"
-    run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
-
-    (root / "ephemeral.py").unlink()
-    run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
-
-    conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    count = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
-    conn.close()
-    assert count == 0
-
-
-def test_deleted_file_cascades_to_units(tmp_path, embedder, summarizer):
+def test_deleted_file_cascades_to_db(tmp_path, embedder, summarizer):
     root = make_git_project(tmp_path / "proj", {
         "gone.py": "def gone(): pass\n",
     })
@@ -411,25 +395,10 @@ def test_deleted_file_cascades_to_units(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    count = conn.execute("SELECT COUNT(*) FROM units").fetchone()[0]
+    assert conn.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM units").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0] == 0
     conn.close()
-    assert count == 0
-
-
-def test_deleted_file_cascades_to_embeddings(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "gone.py": "def gone(): pass\n",
-    })
-    db_path = tmp_path / "index.db"
-    run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
-
-    (root / "gone.py").unlink()
-    run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
-
-    conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    count = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
-    conn.close()
-    assert count == 0
 
 
 def test_deleted_file_count_logged_to_stderr(tmp_path, embedder, summarizer, capsys):
