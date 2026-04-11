@@ -29,6 +29,15 @@ _EXCLUDED_DIRS = {
     "dist",
     "build",
     ".eggs",
+    ".terraform",
+    ".webpack",
+    ".cache",
+    ".npm",
+    "bower_components",
+    "coverage",
+    "lib-cov",
+    ".Trash",
+    ".Trashes",
 }
 
 

@@ -11,6 +11,7 @@ Two-pass pipeline:
 from __future__ import annotations
 
 import hashlib
+import logging
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -36,6 +37,22 @@ from mcp_rag.reconcile import StoredUnit, diff_units
 
 _MAX_TOKENS = 8000
 _MAX_CHARS = _MAX_TOKENS * 4
+
+
+class _CountingFileHandler(logging.FileHandler):
+    """FileHandler that counts the number of records emitted."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.count = 0
+
+    def emit(self, record: logging.LogRecord) -> None:
+        super().emit(record)
+        self.count += 1
+
+
+def _trunc(s: str, width: int = 15) -> str:
+    return s[:width].ljust(width)
 
 _SUPPORTED_EXTENSIONS = frozenset({
     ".py", ".go", ".md", ".mdx", ".sql",
@@ -69,6 +86,17 @@ def run_index(
                     f"Roots overlap: {a} and {b}. Provide non-overlapping directories."
                 )
 
+    # Set up a dedicated log file next to the database
+    log_path = db_path.with_suffix(".log")
+    _log_handler = _CountingFileHandler(log_path, encoding="utf-8")
+    _log_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    )
+    logger = logging.getLogger(f"mcp_rag.indexer.{id(db_path)}")
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    logger.addHandler(_log_handler)
+
     # Open (or create) the database
     is_new = not db_path.exists()
     if reindex and not is_new:
@@ -77,17 +105,14 @@ def run_index(
         conn = open_db(db_path, embed_dim=embedder.dim, embed_model=embedder.model)
 
     if is_new:
-        print("No index found — creating a new index.", file=sys.stderr)
+        logger.info("No index found — creating a new index.")
 
     # First pass: discover git repos and upsert
     repos: list[tuple[int, str, Path]] = []  # (repo_id, repo_name, git_root)
     for root in resolved:
         discovered = discover_git_repos(root)
         if not discovered:
-            print(
-                f"Warning: no git repositories found under {root} — skipping.",
-                file=sys.stderr,
-            )
+            logger.warning("no git repositories found under %s — skipping.", root)
             continue
         for name, git_root, _description in discovered:
             repo_id = upsert_repo(conn, name, str(git_root))
@@ -96,17 +121,45 @@ def run_index(
 
     # Second pass: index each repo
     total_deleted = 0
+    disable_bars = not sys.stderr.isatty()
     try:
-        for repo_id, repo_name, git_root in repos:
-            total_deleted += _index_repo(
-                conn, repo_id, repo_name, git_root, embedder, summarizer
-            )
+        with tqdm(
+            total=len(repos), desc="repos", unit="repo",
+            file=sys.stderr, position=0, leave=False, disable=disable_bars,
+        ) as repo_bar, tqdm(
+            total=0, desc="files", unit="file",
+            file=sys.stderr, position=1, leave=False, disable=disable_bars,
+        ) as file_bar, tqdm(
+            total=0, desc="units", unit="unit",
+            file=sys.stderr, position=2, leave=False, disable=disable_bars,
+        ) as unit_bar:
+            try:
+                for repo_id, repo_name, git_root in repos:
+                    repo_bar.set_postfix(repo=_trunc(repo_name), refresh=True)
+                    total_deleted += _index_repo(
+                        conn, repo_id, repo_name, git_root, embedder, summarizer,
+                        logger, file_bar, unit_bar,
+                    )
+                    repo_bar.update(1)
+            except BaseException:
+                # Write file bar state before bars erase, then re-raise
+                tqdm.write(str(file_bar), file=sys.stderr)
+                raise
+            # Normal completion: write final bar states before bars erase
+            tqdm.write(str(file_bar), file=sys.stderr)
     finally:
         conn.close()
-
+        _log_handler.flush()
+        _log_handler.close()
+        logger.removeHandler(_log_handler)
     if total_deleted:
         print(
             f"reconciled {total_deleted} deleted file(s) from the index.",
+            file=sys.stderr,
+        )
+    if _log_handler.count:
+        print(
+            f"{_log_handler.count} message(s) logged to {log_path}",
             file=sys.stderr,
         )
 
@@ -466,6 +519,7 @@ def _upsert_directory_unit(
     git_root: Path,
     embedder,
     summarizer,
+    logger: logging.Logger,
 ) -> None:
     """Create or update a directory-level summary unit."""
     content = _build_directory_content(
@@ -511,10 +565,8 @@ def _upsert_directory_unit(
     try:
         summary = summarizer.summarize(dir_unit)
     except subprocess.TimeoutExpired:
-        tqdm.write(
-            f"Warning: directory {dir_path.name} summary timed out — skipping.",
-            file=sys.stderr,
-        )
+        if logger is not None:
+            logger.warning("directory %s summary timed out — skipping.", dir_path.name)
         return
 
     with conn:
@@ -551,6 +603,29 @@ def _upsert_directory_unit(
 # ---------------------------------------------------------------------------
 
 
+def _scan_needs_indexing(
+    file_path: Path,
+    db_map: dict,
+    empty_summary_file_ids: set,
+) -> bool:
+    """Return True if *file_path* needs (re-)indexing."""
+    try:
+        raw = file_path.read_bytes()
+    except OSError:
+        return False
+    if b"\x00" in raw[:512]:
+        return False
+    file_info = db_map.get(file_path)
+    if file_info is None:
+        return True
+    file_id, stored_mtime, stored_md5 = file_info
+    if file_id in empty_summary_file_ids:
+        return True
+    mtime = file_path.stat().st_mtime
+    md5 = hashlib.md5(raw).hexdigest()
+    return stored_mtime != mtime or stored_md5 != md5
+
+
 def _index_repo(
     conn: sqlite3.Connection,
     repo_id: int,
@@ -558,6 +633,9 @@ def _index_repo(
     git_root: Path,
     embedder,
     summarizer,
+    logger: logging.Logger,
+    file_bar: tqdm | None = None,
+    unit_bar: tqdm | None = None,
 ) -> int:
     """Index one git repository. Returns the number of deleted files."""
     disk_files: set[Path] = set(discover_files(git_root))
@@ -601,35 +679,16 @@ def _index_repo(
     topo_order, cycle_members = _topological_sort(import_graph)
 
     # Pre-scan: determine which parsable files actually need (re-)indexing
-    disable_bars = not sys.stderr.isatty()
     needs_indexing_set: set[Path] = set()
-    with tqdm(
-        total=len(parsable_files),
-        desc=f"scanning ({repo_name})",
-        unit="file",
-        file=sys.stderr,
-        disable=disable_bars,
-    ) as scan_bar:
-        for file_path in parsable_files:
-            try:
-                raw = file_path.read_bytes()
-            except OSError:
-                scan_bar.update(1)
-                continue
-            if b"\x00" in raw[:512]:
-                scan_bar.update(1)
-                continue
-            file_info = db_map.get(file_path)
-            if file_info is not None:
-                file_id, stored_mtime, stored_md5 = file_info
-                mtime = file_path.stat().st_mtime
-                md5 = hashlib.md5(raw).hexdigest()
-                if stored_mtime == mtime and stored_md5 == md5 \
-                        and file_id not in empty_summary_file_ids:
-                    scan_bar.update(1)
-                    continue
+    short_name = _trunc(repo_name)
+    if file_bar is not None:
+        file_bar.reset(total=len(parsable_files))
+        file_bar.set_description(f"scanning ({short_name})")
+    for file_path in parsable_files:
+        if _scan_needs_indexing(file_path, db_map, empty_summary_file_ids):
             needs_indexing_set.add(file_path)
-            scan_bar.update(1)
+        if file_bar is not None:
+            file_bar.update(1)
 
     # Order files needing indexing by topological sort (leaves first)
     topo_set = set(topo_order)
@@ -639,49 +698,37 @@ def _index_repo(
         if f not in topo_set:
             needs_indexing.append(f)
 
-    print(
-        f"[{repo_name}] {len(needs_indexing)} files to index of "
-        f"{len(parsable_files)} parsable ({len(disk_files)} total)",
-        file=sys.stderr,
+    logger.info(
+        "[%s] %d files to index of %d parsable (%d total)",
+        repo_name, len(needs_indexing), len(parsable_files), len(disk_files),
     )
 
     # Index only the files that need it, in dependency order
-    with tqdm(
-        total=len(needs_indexing),
-        desc=f"indexing ({repo_name})",
-        unit="file",
-        file=sys.stderr,
-        position=0,
-        disable=disable_bars,
-    ) as file_bar:
-        with tqdm(
-            total=0,
-            desc="units",
-            unit="unit",
-            file=sys.stderr,
-            position=1,
-            leave=False,
-            disable=disable_bars,
-        ) as unit_bar:
-            for file_path in needs_indexing:
-                file_bar.set_postfix(
-                    file=file_path.name, status="scanning", refresh=True
-                )
-                _process_file(
-                    conn,
-                    repo_id,
-                    repo_name,
-                    git_root,
-                    file_path,
-                    db_map.get(file_path),
-                    embedder,
-                    summarizer,
-                    file_bar,
-                    unit_bar,
-                    import_paths=import_graph.get(file_path, []),
-                    cycle_members=cycle_members,
-                )
-                file_bar.update(1)
+    if file_bar is not None:
+        file_bar.reset(total=len(needs_indexing))
+        file_bar.set_description(f"indexing ({repo_name})")
+    for file_path in needs_indexing:
+        if file_bar is not None:
+            file_bar.set_postfix(
+                file=_trunc(file_path.name), status="scanning", refresh=True
+            )
+        _process_file(
+            conn,
+            repo_id,
+            repo_name,
+            git_root,
+            file_path,
+            db_map.get(file_path),
+            embedder,
+            summarizer,
+            file_bar,
+            unit_bar,
+            logger,
+            import_paths=import_graph.get(file_path, []),
+            cycle_members=cycle_members,
+        )
+        if file_bar is not None:
+            file_bar.update(1)
 
     # Bottom-up directory summaries (deepest first, then repo root)
     directories = _collect_directories(parsable_files, git_root)
@@ -689,7 +736,7 @@ def _index_repo(
         for dir_path in directories:
             _upsert_directory_unit(
                 conn, repo_id, dir_path, repo_name, git_root,
-                embedder, summarizer,
+                embedder, summarizer, logger,
             )
 
     # Clean up directory units for directories that no longer have indexed files
@@ -748,6 +795,7 @@ def _backfill_empty_summaries(
     file_bar: tqdm | None,
     unit_bar: tqdm | None,
     _file_status,
+    logger: logging.Logger,
 ) -> None:
     """Re-summarise and re-embed units whose summary is empty."""
     rows = conn.execute(
@@ -780,14 +828,12 @@ def _backfill_empty_summaries(
         )
         unit_label = unit_name or "unit"
         if unit_bar is not None:
-            unit_bar.set_postfix(name=unit_label, refresh=True)
+            unit_bar.set_postfix(name=_trunc(unit_label), refresh=True)
         try:
             summary = summarizer.summarize(unit)
         except subprocess.TimeoutExpired:
-            tqdm.write(
-                f"Warning: {file_path.name}:{unit_label!r} timed out — skipping.",
-                file=sys.stderr,
-            )
+            if logger is not None:
+                logger.warning("%s:%r timed out — skipping.", file_path.name, unit_label)
             if unit_bar is not None:
                 unit_bar.update(1)
             continue
@@ -821,6 +867,7 @@ def _upsert_module_unit(
     cycle_members: set[Path],
     embedder,
     summarizer,
+    logger: logging.Logger,
 ) -> None:
     """Create or update the module-level summary unit for a file.
 
@@ -878,10 +925,8 @@ def _upsert_module_unit(
     try:
         summary = summarizer.summarize(module_unit)
     except subprocess.TimeoutExpired:
-        tqdm.write(
-            f"Warning: {file_path.name} module summary timed out — skipping.",
-            file=sys.stderr,
-        )
+        if logger is not None:
+            logger.warning("%s module summary timed out — skipping.", file_path.name)
         return
 
     with conn:
@@ -925,6 +970,7 @@ def _process_file(
     summarizer,
     file_bar: tqdm | None = None,
     unit_bar: tqdm | None = None,
+    logger: logging.Logger | None = None,
     import_paths: list[Path] | None = None,
     cycle_members: set[Path] | None = None,
 ) -> None:
@@ -932,7 +978,8 @@ def _process_file(
 
     def _file_status(status: str) -> None:
         if file_bar is not None:
-            file_bar.set_postfix(file=file_path.name, status=status, refresh=True)
+            short = _trunc(file_path.name)
+            file_bar.set_postfix(file=short, status=status, refresh=True)
 
     # Read bytes once for binary check + md5
     try:
@@ -966,7 +1013,7 @@ def _process_file(
         file_id = file_info[0]  # type: ignore[index]
         _backfill_empty_summaries(
             conn, file_id, file_path, repo_name, git_root, embedder, summarizer,
-            file_bar, unit_bar, _file_status,
+            file_bar, unit_bar, _file_status, logger,
         )
         return
 
@@ -982,11 +1029,11 @@ def _process_file(
     processed: list[SemanticUnit] = []
     for unit in units:
         if len(unit.content) > _MAX_CHARS:
-            print(
-                f"Warning: {file_path.name}:{unit.unit_name!r} exceeds "
-                f"{_MAX_TOKENS} estimated tokens; truncating.",
-                file=sys.stderr,
-            )
+            if logger is not None:
+                logger.warning(
+                    "%s:%r exceeds %d estimated tokens; truncating.",
+                    file_path.name, unit.unit_name, _MAX_TOKENS,
+                )
             unit = SemanticUnit(
                 unit_type=unit.unit_type,
                 unit_name=unit.unit_name,
@@ -1047,14 +1094,15 @@ def _process_file(
         for unit in to_add:
             unit_label = unit.unit_name or unit.unit_type
             if unit_bar is not None:
-                unit_bar.set_postfix(type=unit.unit_type, name=unit_label, refresh=True)
+                unit_bar.set_postfix(type=unit.unit_type, name=_trunc(unit_label), refresh=True)
             try:
                 summary = summarizer.summarize(unit)
             except subprocess.TimeoutExpired:
-                tqdm.write(
-                    f"Warning: {file_path.name}:{unit_label!r} timed out — skipping unit.",
-                    file=sys.stderr,
-                )
+                if logger is not None:
+                    logger.warning(
+                        "%s:%r timed out — skipping unit.",
+                        file_path.name, unit_label,
+                    )
                 if unit_bar is not None:
                     unit_bar.update(1)
                 continue
@@ -1088,5 +1136,5 @@ def _process_file(
     _upsert_module_unit(
         conn, repo_id, file_id, file_path, repo_name, git_root,
         import_paths or [], cycle_members or set(),
-        embedder, summarizer,
+        embedder, summarizer, logger,
     )

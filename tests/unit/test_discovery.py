@@ -6,6 +6,8 @@ Git-based tests require `git` to be in PATH.
 
 from pathlib import Path
 
+import pytest
+
 from mcp_rag.discovery import discover_files, discover_git_repos
 from tests.conftest import git_init, git_add_commit
 
@@ -123,6 +125,29 @@ def test_discover_files_non_git_excludes_node_modules(tmp_path):
 
     files = discover_files(tmp_path)
     assert (nm / "lib.js") not in files
+
+
+@pytest.mark.parametrize("dirname", [
+    ".terraform",
+    ".webpack",
+    ".cache",
+    ".npm",
+    "bower_components",
+    "coverage",
+    "lib-cov",
+    ".Trash",
+    ".Trashes",
+])
+def test_discover_files_non_git_excludes_vendor_dirs(tmp_path, dirname):
+    excluded = tmp_path / dirname
+    excluded.mkdir()
+    (excluded / "some_file.txt").write_text("data\n", encoding="utf-8")
+    real = tmp_path / "main.py"
+    real.write_text("pass\n", encoding="utf-8")
+
+    files = discover_files(tmp_path)
+    assert (excluded / "some_file.txt") not in files
+    assert real in files
 
 
 def test_discover_files_non_git_no_symlink_follow(tmp_path):

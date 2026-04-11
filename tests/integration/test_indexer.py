@@ -64,12 +64,13 @@ def test_first_run_creates_db_file(tmp_path, embedder, summarizer):
     assert db_path.exists()
 
 
-def test_first_run_emits_warning_to_stderr(tmp_path, embedder, summarizer, capsys):
+def test_first_run_logs_new_index_message(tmp_path, embedder, summarizer):
     root = make_git_project(tmp_path / "proj", {"x.py": "x = 1\n"})
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
-    captured = capsys.readouterr()
-    assert "No index found" in captured.err
+    log_path = db_path.with_suffix(".log")
+    assert log_path.exists()
+    assert "No index found" in log_path.read_text()
 
 
 def test_first_run_indexes_python_file(tmp_path, embedder, summarizer):
