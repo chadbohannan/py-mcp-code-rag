@@ -928,6 +928,127 @@ def parse_terraform(source: str, is_tfvars: bool = False) -> list[SemanticUnit]:
     return units
 
 
+# ---------------------------------------------------------------------------
+# OpenSCAD
+# ---------------------------------------------------------------------------
+# tree-sitter-openscad exists at https://github.com/bollian/tree-sitter-openscad
+# but has no PyPI Python package as of 2026-04.  Using regex fallback until
+# a pip-installable binding is published.
+
+_OPENSCAD_EXTENSIONS = frozenset({".scad"})
+
+# Matches top-level module or function declarations.
+# module foo(...) {   — braced body
+# function foo(...) = expr;  — expression body (no brace)
+_OPENSCAD_DECL_RE = re.compile(
+    r'^[ \t]*(module|function)[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(',
+    re.MULTILINE,
+)
+
+
+def _openscad_find_body_end(source: str, start: int) -> int:
+    """Return the index just past the end of an OpenSCAD declaration body.
+
+    For module declarations the body is a brace-delimited block.
+    For function declarations the body ends at the first ';' outside parens/brackets.
+    Starts scanning from *start*, which should be positioned at or before the
+    opening '{' or '=' of the body.
+    """
+    i = start
+    n = len(source)
+    in_string = False
+    escape_next = False
+
+    # Advance to the opening '{' or '='
+    while i < n and source[i] not in ('{', '=', ';'):
+        i += 1
+
+    if i >= n:
+        return n
+
+    if source[i] == '{':
+        # Brace-matched block (module body)
+        depth = 0
+        while i < n:
+            ch = source[i]
+            if escape_next:
+                escape_next = False
+            elif in_string:
+                if ch == '\\':
+                    escape_next = True
+                elif ch == '"':
+                    in_string = False
+            else:
+                if ch == '"':
+                    in_string = True
+                elif ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return i + 1
+            i += 1
+        return n
+    else:
+        # '=' expression ending at ';' (function body)
+        paren_depth = 0
+        bracket_depth = 0
+        while i < n:
+            ch = source[i]
+            if escape_next:
+                escape_next = False
+            elif in_string:
+                if ch == '\\':
+                    escape_next = True
+                elif ch == '"':
+                    in_string = False
+            else:
+                if ch == '"':
+                    in_string = True
+                elif ch == '(':
+                    paren_depth += 1
+                elif ch == ')':
+                    paren_depth -= 1
+                elif ch == '[':
+                    bracket_depth += 1
+                elif ch == ']':
+                    bracket_depth -= 1
+                elif ch == ';' and paren_depth == 0 and bracket_depth == 0:
+                    return i + 1
+            i += 1
+        return n
+
+
+def parse_openscad(source: str) -> list[SemanticUnit]:
+    """Parse an OpenSCAD source string into SemanticUnits.
+
+    Extracts top-level module and function declarations.
+    """
+    if not source.strip():
+        return []
+
+    units: list[SemanticUnit] = []
+    for match in _OPENSCAD_DECL_RE.finditer(source):
+        decl_type = match.group(1)   # "module" or "function"
+        name = match.group(2)
+        unit_type = "module" if decl_type == "module" else "function"
+
+        # Find where the parameter list closes, then locate the body
+        end = _openscad_find_body_end(source, match.end())
+        content = source[match.start():end].strip()
+        if content:
+            units.append(
+                SemanticUnit(
+                    unit_type=unit_type,
+                    unit_name=name,
+                    content=content,
+                    char_offset=match.start(),
+                )
+            )
+
+    return units
+
+
 def parse_file(path: Path) -> list[SemanticUnit]:
     """Dispatch to the appropriate parser based on file extension.
 
@@ -964,6 +1085,8 @@ def parse_file(path: Path) -> list[SemanticUnit]:
             path.read_text(encoding="utf-8", errors="replace"),
             is_tfvars=(suffix == ".tfvars"),
         )
+    if suffix in _OPENSCAD_EXTENSIONS:
+        return parse_openscad(path.read_text(encoding="utf-8", errors="replace"))
 
     logger.debug("skipping %s: unsupported extension %r", path, suffix)
     return []

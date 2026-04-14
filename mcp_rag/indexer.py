@@ -62,6 +62,7 @@ _SUPPORTED_EXTENSIONS = frozenset({
     ".ts", ".tsx", ".mts", ".cts",
     ".java",
     ".tf", ".tfvars",
+    ".scad",
 })
 
 
