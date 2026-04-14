@@ -1,4 +1,4 @@
-.PHONY: install test test-unit test-integration lint format index reindex serve clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
+.PHONY: install test test-unit test-integration lint format index reindex serve webui clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
 
 # Resolve absolute path at make-time so the registered command works from any working directory
 DIR := $(shell pwd)
@@ -39,6 +39,10 @@ reindex:
 # Start the MCP stdio server. Usage: make serve DB=my.db
 serve:
 	uv run code-rag serve --db $(or $(DB),index.db)
+
+# Start the web UI. Usage: make webui DB=my.db PORT=8081
+webui:
+	uv run code-rag webui --db $(or $(DB),index.db) --port $(or $(PORT),8081)
 
 # Register this server with Claude Code (run once after cloning). Usage: make add-claude-mcp DB=my.db
 add-claude-mcp:

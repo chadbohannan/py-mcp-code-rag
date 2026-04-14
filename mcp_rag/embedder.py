@@ -20,21 +20,21 @@ class FastEmbedder:
     """
 
     def __init__(self, model_name: str = DEFAULT_MODEL) -> None:
-        import tempfile
         from pathlib import Path
 
         from fastembed import TextEmbedding
 
         self.model = model_name
+        cache_dir = Path.home() / ".cache" / "fastembed"
+        cache_dir.mkdir(parents=True, exist_ok=True)
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                self._fe = TextEmbedding(model_name)
+                self._fe = TextEmbedding(model_name, cache_dir=str(cache_dir))
             # Probe dimension once at construction time
             probe = next(iter(self._fe.embed(["probe"])))
             self.dim = len(probe)
         except Exception as exc:
-            cache_dir = Path(tempfile.gettempdir()) / "fastembed_cache"
             raise EmbedderLoadError(
                 f"Failed to load embedding model '{model_name}'.\n"
                 f"The model cache may be corrupt. Try clearing it:\n"

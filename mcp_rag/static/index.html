@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>code-rag</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #e6edf3; --text-muted: #8b949e; --accent: #58a6ff;
+  --accent-dim: #1f6feb; --green: #3fb950; --red: #f85149;
+  --yellow: #d29922; --font: 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Layout */
+.app { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; }
+header h1 { font-size: 1.25rem; font-weight: 600; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; }
+.tab-btn {
+  padding: 0.5rem 1.25rem; cursor: pointer; background: none;
+  border: 1px solid var(--border); border-bottom: none; color: var(--text-muted);
+  font-size: 0.875rem; border-radius: 6px 6px 0 0; transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); background: var(--surface); }
+.tab-btn.active { color: var(--text); background: var(--surface); border-color: var(--accent); border-bottom-color: var(--surface); }
+.tab-panel { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 0 6px 6px 6px; padding: 1.25rem; }
+.tab-panel.active { display: block; }
+
+/* Forms */
+input[type="text"], input[type="number"], select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; width: 100%;
+}
+input:focus { outline: none; border-color: var(--accent); }
+button {
+  padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border);
+  cursor: pointer; font-size: 0.875rem; transition: all 0.15s;
+}
+.btn-primary { background: var(--accent-dim); color: #fff; border-color: var(--accent-dim); }
+.btn-primary:hover { background: var(--accent); }
+.btn-danger { background: transparent; color: var(--red); border-color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Progress */
+.progress-wrap { margin: 1rem 0; }
+.progress-bar-outer {
+  height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden;
+}
+.progress-bar-inner {
+  height: 100%; background: var(--accent); transition: width 0.3s; width: 0%;
+}
+.progress-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+.log-box {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.75rem; margin-top: 0.75rem; max-height: 200px; overflow-y: auto;
+  font-family: var(--mono); font-size: 0.75rem; color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Results */
+.result-item {
+  padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;
+  margin-bottom: 0.5rem; cursor: pointer; transition: border-color 0.15s;
+}
+.result-item:hover { border-color: var(--accent); }
+.result-path { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+.result-summary { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+.result-score {
+  font-size: 0.75rem; color: var(--yellow); float: right; font-family: var(--mono);
+}
+
+/* Source viewer */
+.source-viewer {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 1rem; margin-top: 0.75rem; display: none;
+}
+.source-viewer.visible { display: block; }
+.source-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);
+}
+.source-path { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+.source-summary { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+pre.source-code {
+  background: var(--bg); color: var(--text); font-family: var(--mono);
+  font-size: 0.8rem; line-height: 1.5; overflow-x: auto; white-space: pre;
+  max-height: 500px; overflow-y: auto; padding: 0.5rem;
+}
+
+/* Browse */
+.browse-grid { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; }
+.file-tree {
+  max-height: 600px; overflow-y: auto; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.5rem; background: var(--bg);
+}
+.tree-item {
+  padding: 0.25rem 0.5rem; cursor: pointer; font-family: var(--mono);
+  font-size: 0.8rem; color: var(--text-muted); border-radius: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tree-item:hover { background: var(--surface); color: var(--text); }
+.tree-item.active { background: var(--accent-dim); color: #fff; }
+.tree-heading {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+  padding: 0.5rem 0.5rem 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* Inline helpers */
+.row { display: flex; gap: 0.5rem; align-items: center; }
+.mt { margin-top: 0.75rem; }
+.mb { margin-bottom: 0.75rem; }
+.muted { color: var(--text-muted); font-size: 0.85rem; }
+.badge {
+  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px;
+  font-size: 0.7rem; font-weight: 600;
+}
+.badge-green { background: #0f5323; color: var(--green); }
+.badge-yellow { background: #3b2e00; color: var(--yellow); }
+.badge-blue { background: #0d2645; color: var(--accent); }
+
+/* Folder picker */
+.folder-picker {
+  border: 1px solid var(--border); border-radius: 6px; background: var(--bg);
+  margin-bottom: 0.75rem;
+}
+.folder-picker-bar {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.folder-picker-bar button {
+  padding: 0.25rem 0.5rem; font-size: 0.8rem; flex-shrink: 0;
+}
+.folder-breadcrumb {
+  font-family: var(--mono); font-size: 0.8rem; color: var(--text-muted);
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.folder-breadcrumb span { cursor: pointer; color: var(--accent); }
+.folder-breadcrumb span:hover { text-decoration: underline; }
+.folder-list {
+  max-height: 220px; overflow-y: auto; padding: 0.25rem;
+}
+.folder-item {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0.75rem; cursor: pointer; border-radius: 4px;
+  font-family: var(--mono); font-size: 0.8rem; color: var(--text-muted);
+}
+.folder-item:hover { background: var(--surface); color: var(--text); }
+.folder-icon { flex-shrink: 0; width: 1rem; text-align: center; }
+.folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-badge {
+  font-size: 0.65rem; padding: 0.05rem 0.35rem; border-radius: 8px;
+  background: #0f5323; color: var(--green); margin-left: auto; flex-shrink: 0;
+}
+.selected-paths {
+  display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border); min-height: 2rem; align-items: center;
+}
+.selected-paths:empty { display: none; }
+.path-chip {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: var(--accent-dim); color: #fff; padding: 0.15rem 0.5rem;
+  border-radius: 10px; font-family: var(--mono); font-size: 0.75rem;
+}
+.path-chip button {
+  background: none; border: none; color: #fff; cursor: pointer;
+  font-size: 0.85rem; padding: 0; line-height: 1; opacity: 0.7;
+}
+.path-chip button:hover { opacity: 1; }
+
+/* Status bar */
+.status-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 0.35rem 1rem; font-size: 0.75rem; color: var(--text-muted);
+  display: flex; justify-content: space-between;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>code-rag</h1>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="index">Index</button>
+      <button class="tab-btn" data-tab="search">Search</button>
+      <button class="tab-btn" data-tab="browse">Browse</button>
+    </div>
+  </header>
+
+  <!-- INDEX TAB -->
+  <div id="tab-index" class="tab-panel active">
+    <div class="folder-picker">
+      <div class="folder-picker-bar">
+        <button onclick="folderUp()" title="Go up">&#8593;</button>
+        <div class="folder-breadcrumb" id="folder-breadcrumb"></div>
+        <button onclick="folderGoHome()" title="Home">~</button>
+      </div>
+      <div class="folder-list" id="folder-list"></div>
+      <div class="selected-paths" id="selected-paths"></div>
+    </div>
+    <div class="row mb">
+      <input type="text" id="index-paths" placeholder="Or type paths (comma-separated)" style="flex:1">
+      <label style="font-size:0.85rem;color:var(--text-muted);white-space:nowrap">
+        <input type="checkbox" id="index-reindex"> Reindex
+      </label>
+      <button id="btn-start" class="btn-primary" onclick="startIndex()">Start</button>
+      <button id="btn-cancel" class="btn-danger" onclick="cancelIndex()" disabled>Cancel</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar-outer"><div id="progress-bar" class="progress-bar-inner"></div></div>
+      <div id="progress-label" class="progress-label">Idle</div>
+    </div>
+    <div id="index-log" class="log-box"></div>
+
+    <div class="mt">
+      <h3 style="font-size:0.9rem;margin-bottom:0.5rem">Index Status</h3>
+      <div id="index-status" class="muted">Loading...</div>
+    </div>
+  </div>
+
+  <!-- SEARCH TAB -->
+  <div id="tab-search" class="tab-panel">
+    <div class="row mb">
+      <input type="text" id="search-query" placeholder="Search the codebase..." style="flex:1"
+             onkeydown="if(event.key==='Enter')doSearch()">
+      <input type="text" id="search-globs" placeholder="Globs (optional)" style="width:200px">
+      <input type="number" id="search-topk" value="10" min="1" max="20" style="width:70px" title="top_k">
+      <button class="btn-primary" onclick="doSearch()">Search</button>
+    </div>
+    <div id="search-results"></div>
+    <div id="search-viewer" class="source-viewer">
+      <div class="source-header">
+        <span class="source-path" id="viewer-path"></span>
+        <button onclick="closeViewer('search-viewer')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem">&times;</button>
+      </div>
+      <div class="source-summary" id="viewer-summary"></div>
+      <pre class="source-code" id="viewer-code"></pre>
+    </div>
+  </div>
+
+  <!-- BROWSE TAB -->
+  <div id="tab-browse" class="tab-panel">
+    <div class="browse-grid">
+      <div>
+        <div class="row mb">
+          <input type="text" id="browse-filter" placeholder="Filter..." style="flex:1"
+                 oninput="filterTree()">
+        </div>
+        <div id="file-tree" class="file-tree">
+          <div class="muted" style="padding:0.5rem">Loading...</div>
+        </div>
+      </div>
+      <div>
+        <div id="browse-viewer" class="source-viewer visible" style="display:block">
+          <div class="source-header">
+            <span class="source-path" id="browse-path">Select a unit to view</span>
+          </div>
+          <div class="source-summary" id="browse-summary"></div>
+          <pre class="source-code" id="browse-code" style="min-height:200px"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span id="status-left">code-rag web UI</span>
+  <span id="status-right"></span>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Tab switching
+// ---------------------------------------------------------------------------
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'browse') loadTree();
+    if (btn.dataset.tab === 'index') loadStatus();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Folder picker
+// ---------------------------------------------------------------------------
+let currentFolder = '';
+let selectedPaths = [];
+
+async function folderNavigate(path) {
+  const params = path ? '?path=' + encodeURIComponent(path) : '';
+  try {
+    const res = await fetch('/api/ls' + params);
+    const data = await res.json();
+    if (data.error) return;
+    currentFolder = data.path;
+    renderBreadcrumb(data.path);
+    renderFolderList(data);
+  } catch(e) { /* ignore */ }
+}
+
+function renderBreadcrumb(fullPath) {
+  const el = document.getElementById('folder-breadcrumb');
+  const parts = fullPath.split('/').filter(Boolean);
+  let html = '<span onclick="folderNavigate(\'/\')">/</span>';
+  let accumulated = '';
+  for (const part of parts) {
+    accumulated += '/' + part;
+    const p = accumulated;
+    html += `<span onclick="folderNavigate('${escHtml(p)}')">${escHtml(part)}</span>/`;
+  }
+  el.innerHTML = html;
+}
+
+function renderFolderList(data) {
+  const el = document.getElementById('folder-list');
+  if (!data.dirs.length && !data.is_git) {
+    el.innerHTML = '<div class="muted" style="padding:0.5rem">Empty directory</div>';
+    return;
+  }
+  let html = '';
+  // "Select this folder" row when it's a git repo
+  if (data.is_git) {
+    const alreadySelected = selectedPaths.includes(data.path);
+    html += `<div class="folder-item" onclick="selectPath('${escHtml(data.path)}')" style="color:var(--green)">
+      <span class="folder-icon">+</span>
+      <span class="folder-name">Select this repo</span>
+      <span class="git-badge">git</span>
+      ${alreadySelected ? '<span style="margin-left:0.25rem;color:var(--yellow);font-size:0.7rem">added</span>' : ''}
+    </div>`;
+  }
+  for (const d of data.dirs) {
+    html += `<div class="folder-item" ondblclick="folderNavigate('${escHtml(d.path)}')" onclick="folderClick(this, '${escHtml(d.path)}')">
+      <span class="folder-icon">&#128193;</span>
+      <span class="folder-name">${escHtml(d.name)}</span>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function folderClick(el, path) {
+  // Single click selects visually, hint to double-click
+  document.querySelectorAll('.folder-list .folder-item').forEach(i => i.style.background = '');
+  el.style.background = 'var(--surface)';
+}
+
+function folderUp() {
+  if (!currentFolder || currentFolder === '/') return;
+  const parent = currentFolder.replace(/\/[^/]+\/?$/, '') || '/';
+  folderNavigate(parent);
+}
+
+function folderGoHome() {
+  folderNavigate('');
+}
+
+function selectPath(path) {
+  if (selectedPaths.includes(path)) return;
+  selectedPaths.push(path);
+  renderSelectedPaths();
+  // Also update the text input
+  document.getElementById('index-paths').value = selectedPaths.join(', ');
+  // Re-render folder list to show "added" state
+  folderNavigate(currentFolder);
+}
+
+function removePath(path) {
+  selectedPaths = selectedPaths.filter(p => p !== path);
+  renderSelectedPaths();
+  document.getElementById('index-paths').value = selectedPaths.join(', ');
+  // Re-render folder list
+  if (currentFolder) folderNavigate(currentFolder);
+}
+
+function renderSelectedPaths() {
+  const el = document.getElementById('selected-paths');
+  if (!selectedPaths.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = selectedPaths.map(p => {
+    const short = p.split('/').slice(-2).join('/');
+    return `<span class="path-chip" title="${escHtml(p)}">
+      ${escHtml(short)}
+      <button onclick="event.stopPropagation();removePath('${escHtml(p)}')">&times;</button>
+    </span>`;
+  }).join('');
+}
+
+// Load initial folder on page load
+folderNavigate('');
+
+// ---------------------------------------------------------------------------
+// Index status
+// ---------------------------------------------------------------------------
+async function loadStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    const el = document.getElementById('index-status');
+    if (!data.length) {
+      el.innerHTML = 'No indexed repos.';
+      return;
+    }
+    el.innerHTML = data.map(r =>
+      `<div style="margin-bottom:0.35rem">
+        <span class="badge badge-blue">${r.repo}</span>
+        ${r.file_count} files, ${r.unit_count} units
+        <span style="color:var(--text-muted);font-size:0.75rem">
+          (${r.last_indexed_at ? new Date(r.last_indexed_at).toLocaleString() : 'never'})
+        </span>
+      </div>`
+    ).join('');
+    document.getElementById('status-right').textContent =
+      data.reduce((s,r) => s + r.unit_count, 0) + ' units indexed';
+  } catch(e) { /* ignore */ }
+}
+loadStatus();
+
+// ---------------------------------------------------------------------------
+// WebSocket indexing
+// ---------------------------------------------------------------------------
+let ws = null;
+
+function startIndex() {
+  const pathsStr = document.getElementById('index-paths').value.trim();
+  const paths = pathsStr
+    ? pathsStr.split(',').map(p => p.trim()).filter(Boolean)
+    : [...selectedPaths];
+  if (!paths.length) return;
+  const reindex = document.getElementById('index-reindex').checked;
+
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-cancel').disabled = false;
+  document.getElementById('index-log').innerHTML = '';
+  setProgress(0, 'Connecting...');
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws/index`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ action: 'start', paths, reindex }));
+    logMsg('Indexing started for: ' + paths.join(', '));
+  };
+
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    handleProgress(msg);
+  };
+
+  ws.onclose = () => {
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-cancel').disabled = true;
+    loadStatus();
+  };
+
+  ws.onerror = () => {
+    logMsg('WebSocket error');
+    setProgress(0, 'Error');
+  };
+}
+
+function cancelIndex() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ action: 'cancel' }));
+    logMsg('Cancel requested...');
+  }
+}
+
+function handleProgress(msg) {
+  if (msg.type === 'error') {
+    logMsg('ERROR: ' + msg.message);
+    setProgress(0, 'Error: ' + msg.message);
+    return;
+  }
+  if (msg.type !== 'status') return;
+
+  const phase = msg.phase;
+  if (phase === 'done') {
+    setProgress(100, 'Done!');
+    logMsg('Indexing complete.');
+    if (ws) ws.close();
+    return;
+  }
+  if (phase === 'cancelled') {
+    setProgress(0, 'Cancelled');
+    logMsg('Indexing cancelled.');
+    if (ws) ws.close();
+    return;
+  }
+  if (phase === 'cancelling') {
+    logMsg('Cancelling...');
+    return;
+  }
+
+  const total = msg.files_total || 0;
+  const done = msg.files_done || 0;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const repo = msg.repo || '';
+  const file = msg.file || '';
+
+  if (phase === 'scanning') {
+    setProgress(pct, `Scanning ${repo}: ${done}/${total} files`);
+  } else if (phase === 'indexing') {
+    setProgress(pct, `Indexing ${repo}: ${done}/${total} files` + (file ? ` - ${file}` : ''));
+    if (file && done % 5 === 0) logMsg(`[${repo}] ${done}/${total} ${file}`);
+  } else if (phase === 'directory_summaries') {
+    setProgress(pct, `Directory summaries: ${repo}`);
+  }
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function logMsg(text) {
+  const box = document.getElementById('index-log');
+  const ts = new Date().toLocaleTimeString();
+  box.innerHTML += `<div>${ts} ${text}</div>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+async function doSearch() {
+  const q = document.getElementById('search-query').value.trim();
+  if (!q) return;
+  const globs = document.getElementById('search-globs').value.trim();
+  const topk = document.getElementById('search-topk').value;
+  const params = new URLSearchParams({ q, top_k: topk });
+  if (globs) params.set('globs', globs);
+
+  const el = document.getElementById('search-results');
+  el.innerHTML = '<div class="muted">Searching...</div>';
+
+  try {
+    const res = await fetch('/api/search?' + params);
+    const data = await res.json();
+    if (!data.length) {
+      el.innerHTML = '<div class="muted">No results.</div>';
+      return;
+    }
+    el.innerHTML = data.map(r => `
+      <div class="result-item" onclick="viewUnit('search', '${escHtml(r.path)}')">
+        <span class="result-score">${(r.score * 100).toFixed(1)}%</span>
+        <div class="result-path">${escHtml(r.path)}</div>
+        <div class="result-summary">${escHtml(r.summary || '')}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="muted">Search failed.</div>';
+  }
+}
+
+async function viewUnit(prefix, path) {
+  try {
+    const res = await fetch('/api/unit?path=' + encodeURIComponent(path));
+    const data = await res.json();
+    if (!data.path) return;
+    const viewer = document.getElementById(prefix + '-viewer');
+    document.getElementById(prefix === 'search' ? 'viewer-path' : 'browse-path').textContent = data.path;
+    document.getElementById(prefix === 'search' ? 'viewer-summary' : 'browse-summary').textContent = data.summary || '';
+    document.getElementById(prefix === 'search' ? 'viewer-code' : 'browse-code').textContent = data.content || '';
+    viewer.classList.add('visible');
+    if (prefix === 'search') viewer.style.display = 'block';
+  } catch(e) { /* ignore */ }
+}
+
+function closeViewer(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('visible');
+  el.style.display = 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Browse
+// ---------------------------------------------------------------------------
+let treeData = [];
+
+async function loadTree() {
+  try {
+    const res = await fetch('/api/units?limit=500');
+    treeData = await res.json();
+    renderTree(treeData);
+  } catch(e) {
+    document.getElementById('file-tree').innerHTML = '<div class="muted">Failed to load.</div>';
+  }
+}
+
+function renderTree(items) {
+  const el = document.getElementById('file-tree');
+  if (!items.length) {
+    el.innerHTML = '<div class="muted">No units indexed.</div>';
+    return;
+  }
+
+  // Group by file (everything before the last colon that follows a file extension)
+  const groups = {};
+  for (const item of items) {
+    const parts = item.path.split('/');
+    const repo = parts[0];
+    if (!groups[repo]) groups[repo] = [];
+    groups[repo].push(item);
+  }
+
+  let html = '';
+  for (const [repo, units] of Object.entries(groups)) {
+    html += `<div class="tree-heading">${escHtml(repo)}</div>`;
+    for (const u of units) {
+      const short = u.path.substring(repo.length + 1);
+      html += `<div class="tree-item" onclick="viewUnit('browse', '${escHtml(u.path)}')" title="${escHtml(u.summary || '')}">${escHtml(short)}</div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+function filterTree() {
+  const q = document.getElementById('browse-filter').value.toLowerCase();
+  if (!q) { renderTree(treeData); return; }
+  renderTree(treeData.filter(u => u.path.toLowerCase().includes(q)));
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
