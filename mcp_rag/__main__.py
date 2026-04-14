@@ -20,7 +20,7 @@ from mcp_rag.summarizer import (
 )
 
 _DEFAULT_DB = Path("index.db")
-_SUBCOMMANDS = {"index", "serve"}
+_SUBCOMMANDS = {"index", "serve", "webui"}
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +105,18 @@ def _make_serve_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _make_webui_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="code-rag webui")
+    p.add_argument("--db", type=Path, default=_DEFAULT_DB)
+    p.add_argument("--host", default="0.0.0.0")
+    p.add_argument("--port", type=int, default=8080)
+    p.add_argument("--embed-model", default=None, dest="embed_model")
+    p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
+    p.add_argument("--ollama-model", default=DEFAULT_OLLAMA_MODEL, dest="ollama_model")
+    p.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, dest="ollama_host")
+    return p
+
+
 def _make_combined_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="code-rag")
     p.add_argument("paths", nargs="*", type=Path, metavar="PATH")
@@ -143,6 +155,9 @@ def main() -> None:
     elif first_pos == "serve":
         args = _make_serve_parser().parse_args(argv[argv.index("serve") + 1 :])
         _run_serve_cmd(args)
+    elif first_pos == "webui":
+        args = _make_webui_parser().parse_args(argv[argv.index("webui") + 1 :])
+        _run_webui_cmd(args)
     else:
         args = _make_combined_parser().parse_args(argv)
         _run_combined_cmd(args)
@@ -176,6 +191,46 @@ def _run_index_cmd(args: argparse.Namespace) -> None:
 
 def _run_serve_cmd(args: argparse.Namespace) -> None:
     _do_serve(db_path=args.db, http=args.http, port=args.port)
+
+
+def _run_webui_cmd(args: argparse.Namespace) -> None:
+    import uvicorn
+
+    from mcp_rag.webui import create_app
+
+    # Determine embed model: explicit flag > DB metadata > default
+    if args.embed_model:
+        embed_model = args.embed_model
+    else:
+        embed_model, _ = _read_embed_meta(args.db)
+
+    try:
+        embedder = FastEmbedder(model_name=embed_model)
+    except EmbedderLoadError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    # Build a summarizer factory for the indexer to call from its thread
+    sum_type = args.summarizer
+    ollama_model = args.ollama_model
+    ollama_host = args.ollama_host
+
+    def make_summarizer():
+        if sum_type == "anthropic":
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                raise IndexAbortError(
+                    "ANTHROPIC_API_KEY is not set."
+                )
+            return AnthropicSummarizer()
+        return OllamaSummarizer(model=ollama_model, host=ollama_host)
+
+    app = create_app(
+        db_path=args.db,
+        embedder=embedder,
+        summarizer_factory=make_summarizer,
+    )
+    print(f"code-rag web UI: http://{args.host}:{args.port}", file=sys.stderr)
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 
 
 def _run_combined_cmd(args: argparse.Namespace) -> None:

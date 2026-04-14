@@ -14,6 +14,8 @@ import hashlib
 import logging
 import subprocess
 import sys
+import threading
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
@@ -76,8 +78,18 @@ def run_index(
     embedder: Embedder,
     summarizer: Summarizer,
     reindex: bool = False,
+    progress_cb: Callable[[dict], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> None:
-    """Build or update the index for *roots* into *db_path*."""
+    """Build or update the index for *roots* into *db_path*.
+
+    *progress_cb* — optional callback invoked with progress dicts for
+    real-time monitoring (e.g. WebSocket streaming).  When *None*, tqdm
+    progress bars are used on stderr (the CLI path).
+
+    *cancel_event* — optional ``threading.Event``; when set, the indexer
+    stops after the current file and raises ``IndexAbortError``.
+    """
     # Guard: roots must not overlap
     resolved = [r.resolve() for r in roots]
     for i, a in enumerate(resolved):
@@ -122,7 +134,8 @@ def run_index(
 
     # Second pass: index each repo
     total_deleted = 0
-    disable_bars = not sys.stderr.isatty()
+    use_tqdm = progress_cb is None
+    disable_bars = not sys.stderr.isatty() if use_tqdm else True
     try:
         with tqdm(
             total=len(repos), desc="repos", unit="repo",
@@ -135,24 +148,39 @@ def run_index(
             file=sys.stderr, position=2, leave=False, disable=disable_bars,
         ) as unit_bar:
             try:
-                for repo_id, repo_name, git_root in repos:
+                for idx, (repo_id, repo_name, git_root) in enumerate(repos):
+                    if cancel_event and cancel_event.is_set():
+                        if progress_cb:
+                            progress_cb({"type": "status", "phase": "cancelled"})
+                        raise IndexAbortError("Indexing cancelled by user.")
                     repo_bar.set_postfix(repo=_trunc(repo_name), refresh=True)
+                    if progress_cb:
+                        progress_cb({
+                            "type": "status", "phase": "indexing",
+                            "repo": repo_name,
+                            "repos_total": len(repos), "repos_done": idx,
+                        })
                     total_deleted += _index_repo(
                         conn, repo_id, repo_name, git_root, embedder, summarizer,
                         logger, file_bar, unit_bar,
+                        progress_cb=progress_cb, cancel_event=cancel_event,
                     )
                     repo_bar.update(1)
             except BaseException:
-                # Write file bar state before bars erase, then re-raise
-                tqdm.write(str(file_bar), file=sys.stderr)
+                if use_tqdm:
+                    # Write file bar state before bars erase, then re-raise
+                    tqdm.write(str(file_bar), file=sys.stderr)
                 raise
-            # Normal completion: write final bar states before bars erase
-            tqdm.write(str(file_bar), file=sys.stderr)
+            if use_tqdm:
+                # Normal completion: write final bar states before bars erase
+                tqdm.write(str(file_bar), file=sys.stderr)
     finally:
         conn.close()
         _log_handler.flush()
         _log_handler.close()
         logger.removeHandler(_log_handler)
+    if progress_cb:
+        progress_cb({"type": "status", "phase": "done"})
     if total_deleted:
         print(
             f"reconciled {total_deleted} deleted file(s) from the index.",
@@ -637,6 +665,8 @@ def _index_repo(
     logger: logging.Logger,
     file_bar: tqdm | None = None,
     unit_bar: tqdm | None = None,
+    progress_cb: Callable[[dict], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> int:
     """Index one git repository. Returns the number of deleted files."""
     disk_files: set[Path] = set(discover_files(git_root))
@@ -685,11 +715,21 @@ def _index_repo(
     if file_bar is not None:
         file_bar.reset(total=len(parsable_files))
         file_bar.set_description(f"scanning ({short_name})")
-    for file_path in parsable_files:
+    if progress_cb:
+        progress_cb({
+            "type": "status", "phase": "scanning", "repo": repo_name,
+            "files_total": len(parsable_files), "files_done": 0,
+        })
+    for i, file_path in enumerate(parsable_files):
         if _scan_needs_indexing(file_path, db_map, empty_summary_file_ids):
             needs_indexing_set.add(file_path)
         if file_bar is not None:
             file_bar.update(1)
+        if progress_cb and (i + 1) % 50 == 0:
+            progress_cb({
+                "type": "status", "phase": "scanning", "repo": repo_name,
+                "files_total": len(parsable_files), "files_done": i + 1,
+            })
 
     # Order files needing indexing by topological sort (leaves first)
     topo_set = set(topo_order)
@@ -708,11 +748,19 @@ def _index_repo(
     if file_bar is not None:
         file_bar.reset(total=len(needs_indexing))
         file_bar.set_description(f"indexing ({repo_name})")
-    for file_path in needs_indexing:
+    for file_idx, file_path in enumerate(needs_indexing):
+        if cancel_event and cancel_event.is_set():
+            raise IndexAbortError("Indexing cancelled by user.")
         if file_bar is not None:
             file_bar.set_postfix(
                 file=_trunc(file_path.name), status="scanning", refresh=True
             )
+        if progress_cb:
+            progress_cb({
+                "type": "status", "phase": "indexing", "repo": repo_name,
+                "file": file_path.name,
+                "files_total": len(needs_indexing), "files_done": file_idx,
+            })
         _process_file(
             conn,
             repo_id,
@@ -734,6 +782,12 @@ def _index_repo(
     # Bottom-up directory summaries (deepest first, then repo root)
     directories = _collect_directories(parsable_files, git_root)
     if directories:
+        if progress_cb:
+            progress_cb({
+                "type": "status", "phase": "directory_summaries",
+                "repo": repo_name,
+                "files_total": len(directories), "files_done": 0,
+            })
         for dir_path in directories:
             _upsert_directory_unit(
                 conn, repo_id, dir_path, repo_name, git_root,
