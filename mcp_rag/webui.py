@@ -228,6 +228,141 @@ _HIDDEN_DIRS = frozenset({
 })
 
 
+async def api_browse(request: Request) -> JSONResponse:
+    """Return browse nodes for one level of the content tree.
+
+    ``path`` controls what level is returned:
+    * empty        → repos
+    * ``repo``     → top-level dirs / files inside that repo
+    * ``repo/dir`` → subdirs / files one level deeper
+    * ``repo/f.py``           → module overview + classes + top-level functions
+    * ``repo/f.py:ClassName`` → class overview + its methods
+    """
+    if _db_path is None or _embedder is None:
+        return JSONResponse([])
+    path = request.query_params.get("path", "")
+    conn = _get_read_conn()
+    try:
+        return JSONResponse(_build_browse_nodes(conn, path))
+    finally:
+        conn.close()
+
+
+def _build_browse_nodes(conn: sqlite3.Connection, path: str) -> list[dict]:
+    """Build the list of browse-level nodes for *path*."""
+
+    if not path:
+        # Repo level: pull from repos table; get summary from directory unit
+        repos = conn.execute("SELECT name FROM repos ORDER BY name").fetchall()
+        result = []
+        for (name,) in repos:
+            row = conn.execute(
+                "SELECT summary FROM units WHERE path = ? LIMIT 1", (name,)
+            ).fetchone()
+            result.append({
+                "type": "repo",
+                "name": name,
+                "path": name,
+                "summary": row[0] if row else "",
+                "has_children": True,
+            })
+        return result
+
+    is_unit_path = ":" in path
+    file_seg = path.split(":")[0].split("/")[-1]
+    is_file_path = "." in file_seg
+
+    # Choose the prefix that reaches direct children
+    if is_unit_path or is_file_path:
+        prefix = path + ":"          # file or unit → children via ':'
+    else:
+        prefix = path + "/"          # dir → children via '/'
+
+    # Fetch self + all descendants in one query
+    all_rows = conn.execute(
+        "SELECT path, summary FROM units WHERE path = ? OR path LIKE ? ORDER BY path",
+        (path, prefix + "%"),
+    ).fetchall()
+
+    all_paths = {r[0] for r in all_rows}
+    nodes: list[dict] = []
+    seen_dirs: dict[str, dict] = {}
+
+    for row_path, summary in all_rows:
+        if row_path == path:
+            # Self unit — always emit as a banner node so the frontend can
+            # display the current-level summary as a header card.
+            nodes.append({
+                "type": "self",
+                "name": "(overview)",
+                "path": path,
+                "summary": summary,
+                "has_children": False,
+            })
+            continue
+
+        if is_unit_path or is_file_path:
+            # Strip the leading separator to get the rest
+            rest = row_path[len(path) + 1:]
+            if ":" in rest:
+                continue  # skip grandchildren
+            nodes.append({
+                "type": "unit",
+                "name": rest,
+                "path": row_path,
+                "summary": summary,
+                "has_children": False,
+            })
+        else:
+            # Directory level — group by next path segment
+            fp = row_path.split(":")[0]
+            if not fp.startswith(prefix):
+                continue
+            rest = fp[len(prefix):]
+            next_seg = rest.split("/")[0]
+            if not next_seg:
+                continue
+            child_path = prefix + next_seg
+            if child_path not in seen_dirs:
+                is_f = "." in next_seg
+                seen_dirs[child_path] = {
+                    "type": "file" if is_f else "dir",
+                    "name": next_seg,
+                    "path": child_path,
+                    "summary": "",
+                    "has_children": True,
+                }
+            # Prefer the module unit (path == child_path, no colon) as summary;
+            # fall back to the first direct-child unit for files that have no
+            # module-level unit (Go, Markdown, SQL, etc.)
+            entry = seen_dirs[child_path]
+            if not entry["summary"]:
+                if row_path == child_path:
+                    entry["summary"] = summary
+                elif (
+                    entry["type"] == "file"
+                    and row_path.split(":")[0] == child_path
+                    and row_path.count(":") == 1
+                    and summary
+                ):
+                    entry["summary"] = summary  # first top-level unit as fallback
+
+    # Promote units that have children (classes with methods) to type "class"
+    if is_file_path:
+        for node in nodes:
+            if node["type"] == "unit":
+                class_prefix = path + ":" + node["name"] + ":"
+                if any(p.startswith(class_prefix) for p in all_paths):
+                    node["type"] = "class"
+                    node["has_children"] = True
+
+    nodes.extend(seen_dirs.values())
+
+    type_order = {"self": 0, "dir": 1, "file": 2, "class": 3, "unit": 4}
+    nodes.sort(key=lambda n: (type_order.get(n["type"], 5), n["name"]))
+    return nodes
+
+
 async def api_ls(request: Request) -> JSONResponse:
     """List directory contents for the folder picker.
 
@@ -385,6 +520,7 @@ def create_app(
     routes = [
         Route("/", index_page),
         Route("/api/search", api_search),
+        Route("/api/browse", api_browse),
         Route("/api/units", api_units),
         Route("/api/unit", api_unit),
         Route("/api/files", api_files),

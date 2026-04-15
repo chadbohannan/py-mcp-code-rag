@@ -96,22 +96,64 @@ pre.source-code {
   max-height: 500px; overflow-y: auto; padding: 0.5rem;
 }
 
-/* Browse */
-.browse-grid { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; }
-.file-tree {
-  max-height: 600px; overflow-y: auto; border: 1px solid var(--border);
-  border-radius: 6px; padding: 0.5rem; background: var(--bg);
+/* Browse v2 */
+.browse-breadcrumb {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem;
+  padding: 0.4rem 0; margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border); font-size: 0.85rem; min-height: 2rem;
 }
-.tree-item {
-  padding: 0.25rem 0.5rem; cursor: pointer; font-family: var(--mono);
-  font-size: 0.8rem; color: var(--text-muted); border-radius: 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.bc-link { color: var(--accent); cursor: pointer; padding: 0.1rem 0.2rem; border-radius: 3px; }
+.bc-link:hover { text-decoration: underline; background: var(--surface); }
+.bc-sep { color: var(--text-muted); user-select: none; }
+.bc-current { color: var(--text); font-weight: 600; padding: 0.1rem 0.2rem; }
+
+.browse-list { display: flex; flex-direction: column; gap: 3px; }
+
+/* Current-level summary banner */
+.browse-banner {
+  padding: 0.65rem 1rem; margin-bottom: 0.75rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+  font-size: 0.85rem; color: var(--text-muted); line-height: 1.55;
 }
-.tree-item:hover { background: var(--surface); color: var(--text); }
-.tree-item.active { background: var(--accent-dim); color: #fff; }
-.tree-heading {
-  font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
-  padding: 0.5rem 0.5rem 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;
+
+/* Two-row entry card */
+.browse-entry {
+  padding: 0.55rem 0.75rem; border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--bg);
+}
+.browse-entry:hover { border-color: var(--accent); background: var(--surface); }
+.be-row1 { display: flex; align-items: center; gap: 0.65rem; }
+.be-type {
+  font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.45rem;
+  border-radius: 4px; flex-shrink: 0; font-family: var(--mono);
+  min-width: 3.25rem; text-align: center; letter-spacing: 0.02em;
+}
+.be-type-repo  { background: #0d2645; color: #79c0ff; }
+.be-type-dir   { background: #1c1c1c; color: var(--text-muted); }
+.be-type-file  { background: #0f2f0f; color: var(--green); }
+.be-type-class { background: #2a1a0a; color: #f0883e; }
+.be-type-unit  { background: #0d1a2e; color: var(--accent); }
+.be-name { font-family: var(--mono); font-size: 0.85rem; color: var(--text); flex: 1; }
+.be-chevron { color: var(--text-muted); flex-shrink: 0; font-size: 1rem; }
+/* Summary lives on a second line, indented to align with the name */
+.be-summary {
+  margin-top: 0.3rem;
+  padding-left: calc(3.25rem + 0.65rem + 0.65rem); /* badge width + gap + entry padding */
+  font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.browse-detail {
+  margin-top: 1rem; padding: 1rem; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.browse-detail-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);
 }
 
 /* Inline helpers */
@@ -249,25 +291,20 @@ pre.source-code {
 
   <!-- BROWSE TAB -->
   <div id="tab-browse" class="tab-panel">
-    <div class="browse-grid">
-      <div>
-        <div class="row mb">
-          <input type="text" id="browse-filter" placeholder="Filter..." style="flex:1"
-                 oninput="filterTree()">
-        </div>
-        <div id="file-tree" class="file-tree">
-          <div class="muted" style="padding:0.5rem">Loading...</div>
-        </div>
+    <div id="browse-breadcrumb" class="browse-breadcrumb">
+      <span class="bc-current">root</span>
+    </div>
+    <div id="browse-content" class="browse-list">
+      <div class="muted">Loading...</div>
+    </div>
+    <div id="browse-detail" class="browse-detail" style="display:none">
+      <div class="browse-detail-header">
+        <span id="browse-detail-path" class="source-path"></span>
+        <button onclick="closeBrowseDetail()"
+                style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem">&times;</button>
       </div>
-      <div>
-        <div id="browse-viewer" class="source-viewer visible" style="display:block">
-          <div class="source-header">
-            <span class="source-path" id="browse-path">Select a unit to view</span>
-          </div>
-          <div class="source-summary" id="browse-summary"></div>
-          <pre class="source-code" id="browse-code" style="min-height:200px"></pre>
-        </div>
-      </div>
+      <div id="browse-detail-summary" class="source-summary"></div>
+      <pre id="browse-detail-code" class="source-code" style="min-height:200px"></pre>
     </div>
   </div>
 </div>
@@ -287,7 +324,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    if (btn.dataset.tab === 'browse') loadTree();
+    if (btn.dataset.tab === 'browse') loadBrowse();
     if (btn.dataset.tab === 'index') loadStatus();
   });
 });
@@ -586,56 +623,151 @@ function closeViewer(id) {
 }
 
 // ---------------------------------------------------------------------------
-// Browse
+// Browse v2 — breadcrumb content browser
 // ---------------------------------------------------------------------------
-let treeData = [];
+let browsePath = '';
 
-async function loadTree() {
+async function loadBrowse() {
+  browseNavigate('');
+}
+
+async function browseNavigate(path) {
+  browsePath = path;
+  renderBrowseBreadcrumb(path);
+  closeBrowseDetail();
+
+  const el = document.getElementById('browse-content');
+  el.innerHTML = '<div class="muted">Loading\u2026</div>';
+
   try {
-    const res = await fetch('/api/units?limit=500');
-    treeData = await res.json();
-    renderTree(treeData);
+    const params = path ? '?path=' + encodeURIComponent(path) : '';
+    const res = await fetch('/api/browse' + params);
+    const nodes = await res.json();
+    renderBrowseContent(nodes);
   } catch(e) {
-    document.getElementById('file-tree').innerHTML = '<div class="muted">Failed to load.</div>';
+    el.innerHTML = '<div class="muted">Failed to load.</div>';
   }
 }
 
-function renderTree(items) {
-  const el = document.getElementById('file-tree');
-  if (!items.length) {
-    el.innerHTML = '<div class="muted">No units indexed.</div>';
-    return;
-  }
-
-  // Group by file (everything before the last colon that follows a file extension)
-  const groups = {};
-  for (const item of items) {
-    const parts = item.path.split('/');
-    const repo = parts[0];
-    if (!groups[repo]) groups[repo] = [];
-    groups[repo].push(item);
-  }
-
-  let html = '';
-  for (const [repo, units] of Object.entries(groups)) {
-    html += `<div class="tree-heading">${escHtml(repo)}</div>`;
-    for (const u of units) {
-      const short = u.path.substring(repo.length + 1);
-      html += `<div class="tree-item" onclick="viewUnit('browse', '${escHtml(u.path)}')" title="${escHtml(u.summary || '')}">${escHtml(short)}</div>`;
+function renderBrowseBreadcrumb(path) {
+  const el = document.getElementById('browse-breadcrumb');
+  // Build crumbs: [{label, path}]
+  const crumbs = [{label: 'root', path: ''}];
+  if (path) {
+    let acc = '';
+    let segStart = 0;
+    for (let i = 0; i <= path.length; i++) {
+      const ch = i < path.length ? path[i] : null;
+      if (ch === null || ch === '/' || ch === ':') {
+        const seg = path.slice(segStart, i);
+        if (seg) {
+          const sep = segStart > 0 ? path[segStart - 1] : '';
+          acc = acc ? acc + sep + seg : seg;
+          crumbs.push({label: seg, path: acc});
+        }
+        segStart = i + 1;
+      }
     }
   }
+  el.innerHTML = crumbs.map((c, i) => {
+    const isLast = i === crumbs.length - 1;
+    const sep = i > 0 ? '<span class="bc-sep">\u203a</span>' : '';
+    if (isLast) {
+      return sep + `<span class="bc-current">${escHtml(c.label)}</span>`;
+    }
+    return sep + `<span class="bc-link" onclick="browseNavigate('${escHtml(c.path)}')">${escHtml(c.label)}</span>`;
+  }).join('');
+}
+
+const _typeLabel = {repo:'repo', dir:'dir', file:'file', class:'class', unit:'fn'};
+const _typeCls   = {
+  repo:'be-type-repo', dir:'be-type-dir', file:'be-type-file',
+  class:'be-type-class', unit:'be-type-unit'
+};
+
+function renderBrowseContent(nodes) {
+  const el = document.getElementById('browse-content');
+
+  // Separate the current-level overview from navigable/leaf children
+  const selfNode = nodes.find(n => n.type === 'self');
+  const children = nodes.filter(n => n.type !== 'self');
+
+  let html = '';
+
+  // Summary banner for the current level (only when it has text)
+  if (selfNode && selfNode.summary) {
+    html += `<div class="browse-banner">${escHtml(selfNode.summary)}</div>`;
+  }
+
+  if (!children.length) {
+    html += '<div class="muted">Nothing here.</div>';
+  } else {
+    html += children.map(renderBrowseEntry).join('');
+  }
+
   el.innerHTML = html;
 }
 
-function filterTree() {
-  const q = document.getElementById('browse-filter').value.toLowerCase();
-  if (!q) { renderTree(treeData); return; }
-  renderTree(treeData.filter(u => u.path.toLowerCase().includes(q)));
+function renderBrowseEntry(n) {
+  const lbl = _typeLabel[n.type] || n.type;
+  const cls = _typeCls[n.type]   || 'be-type-unit';
+  const action = n.has_children
+    ? `browseNavigate('${escHtml(n.path)}')`
+    : `browseShowUnit('${escHtml(n.path)}')`;
+  const chevron = n.has_children
+    ? `<span class="be-chevron">\u203a</span>` : '';
+  const summary = n.summary
+    ? `<div class="be-summary">${escHtml(n.summary)}</div>` : '';
+  return `<div class="browse-entry" onclick="${action}">` +
+    `<div class="be-row1">` +
+      `<span class="be-type ${cls}">${lbl}</span>` +
+      `<span class="be-name">${escHtml(n.name)}</span>` +
+      chevron +
+    `</div>` +
+    summary +
+    `</div>`;
+}
+
+async function browseShowUnit(path) {
+  try {
+    const res = await fetch('/api/unit?path=' + encodeURIComponent(path));
+    const data = await res.json();
+    if (!data.path) return;
+    const detail = document.getElementById('browse-detail');
+    document.getElementById('browse-detail-path').textContent = data.path;
+    document.getElementById('browse-detail-summary').textContent = data.summary || '';
+    document.getElementById('browse-detail-code').textContent = data.content || '';
+    detail.style.display = 'block';
+    detail.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  } catch(e) { /* ignore */ }
+}
+
+function closeBrowseDetail() {
+  document.getElementById('browse-detail').style.display = 'none';
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Keyboard shortcuts
+// ---------------------------------------------------------------------------
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  // Only active when the Browse tab is showing
+  if (!document.getElementById('tab-browse').classList.contains('active')) return;
+  e.preventDefault();
+  const detail = document.getElementById('browse-detail');
+  if (detail.style.display !== 'none') {
+    closeBrowseDetail();
+    return;
+  }
+  if (!browsePath) return;
+  // Strip the last segment (separated by '/' or ':')
+  const lastSep = Math.max(browsePath.lastIndexOf('/'), browsePath.lastIndexOf(':'));
+  browseNavigate(lastSep === -1 ? '' : browsePath.slice(0, lastSep));
+});
+
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
