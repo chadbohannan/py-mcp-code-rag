@@ -194,6 +194,7 @@ async def api_status(request: Request) -> JSONResponse:
         rows = conn.execute("""
             SELECT
                 r.name,
+                r.root,
                 COUNT(DISTINCT f.id) AS file_count,
                 COUNT(u.id) AS unit_count,
                 MAX(f.indexed_at) AS last_indexed_at
@@ -203,16 +204,23 @@ async def api_status(request: Request) -> JSONResponse:
             GROUP BY r.id
             ORDER BY r.name
         """).fetchall()
+        embed_count = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
     finally:
         conn.close()
 
-    return JSONResponse([
+    repo_list = [
         {
-            "repo": r[0], "file_count": r[1],
-            "unit_count": r[2], "last_indexed_at": r[3],
+            "repo": r[0], "root": r[1], "file_count": r[2],
+            "unit_count": r[3], "last_indexed_at": r[4],
         }
         for r in rows
-    ])
+    ]
+    total_units = sum(r["unit_count"] for r in repo_list)
+    return JSONResponse({
+        "repos": repo_list,
+        "total_units": total_units,
+        "embed_count": embed_count,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +288,7 @@ def _build_browse_nodes(conn: sqlite3.Connection, path: str) -> list[dict]:
 
     # Fetch self + all descendants in one query
     all_rows = conn.execute(
-        "SELECT path, summary FROM units WHERE path = ? OR path LIKE ? ORDER BY path",
+        "SELECT path, summary, unit_type FROM units WHERE path = ? OR path LIKE ? ORDER BY path",
         (path, prefix + "%"),
     ).fetchall()
 
@@ -288,12 +296,13 @@ def _build_browse_nodes(conn: sqlite3.Connection, path: str) -> list[dict]:
     nodes: list[dict] = []
     seen_dirs: dict[str, dict] = {}
 
-    for row_path, summary in all_rows:
+    for row_path, summary, unit_type in all_rows:
         if row_path == path:
             # Self unit — always emit as a banner node so the frontend can
             # display the current-level summary as a header card.
             nodes.append({
                 "type": "self",
+                "unit_type": unit_type,
                 "name": "(overview)",
                 "path": path,
                 "summary": summary,
@@ -308,6 +317,7 @@ def _build_browse_nodes(conn: sqlite3.Connection, path: str) -> list[dict]:
                 continue  # skip grandchildren
             nodes.append({
                 "type": "unit",
+                "unit_type": unit_type,
                 "name": rest,
                 "path": row_path,
                 "summary": summary,
@@ -354,6 +364,7 @@ def _build_browse_nodes(conn: sqlite3.Connection, path: str) -> list[dict]:
                 class_prefix = path + ":" + node["name"] + ":"
                 if any(p.startswith(class_prefix) for p in all_paths):
                     node["type"] = "class"
+                    node["unit_type"] = node.get("unit_type", "class")
                     node["has_children"] = True
 
     nodes.extend(seen_dirs.values())

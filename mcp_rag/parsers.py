@@ -140,16 +140,22 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
     if content:
         sections.append((current_offset, current_name, current_lines[:]))
 
-    return [
-        SemanticUnit(
-            unit_type="paragraph",
+    units = []
+    for offset, name, lines in sections:
+        content = "".join(lines).strip()
+        if not content:
+            continue
+        # Derive heading level from the number of '#' chars on the first line.
+        first_line = lines[0] if lines else ""
+        level = len(first_line) - len(first_line.lstrip("#"))
+        unit_type = f"h{level}" if level else "paragraph"
+        units.append(SemanticUnit(
+            unit_type=unit_type,
             unit_name=name,
-            content="".join(lines).strip(),
+            content=content,
             char_offset=offset,
-        )
-        for offset, name, lines in sections
-        if "".join(lines).strip()
-    ]
+        ))
+    return units
 
 
 # ---------------------------------------------------------------------------

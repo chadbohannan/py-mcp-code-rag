@@ -131,11 +131,16 @@ pre.source-code {
   border-radius: 4px; flex-shrink: 0; font-family: var(--mono);
   min-width: 3.25rem; text-align: center; letter-spacing: 0.02em;
 }
-.be-type-repo  { background: #0d2645; color: #79c0ff; }
-.be-type-dir   { background: #1c1c1c; color: var(--text-muted); }
-.be-type-file  { background: #0f2f0f; color: var(--green); }
-.be-type-class { background: #2a1a0a; color: #f0883e; }
-.be-type-unit  { background: #0d1a2e; color: var(--accent); }
+.be-type-repo      { background: #0d2645; color: #79c0ff; }
+.be-type-dir       { background: #1c1c1c; color: var(--text-muted); }
+.be-type-file      { background: #0f2f0f; color: var(--green); }
+.be-type-class     { background: #2a1a0a; color: #f0883e; }
+.be-type-unit      { background: #0d1a2e; color: var(--accent); }
+.be-type-section   { background: #1a1020; color: #c792ea; }
+.be-type-sql       { background: #0d2020; color: #89ddff; }
+.be-type-struct    { background: #1a1a0a; color: #e6db74; }
+.be-type-interface { background: #0a1a1a; color: #a8ff60; }
+.be-type-enum      { background: #1a0d10; color: #ff8b92; }
 .be-name { font-family: var(--mono); font-size: 0.85rem; color: var(--text); flex: 1; }
 .be-chevron { color: var(--text-muted); flex-shrink: 0; font-size: 1rem; }
 /* Summary lives on a second line, indented to align with the name */
@@ -218,6 +223,26 @@ pre.source-code {
 }
 .path-chip button:hover { opacity: 1; }
 
+/* Repo table */
+.repo-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.5rem; }
+.repo-table th {
+  text-align: left; padding: 0.35rem 0.6rem; color: var(--text-muted);
+  border-bottom: 1px solid var(--border); font-weight: 600; white-space: nowrap;
+}
+.repo-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.repo-table tr:last-child td { border-bottom: none; }
+.repo-table tr:hover td { background: var(--bg); }
+.repo-table td.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
+.repo-table td.ts { color: var(--text-muted); font-size: 0.75rem; white-space: nowrap; }
+.btn-reindex {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-muted); cursor: pointer; padding: 0.15rem 0.4rem;
+  font-size: 0.9rem; line-height: 1; transition: all 0.15s;
+}
+.btn-reindex:hover { border-color: var(--accent); color: var(--accent); }
+.btn-reindex.spinning { animation: spin 1s linear infinite; color: var(--yellow); border-color: var(--yellow); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* Status bar */
 .status-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
@@ -251,9 +276,6 @@ pre.source-code {
     </div>
     <div class="row mb">
       <input type="text" id="index-paths" placeholder="Or type paths (comma-separated)" style="flex:1">
-      <label style="font-size:0.85rem;color:var(--text-muted);white-space:nowrap">
-        <input type="checkbox" id="index-reindex"> Reindex
-      </label>
       <button id="btn-start" class="btn-primary" onclick="startIndex()">Start</button>
       <button id="btn-cancel" class="btn-danger" onclick="cancelIndex()" disabled>Cancel</button>
     </div>
@@ -279,14 +301,6 @@ pre.source-code {
       <button class="btn-primary" onclick="doSearch()">Search</button>
     </div>
     <div id="search-results"></div>
-    <div id="search-viewer" class="source-viewer">
-      <div class="source-header">
-        <span class="source-path" id="viewer-path"></span>
-        <button onclick="closeViewer('search-viewer')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem">&times;</button>
-      </div>
-      <div class="source-summary" id="viewer-summary"></div>
-      <pre class="source-code" id="viewer-code"></pre>
-    </div>
   </div>
 
   <!-- BROWSE TAB -->
@@ -318,15 +332,18 @@ pre.source-code {
 // ---------------------------------------------------------------------------
 // Tab switching
 // ---------------------------------------------------------------------------
+function activateTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
+  if (btn) btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'browse') loadBrowse();
+  if (name === 'index') loadStatus();
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    if (btn.dataset.tab === 'browse') loadBrowse();
-    if (btn.dataset.tab === 'index') loadStatus();
-  });
+  btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 });
 
 // ---------------------------------------------------------------------------
@@ -446,21 +463,63 @@ async function loadStatus() {
     const res = await fetch('/api/status');
     const data = await res.json();
     const el = document.getElementById('index-status');
-    if (!data.length) {
+    if (!data.repos || !data.repos.length) {
       el.innerHTML = 'No indexed repos.';
       return;
     }
-    el.innerHTML = data.map(r =>
-      `<div style="margin-bottom:0.35rem">
-        <span class="badge badge-blue">${r.repo}</span>
-        ${r.file_count} files, ${r.unit_count} units
-        <span style="color:var(--text-muted);font-size:0.75rem">
-          (${r.last_indexed_at ? new Date(r.last_indexed_at).toLocaleString() : 'never'})
-        </span>
-      </div>`
-    ).join('');
+
+    const { repos, total_units, embed_count } = data;
+    const embeddingsMissing = embed_count < total_units;
+    const embedPct = total_units > 0 ? Math.round(embed_count / total_units * 100) : 100;
+
+    let html = '';
+    if (embeddingsMissing) {
+      html += `<div style="margin-bottom:0.75rem;padding:0.6rem 0.85rem;
+                  border:1px solid var(--yellow);border-radius:6px;
+                  background:#1e1800;color:var(--yellow);font-size:0.82rem">
+        <strong>Embeddings incomplete</strong> — search is degraded until re-embedding finishes.<br>
+        <div style="margin-top:0.4rem">
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden">
+              <div style="height:100%;background:var(--yellow);width:${embedPct}%;transition:width 0.4s"></div>
+            </div>
+            <span style="font-family:var(--mono);font-size:0.75rem;white-space:nowrap">
+              ${embed_count.toLocaleString()} / ${total_units.toLocaleString()} (${embedPct}%)
+            </span>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    html += `<table class="repo-table">
+      <thead><tr>
+        <th>Repo</th><th style="text-align:right">Files</th>
+        <th style="text-align:right">Units</th><th>Last indexed</th><th></th>
+      </tr></thead><tbody>` +
+      repos.map(r => {
+        const ts = r.last_indexed_at
+          ? new Date(r.last_indexed_at).toLocaleString() : 'never';
+        return `<tr>
+          <td><span class="badge badge-blue">${escHtml(r.repo)}</span></td>
+          <td class="num">${r.file_count}</td>
+          <td class="num">${r.unit_count}</td>
+          <td class="ts">${ts}</td>
+          <td style="text-align:right">
+            <button class="btn-reindex" title="Re-index ${escHtml(r.repo)}"
+                    onclick="reindexRepo('${escHtml(r.root)}', this)">&#x21BB;</button>
+          </td>
+        </tr>`;
+      }).join('') +
+      `</tbody></table>`;
+
+    el.innerHTML = html;
     document.getElementById('status-right').textContent =
-      data.reduce((s,r) => s + r.unit_count, 0) + ' units indexed';
+      embed_count.toLocaleString() + ' / ' + total_units.toLocaleString() + ' units embedded';
+
+    // Auto-refresh while re-embedding is in progress
+    if (embeddingsMissing) {
+      setTimeout(loadStatus, 3000);
+    }
   } catch(e) { /* ignore */ }
 }
 loadStatus();
@@ -476,8 +535,6 @@ function startIndex() {
     ? pathsStr.split(',').map(p => p.trim()).filter(Boolean)
     : [...selectedPaths];
   if (!paths.length) return;
-  const reindex = document.getElementById('index-reindex').checked;
-
   document.getElementById('btn-start').disabled = true;
   document.getElementById('btn-cancel').disabled = false;
   document.getElementById('index-log').innerHTML = '';
@@ -487,7 +544,7 @@ function startIndex() {
   ws = new WebSocket(`${proto}//${location.host}/ws/index`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ action: 'start', paths, reindex }));
+    ws.send(JSON.stringify({ action: 'start', paths }));
     logMsg('Indexing started for: ' + paths.join(', '));
   };
 
@@ -513,6 +570,44 @@ function cancelIndex() {
     ws.send(JSON.stringify({ action: 'cancel' }));
     logMsg('Cancel requested...');
   }
+}
+
+function reindexRepo(root, btn) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    logMsg('Cannot start: indexing already in progress.');
+    return;
+  }
+  btn.classList.add('spinning');
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-cancel').disabled = false;
+  document.getElementById('index-log').innerHTML = '';
+  setProgress(0, 'Connecting...');
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws/index`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ action: 'start', paths: [root] }));
+    logMsg('Re-indexing: ' + root);
+  };
+
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    handleProgress(msg);
+  };
+
+  ws.onclose = () => {
+    btn.classList.remove('spinning');
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-cancel').disabled = true;
+    loadStatus();
+  };
+
+  ws.onerror = () => {
+    btn.classList.remove('spinning');
+    logMsg('WebSocket error');
+    setProgress(0, 'Error');
+  };
 }
 
 function handleProgress(msg) {
@@ -591,7 +686,7 @@ async function doSearch() {
       return;
     }
     el.innerHTML = data.map(r => `
-      <div class="result-item" onclick="viewUnit('search', '${escHtml(r.path)}')">
+      <div class="result-item" onclick="openInBrowse('${escHtml(r.path)}')">
         <span class="result-score">${(r.score * 100).toFixed(1)}%</span>
         <div class="result-path">${escHtml(r.path)}</div>
         <div class="result-summary">${escHtml(r.summary || '')}</div>
@@ -602,30 +697,18 @@ async function doSearch() {
   }
 }
 
-async function viewUnit(prefix, path) {
-  try {
-    const res = await fetch('/api/unit?path=' + encodeURIComponent(path));
-    const data = await res.json();
-    if (!data.path) return;
-    const viewer = document.getElementById(prefix + '-viewer');
-    document.getElementById(prefix === 'search' ? 'viewer-path' : 'browse-path').textContent = data.path;
-    document.getElementById(prefix === 'search' ? 'viewer-summary' : 'browse-summary').textContent = data.summary || '';
-    document.getElementById(prefix === 'search' ? 'viewer-code' : 'browse-code').textContent = data.content || '';
-    viewer.classList.add('visible');
-    if (prefix === 'search') viewer.style.display = 'block';
-  } catch(e) { /* ignore */ }
-}
-
-function closeViewer(id) {
-  const el = document.getElementById(id);
-  el.classList.remove('visible');
-  el.style.display = 'none';
-}
-
 // ---------------------------------------------------------------------------
 // Browse v2 — breadcrumb content browser
 // ---------------------------------------------------------------------------
 let browsePath = '';
+
+async function openInBrowse(unitPath) {
+  // Derive the file-level path (everything before the first ':')
+  const filePath = unitPath.split(':')[0];
+  activateTab('browse');
+  await browseNavigate(filePath);
+  await browseShowUnit(unitPath);
+}
 
 async function loadBrowse() {
   browseNavigate('');
@@ -679,11 +762,37 @@ function renderBrowseBreadcrumb(path) {
   }).join('');
 }
 
-const _typeLabel = {repo:'repo', dir:'dir', file:'file', class:'class', unit:'fn'};
-const _typeCls   = {
-  repo:'be-type-repo', dir:'be-type-dir', file:'be-type-file',
-  class:'be-type-class', unit:'be-type-unit'
+// Labels and CSS classes driven by unit_type (the DB value) where available,
+// falling back to the browse node type for structural nodes (repo/dir/file).
+const _structLabel = {repo:'repo', dir:'dir', file:'file', class:'class', self:'self'};
+const _structCls   = {
+  repo:'be-type-repo', dir:'be-type-dir', file:'be-type-file', class:'be-type-class',
 };
+const _unitLabel = {
+  function:'fn', method:'fn', class:'class', module:'mod',
+  paragraph:'§', h1:'#', h2:'##', h3:'###', h4:'####',
+  sql:'sql', tfvars:'tf',
+  struct:'struct', interface:'iface', enum:'enum',
+  directory:'dir', type:'type',
+};
+const _unitCls = {
+  function:'be-type-unit', method:'be-type-unit', class:'be-type-class',
+  paragraph:'be-type-section', h1:'be-type-section', h2:'be-type-section',
+  h3:'be-type-section', h4:'be-type-section',
+  sql:'be-type-sql', tfvars:'be-type-sql',
+  struct:'be-type-struct', interface:'be-type-interface', enum:'be-type-enum',
+};
+
+function _badgeLabel(n) {
+  if (n.unit_type && _unitLabel[n.unit_type]) return _unitLabel[n.unit_type];
+  if (_structLabel[n.type]) return _structLabel[n.type];
+  return n.unit_type || n.type;
+}
+function _badgeCls(n) {
+  if (n.unit_type && _unitCls[n.unit_type]) return _unitCls[n.unit_type];
+  if (_structCls[n.type]) return _structCls[n.type];
+  return 'be-type-unit';
+}
 
 function renderBrowseContent(nodes) {
   const el = document.getElementById('browse-content');
@@ -709,8 +818,8 @@ function renderBrowseContent(nodes) {
 }
 
 function renderBrowseEntry(n) {
-  const lbl = _typeLabel[n.type] || n.type;
-  const cls = _typeCls[n.type]   || 'be-type-unit';
+  const lbl = _badgeLabel(n);
+  const cls = _badgeCls(n);
   const action = n.has_children
     ? `browseNavigate('${escHtml(n.path)}')`
     : `browseShowUnit('${escHtml(n.path)}')`;

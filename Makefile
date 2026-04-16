@@ -46,11 +46,11 @@ webui:
 
 # Register this server with Claude Code (run once after cloning). Usage: make add-claude-mcp DB=my.db
 add-claude-mcp:
-	claude mcp add --transport stdio code-rag -- uv run --directory $(DIR) code-rag serve --db $(abspath $(or $(DB),index.db))
+	claude mcp add --transport stdio -s user code-rag -- uv run --directory $(DIR) code-rag serve --db $(abspath $(or $(DB),index.db))
 
 # Unregister this server from Claude Code
 remove-claude-mcp:
-	claude mcp remove code-rag
+	claude mcp remove code-rag -s user
 
 # Register this server with the pi agent (run once after cloning). Usage: make add-pi-mcp DB=my.db
 add-pi-mcp:

@@ -17,13 +17,16 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 
-def _extract_python_imports(source: str) -> list[str]:
+def _extract_python_imports(source: str, filename: str = "<unknown>") -> list[str]:
     """Extract module-level import targets from Python source.
 
     Returns dotted module names (e.g. ``["os.path", "mcp_rag.db"]``).
     """
+    import warnings
     try:
-        tree = ast.parse(source)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source, filename=filename)
     except SyntaxError:
         return []
 
@@ -239,7 +242,7 @@ def extract_and_resolve_imports(
     resolved: list[Path] = []
 
     if suffix in _PY_EXTENSIONS:
-        for mod in _extract_python_imports(source):
+        for mod in _extract_python_imports(source, filename=str(file_path)):
             r = _resolve_python_import(mod, repo_root, repo_files)
             if r is not None:
                 resolved.append(r)

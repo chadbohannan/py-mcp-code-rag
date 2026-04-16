@@ -230,7 +230,7 @@ def _run_webui_cmd(args: argparse.Namespace) -> None:
         summarizer_factory=make_summarizer,
     )
     print(f"code-rag web UI: http://{args.host}:{args.port}", file=sys.stderr)
-    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning", ws="wsproto")
 
 
 def _run_combined_cmd(args: argparse.Namespace) -> None:

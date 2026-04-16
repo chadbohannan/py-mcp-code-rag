@@ -198,8 +198,17 @@ def run_index(
 # ---------------------------------------------------------------------------
 
 
+_REINDEX_BATCH = 200
+
+
 def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
-    """Open an existing DB and rebuild the embeddings table with a new dimension."""
+    """Open an existing DB and rebuild the embeddings table with a new dimension.
+
+    DDL and embeddings are committed separately so that an interruption during
+    the embedding loop does not leave the table in a half-dropped state.
+    Embeddings are inserted in batches of _REINDEX_BATCH so that progress is
+    preserved across restarts.
+    """
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA foreign_keys = ON")
     conn.enable_load_extension(True)
@@ -210,14 +219,13 @@ def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
     new_dim = embedder.dim
     new_model = embedder.model
 
+    # Phase 1 — DDL and metadata in its own committed transaction so the table
+    # always exists even if the embedding loop is later interrupted.
     with conn:
-        # Drop old virtual table and its cascade trigger
         conn.execute("DROP TABLE IF EXISTS embeddings")
         conn.execute("DROP TRIGGER IF EXISTS units_delete_cascade")
-        # Recreate with new dimension
         conn.execute(_DDL_EMBEDDINGS.format(dim=new_dim))
         conn.execute(_DDL_TRIGGER)
-        # Update stored metadata
         conn.execute(
             "INSERT OR REPLACE INTO metadata (key, value) VALUES ('embed_dim', ?)",
             (str(new_dim),),
@@ -226,17 +234,19 @@ def _open_for_reindex(db_path: Path, embedder) -> sqlite3.Connection:
             "INSERT OR REPLACE INTO metadata (key, value) VALUES ('embed_model', ?)",
             (new_model,),
         )
-        # Re-embed all existing units using the stored qualified path
-        rows = conn.execute(
-            "SELECT id, path, summary FROM units"
-        ).fetchall()
-        for unit_id, path, summary in rows:
-            embed_input = f"{path} | {summary}" if path else summary
-            embedding = embedder.embed(embed_input)
-            conn.execute(
-                "INSERT INTO embeddings (unit_id, embedding) VALUES (?, ?)",
-                (unit_id, encode_embedding(embedding)),
-            )
+
+    # Phase 2 — re-embed all existing units in small committed batches.
+    rows = conn.execute("SELECT id, path, summary FROM units").fetchall()
+    for batch_start in range(0, len(rows), _REINDEX_BATCH):
+        batch = rows[batch_start : batch_start + _REINDEX_BATCH]
+        with conn:
+            for unit_id, path, summary in batch:
+                embed_input = f"{path} | {summary}" if path else summary
+                embedding = embedder.embed(embed_input)
+                conn.execute(
+                    "INSERT INTO embeddings (unit_id, embedding) VALUES (?, ?)",
+                    (unit_id, encode_embedding(embedding)),
+                )
 
     return conn
 
