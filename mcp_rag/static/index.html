@@ -331,8 +331,9 @@ function activateTab(name) {
   const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
   if (btn) btn.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'browse') loadBrowse();
+  if (name === 'browse' && !_suppressHistory) loadBrowse();
   if (name === 'index') loadStatus();
+  if (name !== 'browse') syncURL();
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -344,6 +345,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ---------------------------------------------------------------------------
 let currentFolder = '';
 let selectedPaths = [];
+let browsePath = '';
+let _suppressHistory = false;
 
 async function folderNavigate(path) {
   const params = path ? '?path=' + encodeURIComponent(path) : '';
@@ -515,7 +518,7 @@ async function loadStatus() {
     }
   } catch(e) { /* ignore */ }
 }
-loadStatus();
+restoreFromURL();
 
 // ---------------------------------------------------------------------------
 // WebSocket indexing
@@ -665,6 +668,7 @@ async function doSearch() {
   if (!q) return;
   const globs = document.getElementById('search-globs').value.trim();
   const topk = document.getElementById('search-topk').value;
+  syncURL();
   const params = new URLSearchParams({ q, top_k: topk });
   if (globs) params.set('globs', globs);
 
@@ -693,8 +697,6 @@ async function doSearch() {
 // ---------------------------------------------------------------------------
 // Browse v2 — breadcrumb content browser
 // ---------------------------------------------------------------------------
-let browsePath = '';
-
 async function openInBrowse(unitPath) {
   activateTab('browse');
   await browseNavigate(unitPath);
@@ -706,6 +708,7 @@ async function loadBrowse() {
 
 async function browseNavigate(path) {
   browsePath = path;
+  syncURL(true);
   renderBrowseBreadcrumb(path);
 
   const el = document.getElementById('browse-content');
@@ -840,6 +843,45 @@ function renderBrowseEntry(n) {
     `</div>`;
 }
 
+
+// ---------------------------------------------------------------------------
+// URL state sync
+// ---------------------------------------------------------------------------
+function syncURL(push = false) {
+  if (_suppressHistory) return;
+  const params = new URLSearchParams();
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'index';
+  if (activeTab !== 'index') params.set('tab', activeTab);
+  if (activeTab === 'search') {
+    const q = document.getElementById('search-query').value.trim();
+    const globs = document.getElementById('search-globs').value.trim();
+    const k = document.getElementById('search-topk').value;
+    if (q) params.set('q', q);
+    if (globs) params.set('globs', globs);
+    if (k && k !== '10') params.set('k', k);
+  }
+  if (activeTab === 'browse' && browsePath) params.set('browse', browsePath);
+  const url = params.toString() ? '?' + params.toString() : location.pathname;
+  push ? history.pushState(null, '', url) : history.replaceState(null, '', url);
+}
+
+async function restoreFromURL() {
+  _suppressHistory = true;
+  try {
+    const p = new URLSearchParams(location.search);
+    const tab = p.get('tab') || 'index';
+    if (p.has('q')) document.getElementById('search-query').value = p.get('q');
+    if (p.has('globs')) document.getElementById('search-globs').value = p.get('globs');
+    if (p.has('k')) document.getElementById('search-topk').value = p.get('k');
+    activateTab(tab);
+    if (tab === 'search' && p.has('q')) await doSearch();
+    if (tab === 'browse') await browseNavigate(p.get('browse') || '');
+  } finally {
+    _suppressHistory = false;
+  }
+}
+
+window.addEventListener('popstate', restoreFromURL);
 
 // ---------------------------------------------------------------------------
 // Helpers
