@@ -296,8 +296,10 @@ pre.source-code {
     <div class="row mb">
       <input type="text" id="search-query" placeholder="Search the codebase..." style="flex:1"
              onkeydown="if(event.key==='Enter')doSearch()">
-      <input type="text" id="search-globs" placeholder="Globs (optional)" style="width:200px">
-      <input type="number" id="search-topk" value="10" min="1" max="20" style="width:70px" title="top_k">
+      <input type="text" id="search-globs" placeholder="Globs (optional)" style="width:200px"
+             onkeydown="if(event.key==='Enter')doSearch()">
+      <input type="number" id="search-topk" value="10" min="1" max="20" style="width:70px" title="top_k"
+             onkeydown="if(event.key==='Enter')doSearch()">
       <button class="btn-primary" onclick="doSearch()">Search</button>
     </div>
     <div id="search-results"></div>
@@ -310,15 +312,6 @@ pre.source-code {
     </div>
     <div id="browse-content" class="browse-list">
       <div class="muted">Loading...</div>
-    </div>
-    <div id="browse-detail" class="browse-detail" style="display:none">
-      <div class="browse-detail-header">
-        <span id="browse-detail-path" class="source-path"></span>
-        <button onclick="closeBrowseDetail()"
-                style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem">&times;</button>
-      </div>
-      <div id="browse-detail-summary" class="source-summary"></div>
-      <pre id="browse-detail-code" class="source-code" style="min-height:200px"></pre>
     </div>
   </div>
 </div>
@@ -703,11 +696,8 @@ async function doSearch() {
 let browsePath = '';
 
 async function openInBrowse(unitPath) {
-  // Derive the file-level path (everything before the first ':')
-  const filePath = unitPath.split(':')[0];
   activateTab('browse');
-  await browseNavigate(filePath);
-  await browseShowUnit(unitPath);
+  await browseNavigate(unitPath);
 }
 
 async function loadBrowse() {
@@ -717,7 +707,6 @@ async function loadBrowse() {
 async function browseNavigate(path) {
   browsePath = path;
   renderBrowseBreadcrumb(path);
-  closeBrowseDetail();
 
   const el = document.getElementById('browse-content');
   el.innerHTML = '<div class="muted">Loading\u2026</div>';
@@ -726,7 +715,7 @@ async function browseNavigate(path) {
     const params = path ? '?path=' + encodeURIComponent(path) : '';
     const res = await fetch('/api/browse' + params);
     const nodes = await res.json();
-    renderBrowseContent(nodes);
+    await renderBrowseContent(nodes);
   } catch(e) {
     el.innerHTML = '<div class="muted">Failed to load.</div>';
   }
@@ -794,7 +783,7 @@ function _badgeCls(n) {
   return 'be-type-unit';
 }
 
-function renderBrowseContent(nodes) {
+async function renderBrowseContent(nodes) {
   const el = document.getElementById('browse-content');
 
   // Separate the current-level overview from navigable/leaf children
@@ -809,20 +798,34 @@ function renderBrowseContent(nodes) {
   }
 
   if (!children.length) {
-    html += '<div class="muted">Nothing here.</div>';
-  } else {
-    html += children.map(renderBrowseEntry).join('');
+    if (selfNode) {
+      // Leaf unit — fetch and display the full content on this page
+      el.innerHTML = html + '<div class="muted">Loading content\u2026</div>';
+      try {
+        const res = await fetch('/api/unit?path=' + encodeURIComponent(selfNode.path));
+        const data = await res.json();
+        if (data.content) {
+          el.innerHTML = html + `<pre class="source-code" style="margin-top:0.75rem;max-height:none;overflow-y:visible">${escHtml(data.content)}</pre>`;
+        } else {
+          el.innerHTML = html + '<div class="muted">No content available.</div>';
+        }
+      } catch(e) {
+        el.innerHTML = html + '<div class="muted">Failed to load content.</div>';
+      }
+    } else {
+      el.innerHTML = html + '<div class="muted">Nothing here.</div>';
+    }
+    return;
   }
 
+  html += children.map(renderBrowseEntry).join('');
   el.innerHTML = html;
 }
 
 function renderBrowseEntry(n) {
   const lbl = _badgeLabel(n);
   const cls = _badgeCls(n);
-  const action = n.has_children
-    ? `browseNavigate('${escHtml(n.path)}')`
-    : `browseShowUnit('${escHtml(n.path)}')`;
+  const action = `browseNavigate('${escHtml(n.path)}')`;
   const chevron = n.has_children
     ? `<span class="be-chevron">\u203a</span>` : '';
   const summary = n.summary
@@ -837,23 +840,6 @@ function renderBrowseEntry(n) {
     `</div>`;
 }
 
-async function browseShowUnit(path) {
-  try {
-    const res = await fetch('/api/unit?path=' + encodeURIComponent(path));
-    const data = await res.json();
-    if (!data.path) return;
-    const detail = document.getElementById('browse-detail');
-    document.getElementById('browse-detail-path').textContent = data.path;
-    document.getElementById('browse-detail-summary').textContent = data.summary || '';
-    document.getElementById('browse-detail-code').textContent = data.content || '';
-    detail.style.display = 'block';
-    detail.scrollIntoView({behavior: 'smooth', block: 'nearest'});
-  } catch(e) { /* ignore */ }
-}
-
-function closeBrowseDetail() {
-  document.getElementById('browse-detail').style.display = 'none';
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -866,11 +852,6 @@ document.addEventListener('keydown', (e) => {
   // Only active when the Browse tab is showing
   if (!document.getElementById('tab-browse').classList.contains('active')) return;
   e.preventDefault();
-  const detail = document.getElementById('browse-detail');
-  if (detail.style.display !== 'none') {
-    closeBrowseDetail();
-    return;
-  }
   if (!browsePath) return;
   // Strip the last segment (separated by '/' or ':')
   const lastSep = Math.max(browsePath.lastIndexOf('/'), browsePath.lastIndexOf(':'));
