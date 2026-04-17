@@ -33,6 +33,11 @@ _summarizer_factory: callable | None = None  # () -> Summarizer
 _index_lock = threading.Lock()
 _index_running = False
 _cancel_event: threading.Event | None = None
+_last_progress: dict | None = None
+
+# Connected WebSocket clients
+_ws_clients: dict[WebSocket, asyncio.AbstractEventLoop] = {}
+_ws_clients_lock = threading.Lock()
 
 
 def _get_read_conn() -> sqlite3.Connection:
@@ -169,6 +174,26 @@ async def api_files(request: Request) -> JSONResponse:
     ])
 
 
+async def api_clear_repo(request: Request) -> JSONResponse:
+    repo_name = request.query_params.get("repo", "")
+    if not repo_name or _db_path is None or _embedder is None:
+        return JSONResponse({"ok": False, "error": "missing repo"}, status_code=400)
+
+    conn = _get_read_conn()
+    try:
+        row = conn.execute("SELECT id FROM repos WHERE name = ?", (repo_name,)).fetchone()
+        if row is None:
+            return JSONResponse({"ok": False, "error": "repo not found"}, status_code=404)
+        repo_id = row[0]
+        conn.execute("DELETE FROM files WHERE repo_id = ?", (repo_id,))
+        conn.execute("DELETE FROM units WHERE repo_id = ?", (repo_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    return JSONResponse({"ok": True, "repo": repo_name})
+
+
 async def api_repos(request: Request) -> JSONResponse:
     if _db_path is None or _embedder is None:
         return JSONResponse([])
@@ -220,6 +245,7 @@ async def api_status(request: Request) -> JSONResponse:
         "repos": repo_list,
         "total_units": total_units,
         "embed_count": embed_count,
+        "_indexing": _index_running,
     })
 
 
@@ -416,9 +442,27 @@ async def api_ls(request: Request) -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 
+def _broadcast(event: dict) -> None:
+    """Send a progress event to all connected WebSocket clients (thread-safe)."""
+    global _last_progress
+    _last_progress = event
+    with _ws_clients_lock:
+        clients = list(_ws_clients.items())
+    for ws, loop in clients:
+        asyncio.run_coroutine_threadsafe(ws.send_json(event), loop)
+
+
 async def ws_index(websocket: WebSocket) -> None:
     await websocket.accept()
     global _index_running, _cancel_event
+
+    loop = asyncio.get_event_loop()
+    with _ws_clients_lock:
+        _ws_clients[websocket] = loop
+
+    # Replay last known progress so a reconnecting client catches up.
+    if _index_running and _last_progress is not None:
+        await websocket.send_json(_last_progress)
 
     try:
         while True:
@@ -429,7 +473,7 @@ async def ws_index(websocket: WebSocket) -> None:
             if action == "cancel":
                 if _cancel_event is not None:
                     _cancel_event.set()
-                    await websocket.send_json({"type": "status", "phase": "cancelling"})
+                    _broadcast({"type": "status", "phase": "cancelling"})
                 continue
 
             if action == "start":
@@ -465,14 +509,7 @@ async def ws_index(websocket: WebSocket) -> None:
                         _index_running = False
                     continue
 
-                loop = asyncio.get_event_loop()
                 cancel_ev = _cancel_event
-
-                def progress_cb(event: dict) -> None:
-                    """Send progress from indexer thread to WebSocket."""
-                    asyncio.run_coroutine_threadsafe(
-                        websocket.send_json(event), loop,
-                    )
 
                 def do_index() -> None:
                     global _index_running
@@ -490,13 +527,13 @@ async def ws_index(websocket: WebSocket) -> None:
                             embedder=embedder,
                             summarizer=summarizer,
                             reindex=reindex,
-                            progress_cb=progress_cb,
+                            progress_cb=_broadcast,
                             cancel_event=cancel_ev,
                         )
                     except IndexAbortError as exc:
-                        progress_cb({"type": "error", "message": str(exc)})
+                        _broadcast({"type": "error", "message": str(exc)})
                     except Exception as exc:
-                        progress_cb({"type": "error", "message": str(exc)})
+                        _broadcast({"type": "error", "message": str(exc)})
                     finally:
                         with _index_lock:
                             _index_running = False
@@ -507,9 +544,8 @@ async def ws_index(websocket: WebSocket) -> None:
         # WebSocket disconnect or other error
         pass
     finally:
-        with _index_lock:
-            if _index_running and _cancel_event is not None:
-                _cancel_event.set()
+        with _ws_clients_lock:
+            _ws_clients.pop(websocket, None)
 
 
 # ---------------------------------------------------------------------------
@@ -536,6 +572,7 @@ def create_app(
         Route("/api/unit", api_unit),
         Route("/api/files", api_files),
         Route("/api/repos", api_repos),
+        Route("/api/clear_repo", api_clear_repo, methods=["POST"]),
         Route("/api/status", api_status),
         Route("/api/ls", api_ls),
         WebSocketRoute("/ws/index", ws_index),
