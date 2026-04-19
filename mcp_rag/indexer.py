@@ -56,16 +56,37 @@ class _CountingFileHandler(logging.FileHandler):
 def _trunc(s: str, width: int = 15) -> str:
     return s[:width].ljust(width)
 
-_SUPPORTED_EXTENSIONS = frozenset({
-    ".py", ".go", ".md", ".mdx", ".sql",
-    ".c", ".h",
-    ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".ino",
-    ".js", ".jsx", ".mjs", ".cjs",
-    ".ts", ".tsx", ".mts", ".cts",
-    ".java",
-    ".tf", ".tfvars",
-    ".scad",
-})
+
+_SUPPORTED_EXTENSIONS = frozenset(
+    {
+        ".py",
+        ".go",
+        ".md",
+        ".mdx",
+        ".sql",
+        ".c",
+        ".h",
+        ".cc",
+        ".cpp",
+        ".cxx",
+        ".hh",
+        ".hpp",
+        ".hxx",
+        ".ino",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".ts",
+        ".tsx",
+        ".mts",
+        ".cts",
+        ".java",
+        ".tf",
+        ".tfvars",
+        ".scad",
+    }
+)
 
 
 class IndexAbortError(Exception):
@@ -137,16 +158,35 @@ def run_index(
     use_tqdm = progress_cb is None
     disable_bars = not sys.stderr.isatty() if use_tqdm else True
     try:
-        with tqdm(
-            total=len(repos), desc="repos", unit="repo",
-            file=sys.stderr, position=0, leave=False, disable=disable_bars,
-        ) as repo_bar, tqdm(
-            total=0, desc="files", unit="file",
-            file=sys.stderr, position=1, leave=False, disable=disable_bars,
-        ) as file_bar, tqdm(
-            total=0, desc="units", unit="unit",
-            file=sys.stderr, position=2, leave=False, disable=disable_bars,
-        ) as unit_bar:
+        with (
+            tqdm(
+                total=len(repos),
+                desc="repos",
+                unit="repo",
+                file=sys.stderr,
+                position=0,
+                leave=False,
+                disable=disable_bars,
+            ) as repo_bar,
+            tqdm(
+                total=0,
+                desc="files",
+                unit="file",
+                file=sys.stderr,
+                position=1,
+                leave=False,
+                disable=disable_bars,
+            ) as file_bar,
+            tqdm(
+                total=0,
+                desc="units",
+                unit="unit",
+                file=sys.stderr,
+                position=2,
+                leave=False,
+                disable=disable_bars,
+            ) as unit_bar,
+        ):
             try:
                 for idx, (repo_id, repo_name, git_root) in enumerate(repos):
                     if cancel_event and cancel_event.is_set():
@@ -155,15 +195,27 @@ def run_index(
                         raise IndexAbortError("Indexing cancelled by user.")
                     repo_bar.set_postfix(repo=_trunc(repo_name), refresh=True)
                     if progress_cb:
-                        progress_cb({
-                            "type": "status", "phase": "indexing",
-                            "repo": repo_name,
-                            "repos_total": len(repos), "repos_done": idx,
-                        })
+                        progress_cb(
+                            {
+                                "type": "status",
+                                "phase": "indexing",
+                                "repo": repo_name,
+                                "repos_total": len(repos),
+                                "repos_done": idx,
+                            }
+                        )
                     total_deleted += _index_repo(
-                        conn, repo_id, repo_name, git_root, embedder, summarizer,
-                        logger, file_bar, unit_bar,
-                        progress_cb=progress_cb, cancel_event=cancel_event,
+                        conn,
+                        repo_id,
+                        repo_name,
+                        git_root,
+                        embedder,
+                        summarizer,
+                        logger,
+                        file_bar,
+                        unit_bar,
+                        progress_cb=progress_cb,
+                        cancel_event=cancel_event,
                     )
                     repo_bar.update(1)
             except BaseException:
@@ -285,7 +337,10 @@ def _build_import_graph(
             graph[file_path] = []
             continue
         imports = extract_and_resolve_imports(
-            file_path, source, repo_root, repo_files_set,
+            file_path,
+            source,
+            repo_root,
+            repo_files_set,
         )
         graph[file_path] = [p for p in imports if p in parsable_set]
     return graph
@@ -425,7 +480,8 @@ def _append_unit_summaries(
 
 
 def _collect_directories(
-    parsable_files: list[Path], git_root: Path,
+    parsable_files: list[Path],
+    git_root: Path,
 ) -> list[Path]:
     """Return unique directories containing parsable files, deepest first.
 
@@ -500,7 +556,7 @@ def _build_directory_content(
             continue
         # Strip repo prefix to get relative path
         if path.startswith(f"{repo_name}/"):
-            child_rel = path[len(repo_name) + 1:]
+            child_rel = path[len(repo_name) + 1 :]
         elif path == repo_name:
             continue  # skip self
         else:
@@ -562,7 +618,11 @@ def _upsert_directory_unit(
 ) -> None:
     """Create or update a directory-level summary unit."""
     content = _build_directory_content(
-        dir_path, repo_name, git_root, conn, repo_id,
+        dir_path,
+        repo_name,
+        git_root,
+        conn,
+        repo_id,
     )
 
     # Skip if directory content has no child summaries to synthesize
@@ -726,20 +786,30 @@ def _index_repo(
         file_bar.reset(total=len(parsable_files))
         file_bar.set_description(f"scanning ({short_name})")
     if progress_cb:
-        progress_cb({
-            "type": "status", "phase": "scanning", "repo": repo_name,
-            "files_total": len(parsable_files), "files_done": 0,
-        })
+        progress_cb(
+            {
+                "type": "status",
+                "phase": "scanning",
+                "repo": repo_name,
+                "files_total": len(parsable_files),
+                "files_done": 0,
+            }
+        )
     for i, file_path in enumerate(parsable_files):
         if _scan_needs_indexing(file_path, db_map, empty_summary_file_ids):
             needs_indexing_set.add(file_path)
         if file_bar is not None:
             file_bar.update(1)
         if progress_cb and (i + 1) % 50 == 0:
-            progress_cb({
-                "type": "status", "phase": "scanning", "repo": repo_name,
-                "files_total": len(parsable_files), "files_done": i + 1,
-            })
+            progress_cb(
+                {
+                    "type": "status",
+                    "phase": "scanning",
+                    "repo": repo_name,
+                    "files_total": len(parsable_files),
+                    "files_done": i + 1,
+                }
+            )
 
     # Order files needing indexing by topological sort (leaves first)
     topo_set = set(topo_order)
@@ -751,7 +821,10 @@ def _index_repo(
 
     logger.info(
         "[%s] %d files to index of %d parsable (%d total)",
-        repo_name, len(needs_indexing), len(parsable_files), len(disk_files),
+        repo_name,
+        len(needs_indexing),
+        len(parsable_files),
+        len(disk_files),
     )
 
     # Index only the files that need it, in dependency order
@@ -766,11 +839,16 @@ def _index_repo(
                 file=_trunc(file_path.name), status="scanning", refresh=True
             )
         if progress_cb:
-            progress_cb({
-                "type": "status", "phase": "indexing", "repo": repo_name,
-                "file": file_path.name,
-                "files_total": len(needs_indexing), "files_done": file_idx,
-            })
+            progress_cb(
+                {
+                    "type": "status",
+                    "phase": "indexing",
+                    "repo": repo_name,
+                    "file": file_path.name,
+                    "files_total": len(needs_indexing),
+                    "files_done": file_idx,
+                }
+            )
         _process_file(
             conn,
             repo_id,
@@ -793,15 +871,25 @@ def _index_repo(
     directories = _collect_directories(parsable_files, git_root)
     if directories:
         if progress_cb:
-            progress_cb({
-                "type": "status", "phase": "directory_summaries",
-                "repo": repo_name,
-                "files_total": len(directories), "files_done": 0,
-            })
+            progress_cb(
+                {
+                    "type": "status",
+                    "phase": "directory_summaries",
+                    "repo": repo_name,
+                    "files_total": len(directories),
+                    "files_done": 0,
+                }
+            )
         for dir_path in directories:
             _upsert_directory_unit(
-                conn, repo_id, dir_path, repo_name, git_root,
-                embedder, summarizer, logger,
+                conn,
+                repo_id,
+                dir_path,
+                repo_name,
+                git_root,
+                embedder,
+                summarizer,
+                logger,
             )
 
     # Clean up directory units for directories that no longer have indexed files
@@ -833,8 +921,7 @@ def _cleanup_orphan_directory_units(
 
     # Find and delete orphan directory units
     existing_dir_units = conn.execute(
-        "SELECT id, path FROM units "
-        "WHERE repo_id = ? AND char_offset = ?",
+        "SELECT id, path FROM units WHERE repo_id = ? AND char_offset = ?",
         (repo_id, DIRECTORY_UNIT_OFFSET),
     ).fetchall()
 
@@ -898,7 +985,9 @@ def _backfill_empty_summaries(
             summary = summarizer.summarize(unit)
         except subprocess.TimeoutExpired:
             if logger is not None:
-                logger.warning("%s:%r timed out — skipping.", file_path.name, unit_label)
+                logger.warning(
+                    "%s:%r timed out — skipping.", file_path.name, unit_label
+                )
             if unit_bar is not None:
                 unit_bar.update(1)
             continue
@@ -960,8 +1049,13 @@ def _upsert_module_unit(
 
     # Build the module unit content
     module_content = _build_module_content(
-        file_path, repo_name, git_root,
-        child_summaries, import_paths, conn, cycle_members,
+        file_path,
+        repo_name,
+        git_root,
+        child_summaries,
+        import_paths,
+        conn,
+        cycle_members,
     )
 
     # Build a SemanticUnit for the summarizer prompt (content is used only
@@ -978,8 +1072,7 @@ def _upsert_module_unit(
 
     # Check if an existing module unit has the same content_md5
     existing_module = conn.execute(
-        "SELECT id, content_md5 FROM units "
-        "WHERE file_id = ? AND char_offset = ?",
+        "SELECT id, content_md5 FROM units WHERE file_id = ? AND char_offset = ?",
         (file_id, MODULE_UNIT_OFFSET),
     ).fetchone()
 
@@ -1077,8 +1170,17 @@ def _process_file(
     if content_unchanged:
         file_id = file_info[0]  # type: ignore[index]
         _backfill_empty_summaries(
-            conn, file_id, file_path, repo_name, git_root, embedder, summarizer,
-            file_bar, unit_bar, _file_status, logger,
+            conn,
+            file_id,
+            file_path,
+            repo_name,
+            git_root,
+            embedder,
+            summarizer,
+            file_bar,
+            unit_bar,
+            _file_status,
+            logger,
         )
         return
 
@@ -1097,7 +1199,9 @@ def _process_file(
             if logger is not None:
                 logger.warning(
                     "%s:%r exceeds %d estimated tokens; truncating.",
-                    file_path.name, unit.unit_name, _MAX_TOKENS,
+                    file_path.name,
+                    unit.unit_name,
+                    _MAX_TOKENS,
                 )
             unit = SemanticUnit(
                 unit_type=unit.unit_type,
@@ -1159,14 +1263,17 @@ def _process_file(
         for unit in to_add:
             unit_label = unit.unit_name or unit.unit_type
             if unit_bar is not None:
-                unit_bar.set_postfix(type=unit.unit_type, name=_trunc(unit_label), refresh=True)
+                unit_bar.set_postfix(
+                    type=unit.unit_type, name=_trunc(unit_label), refresh=True
+                )
             try:
                 summary = summarizer.summarize(unit)
             except subprocess.TimeoutExpired:
                 if logger is not None:
                     logger.warning(
                         "%s:%r timed out — skipping unit.",
-                        file_path.name, unit_label,
+                        file_path.name,
+                        unit_label,
                     )
                 if unit_bar is not None:
                     unit_bar.update(1)
@@ -1199,7 +1306,15 @@ def _process_file(
 
     # Build and insert module-level summary unit after child units are committed.
     _upsert_module_unit(
-        conn, repo_id, file_id, file_path, repo_name, git_root,
-        import_paths or [], cycle_members or set(),
-        embedder, summarizer, logger,
+        conn,
+        repo_id,
+        file_id,
+        file_path,
+        repo_name,
+        git_root,
+        import_paths or [],
+        cycle_members or set(),
+        embedder,
+        summarizer,
+        logger,
     )

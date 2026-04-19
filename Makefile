@@ -1,4 +1,4 @@
-.PHONY: install test test-unit test-integration lint format index reindex serve webui clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
+.PHONY: install test test-unit test-integration lint format index reindex serve webui skill clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
 
 # Resolve absolute path at make-time so the registered command works from any working directory
 DIR := $(shell pwd)
@@ -60,6 +60,10 @@ add-pi-mcp:
 # Unregister this server from the pi agent
 remove-pi-mcp:
 	python3 scripts/remove_pi_mcp.py
+
+# Regenerate skill.md from the live OpenAPI spec
+skill:
+	uv run python scripts/gen_skill.py > skill.md
 
 # Remove the local index database and any SQLite WAL artifacts
 clean:

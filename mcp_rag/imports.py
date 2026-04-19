@@ -23,6 +23,7 @@ def _extract_python_imports(source: str, filename: str = "<unknown>") -> list[st
     Returns dotted module names (e.g. ``["os.path", "mcp_rag.db"]``).
     """
     import warnings
+
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", SyntaxWarning)
@@ -41,7 +42,9 @@ def _extract_python_imports(source: str, filename: str = "<unknown>") -> list[st
     return modules
 
 
-def _resolve_python_import(module: str, repo_root: Path, repo_files: set[Path]) -> Path | None:
+def _resolve_python_import(
+    module: str, repo_root: Path, repo_files: set[Path]
+) -> Path | None:
     """Try to resolve a dotted Python module to a file in the repo."""
     parts = module.split(".")
     # Try as a direct module file: foo/bar.py
@@ -219,10 +222,22 @@ def _resolve_go_import(
 # ---------------------------------------------------------------------------
 
 _PY_EXTENSIONS = frozenset({".py"})
-_JS_TS_EXTENSIONS = frozenset({".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"})
-_C_CPP_EXTENSIONS = frozenset({
-    ".c", ".h", ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".ino",
-})
+_JS_TS_EXTENSIONS = frozenset(
+    {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"}
+)
+_C_CPP_EXTENSIONS = frozenset(
+    {
+        ".c",
+        ".h",
+        ".cc",
+        ".cpp",
+        ".cxx",
+        ".hh",
+        ".hpp",
+        ".hxx",
+        ".ino",
+    }
+)
 _JAVA_EXTENSIONS = frozenset({".java"})
 _GO_EXTENSIONS = frozenset({".go"})
 

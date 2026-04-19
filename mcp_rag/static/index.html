@@ -673,7 +673,7 @@ async function doSearch() {
   const globs = document.getElementById('search-globs').value.trim();
   const topk = document.getElementById('search-topk').value;
   const params = new URLSearchParams({ q, top_k: topk });
-  if (globs) params.set('globs', globs);
+  if (globs) globs.split(',').map(g => g.trim()).filter(Boolean).forEach(g => params.append('globs', g));
 
   const el = document.getElementById('search-results');
   el.innerHTML = '<div class="muted">Searching...</div>';

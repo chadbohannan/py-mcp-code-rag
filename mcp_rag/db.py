@@ -152,7 +152,9 @@ def upsert_repo(conn: sqlite3.Connection, name: str, root: str) -> int:
 
 def list_repos_db(conn: sqlite3.Connection) -> list[dict]:
     """Return all repos as ``[{name, root, added_at}]``."""
-    rows = conn.execute("SELECT name, root, added_at FROM repos ORDER BY name").fetchall()
+    rows = conn.execute(
+        "SELECT name, root, added_at FROM repos ORDER BY name"
+    ).fetchall()
     return [{"name": r[0], "root": r[1], "added_at": r[2]} for r in rows]
 
 
@@ -165,9 +167,7 @@ def remove_repo_db(conn: sqlite3.Connection, name: str) -> int:
 
 def rename_repo_db(conn: sqlite3.Connection, old_name: str, new_name: str) -> int:
     """Rename a repo. Returns the number of rows updated (0 or 1)."""
-    cur = conn.execute(
-        "UPDATE repos SET name = ? WHERE name = ?", (new_name, old_name)
-    )
+    cur = conn.execute("UPDATE repos SET name = ? WHERE name = ?", (new_name, old_name))
     conn.commit()
     return cur.rowcount
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import time
 
-from mcp_rag.models import SemanticUnit, relative_path
+from mcp_rag.models import SemanticUnit
 
 _MAX_TOKENS = 128
 _RETRY_DELAYS = [1, 2, 4]  # seconds before each retry attempt
