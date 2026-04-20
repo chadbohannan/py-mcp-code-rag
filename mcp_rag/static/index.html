@@ -243,6 +243,14 @@ pre.source-code {
 .btn-reindex:hover { border-color: var(--accent); color: var(--accent); }
 .btn-reindex.spinning { animation: spin 1s linear infinite; color: var(--yellow); border-color: var(--yellow); }
 @keyframes spin { to { transform: rotate(360deg); } }
+.btn-clear {
+  background: none; border: 1px solid transparent; border-radius: 4px;
+  color: var(--text-muted); cursor: pointer; padding: 0.15rem 0.4rem;
+  font-size: 0.85rem; line-height: 1; transition: all 0.15s; margin-right: 0.2rem;
+}
+.btn-clear:hover { border-color: var(--red); color: var(--red); }
+.repo-table tr.repo-cleared td { opacity: 0.4; }
+.repo-table tr.repo-cleared td:last-child { opacity: 1; }
 
 /* Status bar */
 .status-bar {
@@ -301,8 +309,10 @@ pre.source-code {
     <div class="row mb">
       <input type="text" id="search-query" placeholder="Search the codebase..." style="flex:1"
              onkeydown="if(event.key==='Enter')doSearch()">
-      <input type="text" id="search-globs" placeholder="Globs (optional)" style="width:200px">
-      <input type="number" id="search-topk" value="10" min="1" max="20" style="width:70px" title="top_k">
+      <input type="text" id="search-globs" placeholder="Globs (optional)" style="width:200px"
+             onkeydown="if(event.key==='Enter')doSearch()">
+      <input type="number" id="search-topk" value="10" min="1" max="20" style="width:70px" title="top_k"
+             onkeydown="if(event.key==='Enter')doSearch()">
       <button class="btn-primary" onclick="doSearch()">Search</button>
     </div>
     <div id="search-results"></div>
@@ -315,15 +325,6 @@ pre.source-code {
     </div>
     <div id="browse-content" class="browse-list">
       <div class="muted">Loading...</div>
-    </div>
-    <div id="browse-detail" class="browse-detail" style="display:none">
-      <div class="browse-detail-header">
-        <span id="browse-detail-path" class="source-path"></span>
-        <button onclick="closeBrowseDetail()"
-                style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem">&times;</button>
-      </div>
-      <div id="browse-detail-summary" class="source-summary"></div>
-      <pre id="browse-detail-code" class="source-code" style="min-height:200px"></pre>
     </div>
   </div>
 </div>
@@ -343,8 +344,9 @@ function activateTab(name) {
   const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
   if (btn) btn.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'browse') loadBrowse();
+  if (name === 'browse' && !_suppressHistory) loadBrowse();
   if (name === 'index') loadStatus();
+  if (name !== 'browse') syncURL();
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -356,6 +358,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ---------------------------------------------------------------------------
 let currentFolder = '';
 let selectedPaths = [];
+let browsePath = '';
+let _suppressHistory = false;
 
 async function folderNavigate(path) {
   const params = path ? '?path=' + encodeURIComponent(path) : '';
@@ -460,6 +464,21 @@ function renderSelectedPaths() {
 // Load initial folder on page load
 folderNavigate('');
 
+// Reconnect to any in-progress indexing job on page load.
+(async () => {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    if (data._indexing) {
+      _indexingActive = true;
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-cancel').disabled = false;
+      setProgress(0, 'Reconnecting to indexing job...');
+      _wsConnect(() => logMsg('Reconnected to indexing job.'));
+    }
+  } catch(e) { /* ignore */ }
+})();
+
 // ---------------------------------------------------------------------------
 // Index status
 // ---------------------------------------------------------------------------
@@ -504,12 +523,15 @@ async function loadStatus() {
       repos.map(r => {
         const ts = r.last_indexed_at
           ? new Date(r.last_indexed_at).toLocaleString() : 'never';
-        return `<tr>
+        const cleared = r.file_count === 0 && r.unit_count === 0;
+        return `<tr class="${cleared ? 'repo-cleared' : ''}">
           <td><span class="badge badge-blue">${escHtml(r.repo)}</span></td>
           <td class="num">${r.file_count}</td>
           <td class="num">${r.unit_count}</td>
           <td class="ts">${ts}</td>
-          <td style="text-align:right">
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn-clear" title="Clear index for ${escHtml(r.repo)}"
+                    onclick="clearRepo('${escHtml(r.repo)}', this)">&#x1F5D1;</button>
             <button class="btn-reindex" title="Re-index ${escHtml(r.repo)}"
                     onclick="reindexRepo('${escHtml(r.root)}', this)">&#x21BB;</button>
           </td>
@@ -527,12 +549,41 @@ async function loadStatus() {
     }
   } catch(e) { /* ignore */ }
 }
-loadStatus();
+restoreFromURL();
 
 // ---------------------------------------------------------------------------
 // WebSocket indexing
 // ---------------------------------------------------------------------------
 let ws = null;
+let _indexingActive = false;
+
+function _wsConnect(onopen) {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws/index`);
+
+  ws.onopen = onopen;
+
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    handleProgress(msg);
+  };
+
+  ws.onclose = () => {
+    if (_indexingActive) {
+      // Job is still running server-side; reconnect after a short delay.
+      setTimeout(() => _wsConnect(() => logMsg('Reconnected to indexing job.')), 1500);
+    } else {
+      document.getElementById('btn-start').disabled = false;
+      document.getElementById('btn-cancel').disabled = true;
+      loadStatus();
+    }
+  };
+
+  ws.onerror = () => {
+    logMsg('WebSocket error');
+    setProgress(0, 'Error');
+  };
+}
 
 function startIndex() {
   const pathsStr = document.getElementById('index-paths').value.trim();
@@ -544,36 +595,39 @@ function startIndex() {
   document.getElementById('btn-cancel').disabled = false;
   document.getElementById('index-log').innerHTML = '';
   setProgress(0, 'Connecting...');
+  _indexingActive = true;
 
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}/ws/index`);
-
-  ws.onopen = () => {
+  _wsConnect(() => {
     ws.send(JSON.stringify({ action: 'start', paths }));
     logMsg('Indexing started for: ' + paths.join(', '));
-  };
-
-  ws.onmessage = (evt) => {
-    const msg = JSON.parse(evt.data);
-    handleProgress(msg);
-  };
-
-  ws.onclose = () => {
-    document.getElementById('btn-start').disabled = false;
-    document.getElementById('btn-cancel').disabled = true;
-    loadStatus();
-  };
-
-  ws.onerror = () => {
-    logMsg('WebSocket error');
-    setProgress(0, 'Error');
-  };
+  });
 }
 
 function cancelIndex() {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ action: 'cancel' }));
     logMsg('Cancel requested...');
+  }
+}
+
+async function clearRepo(repoName, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/clear_repo?repo=' + encodeURIComponent(repoName), { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      const tr = btn.closest('tr');
+      tr.classList.add('repo-cleared');
+      tr.querySelector('td.num') && (tr.querySelectorAll('td.num')[0].textContent = '0');
+      tr.querySelectorAll('td.num')[1] && (tr.querySelectorAll('td.num')[1].textContent = '0');
+      logMsg('Cleared index for: ' + repoName);
+    } else {
+      logMsg('Clear failed: ' + (data.error || 'unknown error'));
+    }
+  } catch(e) {
+    logMsg('Clear failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -587,32 +641,12 @@ function reindexRepo(root, btn) {
   document.getElementById('btn-cancel').disabled = false;
   document.getElementById('index-log').innerHTML = '';
   setProgress(0, 'Connecting...');
+  _indexingActive = true;
 
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}/ws/index`);
-
-  ws.onopen = () => {
+  _wsConnect(() => {
     ws.send(JSON.stringify({ action: 'start', paths: [root] }));
     logMsg('Re-indexing: ' + root);
-  };
-
-  ws.onmessage = (evt) => {
-    const msg = JSON.parse(evt.data);
-    handleProgress(msg);
-  };
-
-  ws.onclose = () => {
-    btn.classList.remove('spinning');
-    document.getElementById('btn-start').disabled = false;
-    document.getElementById('btn-cancel').disabled = true;
-    loadStatus();
-  };
-
-  ws.onerror = () => {
-    btn.classList.remove('spinning');
-    logMsg('WebSocket error');
-    setProgress(0, 'Error');
-  };
+  });
 }
 
 function handleProgress(msg) {
@@ -625,12 +659,14 @@ function handleProgress(msg) {
 
   const phase = msg.phase;
   if (phase === 'done') {
+    _indexingActive = false;
     setProgress(100, 'Done!');
     logMsg('Indexing complete.');
     if (ws) ws.close();
     return;
   }
   if (phase === 'cancelled') {
+    _indexingActive = false;
     setProgress(0, 'Cancelled');
     logMsg('Indexing cancelled.');
     if (ws) ws.close();
@@ -703,6 +739,7 @@ async function doSearch() {
   if (!q) return;
   const globs = document.getElementById('search-globs').value.trim();
   const topk = document.getElementById('search-topk').value;
+  syncURL();
   const params = new URLSearchParams({ q, top_k: topk });
   if (globs) globs.split(',').map(g => g.trim()).filter(Boolean).forEach(g => params.append('globs', g));
 
@@ -731,14 +768,9 @@ async function doSearch() {
 // ---------------------------------------------------------------------------
 // Browse v2 — breadcrumb content browser
 // ---------------------------------------------------------------------------
-let browsePath = '';
-
 async function openInBrowse(unitPath) {
-  // Derive the file-level path (everything before the first ':')
-  const filePath = unitPath.split(':')[0];
   activateTab('browse');
-  await browseNavigate(filePath);
-  await browseShowUnit(unitPath);
+  await browseNavigate(unitPath);
 }
 
 async function loadBrowse() {
@@ -747,8 +779,8 @@ async function loadBrowse() {
 
 async function browseNavigate(path) {
   browsePath = path;
+  syncURL(true);
   renderBrowseBreadcrumb(path);
-  closeBrowseDetail();
 
   const el = document.getElementById('browse-content');
   el.innerHTML = '<div class="muted">Loading\u2026</div>';
@@ -757,7 +789,7 @@ async function browseNavigate(path) {
     const params = path ? '?path=' + encodeURIComponent(path) : '';
     const res = await fetch('/api/browse' + params);
     const nodes = await res.json();
-    renderBrowseContent(nodes);
+    await renderBrowseContent(nodes);
   } catch(e) {
     el.innerHTML = '<div class="muted">Failed to load.</div>';
   }
@@ -825,7 +857,7 @@ function _badgeCls(n) {
   return 'be-type-unit';
 }
 
-function renderBrowseContent(nodes) {
+async function renderBrowseContent(nodes) {
   const el = document.getElementById('browse-content');
 
   // Separate the current-level overview from navigable/leaf children
@@ -840,20 +872,34 @@ function renderBrowseContent(nodes) {
   }
 
   if (!children.length) {
-    html += '<div class="muted">Nothing here.</div>';
-  } else {
-    html += children.map(renderBrowseEntry).join('');
+    if (selfNode) {
+      // Leaf unit — fetch and display the full content on this page
+      el.innerHTML = html + '<div class="muted">Loading content\u2026</div>';
+      try {
+        const res = await fetch('/api/unit?path=' + encodeURIComponent(selfNode.path));
+        const data = await res.json();
+        if (data.content) {
+          el.innerHTML = html + `<pre class="source-code" style="margin-top:0.75rem;max-height:none;overflow-y:visible">${escHtml(data.content)}</pre>`;
+        } else {
+          el.innerHTML = html + '<div class="muted">No content available.</div>';
+        }
+      } catch(e) {
+        el.innerHTML = html + '<div class="muted">Failed to load content.</div>';
+      }
+    } else {
+      el.innerHTML = html + '<div class="muted">Nothing here.</div>';
+    }
+    return;
   }
 
+  html += children.map(renderBrowseEntry).join('');
   el.innerHTML = html;
 }
 
 function renderBrowseEntry(n) {
   const lbl = _badgeLabel(n);
   const cls = _badgeCls(n);
-  const action = n.has_children
-    ? `browseNavigate('${escHtml(n.path)}')`
-    : `browseShowUnit('${escHtml(n.path)}')`;
+  const action = `browseNavigate('${escHtml(n.path)}')`;
   const chevron = n.has_children
     ? `<span class="be-chevron">\u203a</span>` : '';
   const summary = n.summary
@@ -868,23 +914,45 @@ function renderBrowseEntry(n) {
     `</div>`;
 }
 
-async function browseShowUnit(path) {
-  try {
-    const res = await fetch('/api/unit?path=' + encodeURIComponent(path));
-    const data = await res.json();
-    if (!data.path) return;
-    const detail = document.getElementById('browse-detail');
-    document.getElementById('browse-detail-path').textContent = data.path;
-    document.getElementById('browse-detail-summary').textContent = data.summary || '';
-    document.getElementById('browse-detail-code').textContent = data.content || '';
-    detail.style.display = 'block';
-    detail.scrollIntoView({behavior: 'smooth', block: 'nearest'});
-  } catch(e) { /* ignore */ }
+
+// ---------------------------------------------------------------------------
+// URL state sync
+// ---------------------------------------------------------------------------
+function syncURL(push = false) {
+  if (_suppressHistory) return;
+  const params = new URLSearchParams();
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'index';
+  if (activeTab !== 'index') params.set('tab', activeTab);
+  if (activeTab === 'search') {
+    const q = document.getElementById('search-query').value.trim();
+    const globs = document.getElementById('search-globs').value.trim();
+    const k = document.getElementById('search-topk').value;
+    if (q) params.set('q', q);
+    if (globs) params.set('globs', globs);
+    if (k && k !== '10') params.set('k', k);
+  }
+  if (activeTab === 'browse' && browsePath) params.set('browse', browsePath);
+  const url = params.toString() ? '?' + params.toString() : location.pathname;
+  push ? history.pushState(null, '', url) : history.replaceState(null, '', url);
 }
 
-function closeBrowseDetail() {
-  document.getElementById('browse-detail').style.display = 'none';
+async function restoreFromURL() {
+  _suppressHistory = true;
+  try {
+    const p = new URLSearchParams(location.search);
+    const tab = p.get('tab') || 'index';
+    if (p.has('q')) document.getElementById('search-query').value = p.get('q');
+    if (p.has('globs')) document.getElementById('search-globs').value = p.get('globs');
+    if (p.has('k')) document.getElementById('search-topk').value = p.get('k');
+    activateTab(tab);
+    if (tab === 'search' && p.has('q')) await doSearch();
+    if (tab === 'browse') await browseNavigate(p.get('browse') || '');
+  } finally {
+    _suppressHistory = false;
+  }
 }
+
+window.addEventListener('popstate', restoreFromURL);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -897,11 +965,6 @@ document.addEventListener('keydown', (e) => {
   // Only active when the Browse tab is showing
   if (!document.getElementById('tab-browse').classList.contains('active')) return;
   e.preventDefault();
-  const detail = document.getElementById('browse-detail');
-  if (detail.style.display !== 'none') {
-    closeBrowseDetail();
-    return;
-  }
   if (!browsePath) return;
   // Strip the last segment (separated by '/' or ':')
   const lastSep = Math.max(browsePath.lastIndexOf('/'), browsePath.lastIndexOf(':'));

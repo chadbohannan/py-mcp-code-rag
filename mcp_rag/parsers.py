@@ -109,9 +109,18 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
     char_pos = 0
     # Track heading stack for hierarchical names: [(level, text), ...]
     heading_stack: list[tuple[int, str]] = []
+    fence_marker: str | None = None  # tracks which delimiter opened the block
 
     for line in source.splitlines(keepends=True):
-        if line.startswith("#"):
+        stripped_line = line.strip()
+        if fence_marker is None:
+            if stripped_line.startswith("```"):
+                fence_marker = "```"
+            elif stripped_line.startswith("~~~"):
+                fence_marker = "~~~"
+        elif stripped_line.startswith(fence_marker) and stripped_line.rstrip(fence_marker[0]) == "":
+            fence_marker = None
+        if line.startswith("#") and fence_marker is None:
             # Flush previous section
             content = "".join(current_lines).strip()
             if content:

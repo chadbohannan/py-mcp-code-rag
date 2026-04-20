@@ -42,6 +42,10 @@ _db_path: Path | None = None
 _embedder: Embedder | None = None
 _summarizer_factory: Callable | None = None
 
+_last_progress: dict | None = None
+_ws_clients: dict[WebSocket, asyncio.AbstractEventLoop] = {}
+_ws_clients_lock = threading.Lock()
+
 
 def _get_read_conn() -> sqlite3.Connection:
     assert _db_path is not None and _embedder is not None
@@ -156,6 +160,8 @@ async def api_search(
         conn.close()
 
 
+
+
 # ---------------------------------------------------------------------------
 # Units
 # ---------------------------------------------------------------------------
@@ -236,6 +242,29 @@ async def api_files(
         return queries.list_files(conn, globs=globs or None)
     finally:
         conn.close()
+
+
+@app.post(
+    "/api/clear_repo",
+    summary="Remove all indexed data for a repository by name",
+)
+async def api_clear_repo(
+    repo: str = Query(..., description="Repository name to clear"),
+) -> dict:
+    if _db_path is None or _embedder is None:
+        raise HTTPException(status_code=503, detail="Index not ready")
+    conn = _get_read_conn()
+    try:
+        row = conn.execute("SELECT id FROM repos WHERE name = ?", (repo,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Repo not found")
+        repo_id = row[0]
+        conn.execute("DELETE FROM files WHERE repo_id = ?", (repo_id,))
+        conn.execute("DELETE FROM units WHERE repo_id = ?", (repo_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "repo": repo}
 
 
 @app.get(
@@ -370,7 +399,7 @@ async def api_index_start(body: IndexRequest) -> JobStatus:
     if cancel_ev is None:
         raise HTTPException(status_code=409, detail="Indexing already running")
 
-    _launch_index_job(paths, body.reindex, cancel_ev, progress_cb=lambda _: None)
+    _launch_index_job(paths, body.reindex, cancel_ev, progress_cb=_broadcast)
     return JobStatus(**job.status())
 
 
@@ -398,9 +427,27 @@ async def api_index_cancel() -> JobStatus:
 # ---------------------------------------------------------------------------
 
 
+def _broadcast(event: dict) -> None:
+    global _last_progress
+    _last_progress = event
+    with _ws_clients_lock:
+        clients = list(_ws_clients.items())
+    for ws, loop in clients:
+        asyncio.run_coroutine_threadsafe(ws.send_json(event), loop)
+
+
 @app.websocket("/ws/index")
+
 async def ws_index(websocket: WebSocket) -> None:
     await websocket.accept()
+
+    loop = asyncio.get_event_loop()
+    with _ws_clients_lock:
+        _ws_clients[websocket] = loop
+
+    # Replay last known progress so a reconnecting client catches up.
+    if job.status()["running"] and _last_progress is not None:
+        await websocket.send_json(_last_progress)
 
     try:
         while True:
@@ -410,7 +457,7 @@ async def ws_index(websocket: WebSocket) -> None:
 
             if action == "cancel":
                 job.cancel()
-                await websocket.send_json({"type": "status", "phase": "cancelling"})
+                _broadcast({"type": "status", "phase": "cancelling"})
                 continue
 
             if action == "start":
@@ -440,15 +487,13 @@ async def ws_index(websocket: WebSocket) -> None:
                     )
                     continue
 
-                loop = asyncio.get_running_loop()
-
-                def progress_cb(event: dict) -> None:
-                    asyncio.run_coroutine_threadsafe(websocket.send_json(event), loop)
-
-                _launch_index_job(paths, reindex, cancel_ev, progress_cb)
+                _launch_index_job(paths, reindex, cancel_ev, _broadcast)
 
     except Exception:
         pass
+    finally:
+        with _ws_clients_lock:
+            _ws_clients.pop(websocket, None)
 
 
 # ---------------------------------------------------------------------------
