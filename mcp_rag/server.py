@@ -7,9 +7,9 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from mcp_rag.db import list_repos_db, open_db
-from mcp_rag.discovery import read_git_description
-from mcp_rag.models import Embedder, encode_embedding
+from mcp_rag.db import open_db
+from mcp_rag.models import Embedder
+from mcp_rag import queries
 
 mcp = FastMCP("code-rag")
 
@@ -41,29 +41,14 @@ def _get_conn() -> sqlite3.Connection | None:
 
 
 # ---------------------------------------------------------------------------
-# Glob helpers
-# ---------------------------------------------------------------------------
-
-
-def _glob_where(globs: list[str] | None, column: str = "u.path") -> tuple[str, list]:
-    """Build a WHERE clause from GLOB filters.
-
-    Returns ``("", [])`` when *globs* is empty/None, or
-    ``("WHERE col GLOB ? AND col GLOB ?", [g1, g2])`` otherwise.
-    """
-    if not globs:
-        return "", []
-    clauses = " AND ".join(f"{column} GLOB ?" for _ in globs)
-    return f"WHERE {clauses}", list(globs)
-
-
-# ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 
 
 @mcp.tool
-async def search(query: str, top_k: int = 5, globs: list[str] | None = None) -> list[dict]:
+async def search(
+    query: str, top_k: int = 5, globs: list[str] | None = None
+) -> list[dict]:
     """Search the indexed codebase using natural language.
 
     Every indexed unit (function, class, markdown section, etc.) has a
@@ -90,53 +75,7 @@ async def search(query: str, top_k: int = 5, globs: list[str] | None = None) -> 
     """
     if _db_path is None or _embedder is None:
         return []
-
-    k = min(top_k, 20)
-    emb = _embedder.embed(query)
-
-    if globs:
-        where, glob_params = _glob_where(globs)
-        sql = f"""
-            SELECT
-                u.path,
-                u.summary,
-                sub.dist
-            FROM (
-                SELECT e.unit_id, vec_distance_cosine(e.embedding, ?) AS dist
-                FROM embeddings e
-                ORDER BY dist ASC
-                LIMIT ?
-            ) sub
-            JOIN units u ON u.id = sub.unit_id
-            {where}
-            ORDER BY sub.dist ASC
-        """
-        # Fetch more candidates from the vector search so filtering still
-        # returns enough results.  Cap at 200 to keep the scan reasonable.
-        candidates = min(k * 10, 200)
-        rows = _get_conn().execute(sql, [encode_embedding(emb), candidates] + glob_params).fetchall()
-        rows = rows[:k]
-    else:
-        sql = """
-            SELECT
-                u.path,
-                u.summary,
-                vec_distance_cosine(e.embedding, ?) AS dist
-            FROM embeddings e
-            JOIN units u ON u.id = e.unit_id
-            ORDER BY dist ASC
-            LIMIT ?
-        """
-        rows = _get_conn().execute(sql, (encode_embedding(emb), k)).fetchall()
-
-    return [
-        {
-            "path": row[0],
-            "summary": row[1],
-            "score": round(1.0 - row[2] / 2.0, 6),
-        }
-        for row in rows
-    ]
+    return queries.search(_get_conn(), _embedder, query, top_k=top_k, globs=globs)
 
 
 @mcp.tool
@@ -153,24 +92,7 @@ async def get_unit(paths: list[str]) -> list[dict]:
     """
     if _db_path is None or _embedder is None:
         return []
-
-    if not paths:
-        return []
-
-    conn = _get_conn()
-    placeholders = ",".join("?" for _ in paths)
-    sql = f"""
-        SELECT u.path, u.content, u.summary
-        FROM units u
-        WHERE u.path IN ({placeholders})
-        ORDER BY u.path
-    """
-    rows = conn.execute(sql, paths).fetchall()
-
-    return [
-        {"path": row[0], "content": row[1], "summary": row[2]}
-        for row in rows
-    ]
+    return queries.get_units(_get_conn(), paths)
 
 
 @mcp.tool
@@ -194,16 +116,7 @@ async def list_units(globs: list[str] | None = None, limit: int = 100) -> list[d
     """
     if _db_path is None or _embedder is None:
         return []
-
-    capped = min(limit, 500)
-    conn = _get_conn()
-
-    where, params = _glob_where(globs)
-    sql = f"SELECT u.path, u.summary FROM units u {where} ORDER BY u.path LIMIT ?"
-    params.append(capped)
-    rows = conn.execute(sql, params).fetchall()
-
-    return [{"path": row[0], "summary": row[1]} for row in rows]
+    return queries.list_units(_get_conn(), globs=globs, limit=limit)
 
 
 @mcp.tool
@@ -219,30 +132,7 @@ async def list_files(globs: list[str] | None = None) -> list[dict]:
     """
     if _db_path is None or _embedder is None:
         return []
-
-    conn = _get_conn()
-
-    # Can't reuse _glob_where here: files table has no single qualified
-    # path column, so we GLOB against the concatenated repo_name/path.
-    from_clause = (
-        "SELECT r.name, f.path, f.indexed_at "
-        "FROM files f JOIN repos r ON r.id = f.repo_id"
-    )
-    params: list = []
-    if globs:
-        clauses = " AND ".join(
-            "(r.name || '/' || f.path) GLOB ?" for _ in globs
-        )
-        from_clause += f" WHERE {clauses}"
-        params = list(globs)
-
-    from_clause += " ORDER BY r.name, f.path"
-    rows = conn.execute(from_clause, params).fetchall()
-
-    return [
-        {"repo": row[0], "path": row[1], "indexed_at": row[2]}
-        for row in rows
-    ]
+    return queries.list_files(_get_conn(), globs=globs)
 
 
 @mcp.tool
@@ -258,35 +148,8 @@ async def index_status() -> list[dict]:
     """
     if _db_path is None or _embedder is None:
         return []
-
-    rows = (
-        _get_conn()
-        .execute(
-            """
-        SELECT
-            r.name,
-            COUNT(DISTINCT f.id)  AS file_count,
-            COUNT(u.id)           AS unit_count,
-            MAX(f.indexed_at)     AS last_indexed_at
-        FROM repos r
-        JOIN files f ON f.repo_id = r.id
-        LEFT JOIN units u ON u.file_id = f.id
-        GROUP BY r.id
-        ORDER BY r.name
-        """,
-        )
-        .fetchall()
-    )
-
-    return [
-        {
-            "repo": row[0],
-            "file_count": row[1],
-            "unit_count": row[2],
-            "last_indexed_at": row[3],
-        }
-        for row in rows
-    ]
+    status = queries.index_status(_get_conn())
+    return status["repos"]
 
 
 @mcp.tool
@@ -298,10 +161,4 @@ async def list_repos() -> list[dict]:
     """
     if _db_path is None or _embedder is None:
         return []
-
-    conn = _get_conn()
-    repos = list_repos_db(conn)
-    for repo in repos:
-        root = Path(repo["root"])
-        repo["description"] = read_git_description(root)
-    return repos
+    return queries.list_repos(_get_conn())

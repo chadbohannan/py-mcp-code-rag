@@ -5,14 +5,14 @@ from __future__ import annotations
 import random
 import time
 
-from mcp_rag.models import SemanticUnit, relative_path
+from mcp_rag.models import SemanticUnit
 
 _MAX_TOKENS = 128
 _RETRY_DELAYS = [1, 2, 4]  # seconds before each retry attempt
 _JITTER = 0.2
 _RETRY_STATUSES = frozenset({429, 529})
 
-DEFAULT_OLLAMA_MODEL = "gemma4:e2b"
+DEFAULT_OLLAMA_MODEL = "gemma4:latest"
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 
 

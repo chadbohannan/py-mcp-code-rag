@@ -148,13 +148,13 @@ def _assign_unique_names(
                 logger.warning(
                     "Could not fully disambiguate repo names after %d "
                     "levels; remaining duplicates: %s",
-                    depth, sorted(dupes),
+                    depth,
+                    sorted(dupes),
                 )
                 break
 
     return [
-        (name, root, read_git_description(root))
-        for name, root in zip(names, roots)
+        (name, root, read_git_description(root)) for name, root in zip(names, roots)
     ]
 
 

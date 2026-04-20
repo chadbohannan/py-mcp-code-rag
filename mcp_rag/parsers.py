@@ -109,9 +109,18 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
     char_pos = 0
     # Track heading stack for hierarchical names: [(level, text), ...]
     heading_stack: list[tuple[int, str]] = []
+    fence_marker: str | None = None  # tracks which delimiter opened the block
 
     for line in source.splitlines(keepends=True):
-        if line.startswith("#"):
+        stripped_line = line.strip()
+        if fence_marker is None:
+            if stripped_line.startswith("```"):
+                fence_marker = "```"
+            elif stripped_line.startswith("~~~"):
+                fence_marker = "~~~"
+        elif stripped_line.startswith(fence_marker) and stripped_line.rstrip(fence_marker[0]) == "":
+            fence_marker = None
+        if line.startswith("#") and fence_marker is None:
             # Flush previous section
             content = "".join(current_lines).strip()
             if content:
@@ -125,7 +134,9 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
                 heading_stack.pop()
             # Build hierarchical name
             if heading_stack:
-                current_name = ":".join(h[1] for h in heading_stack) + ":" + heading_text
+                current_name = (
+                    ":".join(h[1] for h in heading_stack) + ":" + heading_text
+                )
             else:
                 current_name = heading_text
             heading_stack.append((level, heading_text))
@@ -149,12 +160,14 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
         first_line = lines[0] if lines else ""
         level = len(first_line) - len(first_line.lstrip("#"))
         unit_type = f"h{level}" if level else "paragraph"
-        units.append(SemanticUnit(
-            unit_type=unit_type,
-            unit_name=name,
-            content=content,
-            char_offset=offset,
-        ))
+        units.append(
+            SemanticUnit(
+                unit_type=unit_type,
+                unit_name=name,
+                content=content,
+                char_offset=offset,
+            )
+        )
     return units
 
 
@@ -235,8 +248,11 @@ def _extract_c_cpp_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
                 name = None
                 if declarator is not None:
                     ident = _ts_find_child_by_type(
-                        declarator, "identifier", "field_identifier",
-                        "destructor_name", "qualified_identifier",
+                        declarator,
+                        "identifier",
+                        "field_identifier",
+                        "destructor_name",
+                        "qualified_identifier",
                     )
                     if ident is not None:
                         name = _ts_node_text(ident, source_bytes)
@@ -433,7 +449,9 @@ def _extract_js_ts_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
                 )
 
             elif child.type == "class_declaration":
-                name_node = _ts_find_child_by_type(child, "type_identifier", "identifier")
+                name_node = _ts_find_child_by_type(
+                    child, "type_identifier", "identifier"
+                )
                 name = _ts_node_text(name_node, source_bytes) if name_node else None
                 units.append(
                     SemanticUnit(
@@ -449,7 +467,9 @@ def _extract_js_ts_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
 
             elif child.type == "method_definition":
                 name_node = _ts_find_child_by_type(
-                    child, "property_identifier", "identifier",
+                    child,
+                    "property_identifier",
+                    "identifier",
                     "computed_property_name",
                 )
                 name = _ts_node_text(name_node, source_bytes) if name_node else None
@@ -471,11 +491,17 @@ def _extract_js_ts_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
                 for decl in child.children:
                     if decl.type == "variable_declarator":
                         value = _ts_find_child_by_type(
-                            decl, "arrow_function", "function_expression",
+                            decl,
+                            "arrow_function",
+                            "function_expression",
                         )
                         if value is not None:
                             name_node = _ts_find_child_by_type(decl, "identifier")
-                            name = _ts_node_text(name_node, source_bytes) if name_node else None
+                            name = (
+                                _ts_node_text(name_node, source_bytes)
+                                if name_node
+                                else None
+                            )
                             units.append(
                                 SemanticUnit(
                                     unit_type="function",
@@ -486,7 +512,9 @@ def _extract_js_ts_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
                             )
 
             elif child.type == "interface_declaration":
-                name_node = _ts_find_child_by_type(child, "type_identifier", "identifier")
+                name_node = _ts_find_child_by_type(
+                    child, "type_identifier", "identifier"
+                )
                 name = _ts_node_text(name_node, source_bytes) if name_node else None
                 units.append(
                     SemanticUnit(
@@ -498,7 +526,9 @@ def _extract_js_ts_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
                 )
 
             elif child.type == "type_alias_declaration":
-                name_node = _ts_find_child_by_type(child, "type_identifier", "identifier")
+                name_node = _ts_find_child_by_type(
+                    child, "type_identifier", "identifier"
+                )
                 name = _ts_node_text(name_node, source_bytes) if name_node else None
                 units.append(
                     SemanticUnit(
@@ -608,7 +638,9 @@ def _extract_java_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
                         char_offset=child.start_byte,
                     )
                 )
-                body = _ts_find_child_by_type(child, "class_body", "record_declaration_body")
+                body = _ts_find_child_by_type(
+                    child, "class_body", "record_declaration_body"
+                )
                 if body is not None:
                     _walk(body, class_name=name)
 
@@ -751,16 +783,24 @@ def _extract_go_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
             if recv_list is not None:
                 param = _ts_find_child_by_type(recv_list, "parameter_declaration")
                 if param is not None:
-                    type_node = _ts_find_child_by_type(param, "pointer_type", "type_identifier")
+                    type_node = _ts_find_child_by_type(
+                        param, "pointer_type", "type_identifier"
+                    )
                     if type_node is not None:
                         if type_node.type == "pointer_type":
                             ident = _ts_find_child_by_type(type_node, "type_identifier")
-                            receiver_type = _ts_node_text(ident, source_bytes) if ident else None
+                            receiver_type = (
+                                _ts_node_text(ident, source_bytes) if ident else None
+                            )
                         else:
                             receiver_type = _ts_node_text(type_node, source_bytes)
             name_node = _ts_find_child_by_type(child, "field_identifier")
             method_name = _ts_node_text(name_node, source_bytes) if name_node else None
-            unit_name = f"{receiver_type}:{method_name}" if receiver_type and method_name else method_name
+            unit_name = (
+                f"{receiver_type}:{method_name}"
+                if receiver_type and method_name
+                else method_name
+            )
             units.append(
                 SemanticUnit(
                     unit_type="method",
@@ -843,11 +883,11 @@ _TF_EXTENSIONS = frozenset({".tf", ".tfvars"})
 #   variable "region" {
 #   locals {
 _TF_BLOCK_RE = re.compile(
-    r'^[ \t]*'
-    r'(resource|variable|output|module|data|locals|provider|terraform|moved|import|check)'
+    r"^[ \t]*"
+    r"(resource|variable|output|module|data|locals|provider|terraform|moved|import|check)"
     r'(?:[ \t]+"([^"]*)")?'
     r'(?:[ \t]+"([^"]*)")?'
-    r'[ \t]*\{',
+    r"[ \t]*\{",
     re.MULTILINE,
 )
 
@@ -947,7 +987,7 @@ _OPENSCAD_EXTENSIONS = frozenset({".scad"})
 # module foo(...) {   — braced body
 # function foo(...) = expr;  — expression body (no brace)
 _OPENSCAD_DECL_RE = re.compile(
-    r'^[ \t]*(module|function)[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(',
+    r"^[ \t]*(module|function)[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(",
     re.MULTILINE,
 )
 
@@ -966,13 +1006,13 @@ def _openscad_find_body_end(source: str, start: int) -> int:
     escape_next = False
 
     # Advance to the opening '{' or '='
-    while i < n and source[i] not in ('{', '=', ';'):
+    while i < n and source[i] not in ("{", "=", ";"):
         i += 1
 
     if i >= n:
         return n
 
-    if source[i] == '{':
+    if source[i] == "{":
         # Brace-matched block (module body)
         depth = 0
         while i < n:
@@ -980,16 +1020,16 @@ def _openscad_find_body_end(source: str, start: int) -> int:
             if escape_next:
                 escape_next = False
             elif in_string:
-                if ch == '\\':
+                if ch == "\\":
                     escape_next = True
                 elif ch == '"':
                     in_string = False
             else:
                 if ch == '"':
                     in_string = True
-                elif ch == '{':
+                elif ch == "{":
                     depth += 1
-                elif ch == '}':
+                elif ch == "}":
                     depth -= 1
                     if depth == 0:
                         return i + 1
@@ -1004,22 +1044,22 @@ def _openscad_find_body_end(source: str, start: int) -> int:
             if escape_next:
                 escape_next = False
             elif in_string:
-                if ch == '\\':
+                if ch == "\\":
                     escape_next = True
                 elif ch == '"':
                     in_string = False
             else:
                 if ch == '"':
                     in_string = True
-                elif ch == '(':
+                elif ch == "(":
                     paren_depth += 1
-                elif ch == ')':
+                elif ch == ")":
                     paren_depth -= 1
-                elif ch == '[':
+                elif ch == "[":
                     bracket_depth += 1
-                elif ch == ']':
+                elif ch == "]":
                     bracket_depth -= 1
-                elif ch == ';' and paren_depth == 0 and bracket_depth == 0:
+                elif ch == ";" and paren_depth == 0 and bracket_depth == 0:
                     return i + 1
             i += 1
         return n
@@ -1035,13 +1075,13 @@ def parse_openscad(source: str) -> list[SemanticUnit]:
 
     units: list[SemanticUnit] = []
     for match in _OPENSCAD_DECL_RE.finditer(source):
-        decl_type = match.group(1)   # "module" or "function"
+        decl_type = match.group(1)  # "module" or "function"
         name = match.group(2)
         unit_type = "module" if decl_type == "module" else "function"
 
         # Find where the parameter list closes, then locate the body
         end = _openscad_find_body_end(source, match.end())
-        content = source[match.start():end].strip()
+        content = source[match.start() : end].strip()
         if content:
             units.append(
                 SemanticUnit(

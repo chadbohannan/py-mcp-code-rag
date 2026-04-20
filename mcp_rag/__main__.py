@@ -218,9 +218,7 @@ def _run_webui_cmd(args: argparse.Namespace) -> None:
     def make_summarizer():
         if sum_type == "anthropic":
             if not os.environ.get("ANTHROPIC_API_KEY"):
-                raise IndexAbortError(
-                    "ANTHROPIC_API_KEY is not set."
-                )
+                raise IndexAbortError("ANTHROPIC_API_KEY is not set.")
             return AnthropicSummarizer()
         return OllamaSummarizer(model=ollama_model, host=ollama_host)
 
