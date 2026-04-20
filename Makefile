@@ -61,9 +61,9 @@ add-pi-mcp:
 remove-pi-mcp:
 	python3 scripts/remove_pi_mcp.py
 
-# Regenerate skill.md from the live OpenAPI spec
+# Regenerate SKILL.md from the live OpenAPI spec
 skill:
-	uv run python scripts/gen_skill.py > skill.md
+	uv run python scripts/gen_skill.py > SKILL.md
 
 # Remove the local index database and any SQLite WAL artifacts
 clean:

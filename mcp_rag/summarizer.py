@@ -12,7 +12,7 @@ _RETRY_DELAYS = [1, 2, 4]  # seconds before each retry attempt
 _JITTER = 0.2
 _RETRY_STATUSES = frozenset({429, 529})
 
-DEFAULT_OLLAMA_MODEL = "gemma4:e2b"
+DEFAULT_OLLAMA_MODEL = "gemma4:latest"
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 
 

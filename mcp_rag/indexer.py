@@ -800,7 +800,7 @@ def _index_repo(
             needs_indexing_set.add(file_path)
         if file_bar is not None:
             file_bar.update(1)
-        if progress_cb and (i + 1) % 50 == 0:
+        if progress_cb and ((i + 1) % 10 == 0 or i == len(parsable_files) - 1):
             progress_cb(
                 {
                     "type": "status",
@@ -808,6 +808,30 @@ def _index_repo(
                     "repo": repo_name,
                     "files_total": len(parsable_files),
                     "files_done": i + 1,
+                }
+            )
+
+    if progress_cb:
+        if len(needs_indexing_set) == 0:
+            progress_cb(
+                {
+                    "type": "status",
+                    "phase": "done",
+                    "repo": repo_name,
+                    "files_total": len(parsable_files),
+                    "files_done": len(parsable_files),
+                    "message": "No files need re-indexing",
+                }
+            )
+        else:
+            progress_cb(
+                {
+                    "type": "status",
+                    "phase": "ready_to_index",
+                    "repo": repo_name,
+                    "files_total": len(parsable_files),
+                    "files_needed": len(needs_indexing_set),
+                    "files_done": len(parsable_files),
                 }
             )
 
@@ -863,6 +887,9 @@ def _index_repo(
             logger,
             import_paths=import_graph.get(file_path, []),
             cycle_members=cycle_members,
+            progress_cb=progress_cb,
+            files_total=len(needs_indexing),
+            files_done=file_idx,
         )
         if file_bar is not None:
             file_bar.update(1)
@@ -1131,6 +1158,9 @@ def _process_file(
     logger: logging.Logger | None = None,
     import_paths: list[Path] | None = None,
     cycle_members: set[Path] | None = None,
+    progress_cb: Callable[[dict], None] | None = None,
+    files_total: int = 0,
+    files_done: int = 0,
 ) -> None:
     """Parse, reconcile, summarise, embed, and store one file."""
 
@@ -1138,6 +1168,21 @@ def _process_file(
         if file_bar is not None:
             short = _trunc(file_path.name)
             file_bar.set_postfix(file=short, status=status, refresh=True)
+
+    def _unit_progress(done: int, total: int) -> None:
+        if progress_cb:
+            progress_cb(
+                {
+                    "type": "status",
+                    "phase": "indexing",
+                    "repo": repo_name,
+                    "file": file_path.name,
+                    "files_total": files_total,
+                    "files_done": files_done,
+                    "units_total": total,
+                    "units_done": done,
+                }
+            )
 
     # Read bytes once for binary check + md5
     try:
@@ -1260,12 +1305,15 @@ def _process_file(
             unit_bar.reset(total=len(to_add))
             unit_bar.set_description(file_path.name)
         _file_status(f"indexing {len(to_add)} unit(s)")
-        for unit in to_add:
+        units_total = len(to_add)
+        for unit_idx, unit in enumerate(to_add):
             unit_label = unit.unit_name or unit.unit_type
             if unit_bar is not None:
                 unit_bar.set_postfix(
                     type=unit.unit_type, name=_trunc(unit_label), refresh=True
                 )
+            if unit_idx % 5 == 0 or unit_idx == units_total - 1:
+                _unit_progress(unit_idx, units_total)
             try:
                 summary = summarizer.summarize(unit)
             except subprocess.TimeoutExpired:
@@ -1277,6 +1325,7 @@ def _process_file(
                     )
                 if unit_bar is not None:
                     unit_bar.update(1)
+                _unit_progress(unit_idx + 1, units_total)
                 continue
             cur = conn.execute(
                 "INSERT INTO units "

@@ -59,6 +59,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   height: 100%; background: var(--accent); transition: width 0.3s; width: 0%;
 }
 .progress-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+.unit-progress { background: var(--green); }
 .log-box {
   background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
   padding: 0.75rem; margin-top: 0.75rem; max-height: 200px; overflow-y: auto;
@@ -282,6 +283,10 @@ pre.source-code {
     <div class="progress-wrap">
       <div class="progress-bar-outer"><div id="progress-bar" class="progress-bar-inner"></div></div>
       <div id="progress-label" class="progress-label">Idle</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar-outer"><div id="unit-progress-bar" class="progress-bar-inner unit-progress"></div></div>
+      <div id="unit-progress-label" class="progress-label">Waiting for file...</div>
     </div>
     <div id="index-log" class="log-box"></div>
 
@@ -642,19 +647,45 @@ function handleProgress(msg) {
   const repo = msg.repo || '';
   const file = msg.file || '';
 
+  const unitsTotal = msg.units_total || 0;
+  const unitsDone = msg.units_done || 0;
+
   if (phase === 'scanning') {
-    setProgress(pct, `Scanning ${repo}: ${done}/${total} files`);
+    const needsIndexing = msg.needs_indexing !== undefined ? msg.needs_indexing : 0;
+    setProgress(pct, `Scanning ${repo}: ${done}/${total} files` + (needsIndexing > 0 ? ` (${needsIndexing} to index)` : ''));
+    setUnitProgress(0, 'Waiting for file...');
+  } else if (phase === 'ready_to_index') {
+    const filesNeeded = msg.files_needed || 0;
+    setProgress(100, `Ready to index ${repo}: ${filesNeeded} files need updating`);
+    setUnitProgress(0, 'Waiting for file...');
   } else if (phase === 'indexing') {
     setProgress(pct, `Indexing ${repo}: ${done}/${total} files` + (file ? ` - ${file}` : ''));
+    if (unitsTotal > 0) {
+      const unitPct = Math.round((unitsDone / unitsTotal) * 100);
+      setUnitProgress(unitPct, `Units: ${unitsDone}/${unitsTotal}`);
+    } else {
+      setUnitProgress(0, 'Waiting for file...');
+    }
     if (file && done % 5 === 0) logMsg(`[${repo}] ${done}/${total} ${file}`);
   } else if (phase === 'directory_summaries') {
     setProgress(pct, `Directory summaries: ${repo}`);
+    setUnitProgress(0, 'Waiting for file...');
+  } else if (phase === 'done') {
+    const message = msg.message || 'Indexing complete';
+    setProgress(100, message);
+    setUnitProgress(100, 'Done');
+    logMsg(message);
   }
 }
 
 function setProgress(pct, label) {
   document.getElementById('progress-bar').style.width = pct + '%';
   document.getElementById('progress-label').textContent = label;
+}
+
+function setUnitProgress(pct, label) {
+  document.getElementById('unit-progress-bar').style.width = pct + '%';
+  document.getElementById('unit-progress-label').textContent = label;
 }
 
 function logMsg(text) {
