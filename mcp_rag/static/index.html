@@ -556,6 +556,7 @@ restoreFromURL();
 // ---------------------------------------------------------------------------
 let ws = null;
 let _indexingActive = false;
+let _lastLoggedFile = null;
 
 function _wsConnect(onopen) {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -687,6 +688,7 @@ function handleProgress(msg) {
   const unitsDone = msg.units_done || 0;
 
   if (phase === 'scanning') {
+    _lastLoggedFile = null;
     const needsIndexing = msg.needs_indexing !== undefined ? msg.needs_indexing : 0;
     setProgress(pct, `Scanning ${repo}: ${done}/${total} files` + (needsIndexing > 0 ? ` (${needsIndexing} to index)` : ''));
     setUnitProgress(0, 'Waiting for file...');
@@ -702,7 +704,7 @@ function handleProgress(msg) {
     } else {
       setUnitProgress(0, 'Waiting for file...');
     }
-    if (file && done % 5 === 0) logMsg(`[${repo}] ${done}/${total} ${file}`);
+    if (file && file !== _lastLoggedFile) { _lastLoggedFile = file; logMsg(`[${repo}] ${done}/${total} ${file}`); }
   } else if (phase === 'directory_summaries') {
     setProgress(pct, `Directory summaries: ${repo}`);
     setUnitProgress(0, 'Waiting for file...');

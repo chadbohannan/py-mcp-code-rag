@@ -1312,8 +1312,6 @@ def _process_file(
                 unit_bar.set_postfix(
                     type=unit.unit_type, name=_trunc(unit_label), refresh=True
                 )
-            if unit_idx % 5 == 0 or unit_idx == units_total - 1:
-                _unit_progress(unit_idx, units_total)
             try:
                 summary = summarizer.summarize(unit)
             except subprocess.TimeoutExpired:
@@ -1352,6 +1350,7 @@ def _process_file(
             )
             if unit_bar is not None:
                 unit_bar.update(1)
+            _unit_progress(unit_idx + 1, units_total)
 
     # Build and insert module-level summary unit after child units are committed.
     _upsert_module_unit(
