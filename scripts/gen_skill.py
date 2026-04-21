@@ -1,163 +1,209 @@
-"""Generate skill.md from the FastAPI OpenAPI spec.
+"""Generate SKILL.md — CLI-first reference for code-rag-cli.py.
+
+The command reference is derived from the actual CLI output formats defined
+in mcp_rag/client.py rather than the OpenAPI spec, so agents get documentation
+that matches what they'll see when running the tool.
 
 Usage:
-    uv run python scripts/gen_skill.py > skill.md
+    uv run python scripts/gen_skill.py > SKILL.md
 """
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+CLI = "python3 code-rag-cli.py"
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Each command: (name, summary, usage_lines, flags_table_or_None, output_example)
+_COMMANDS: list[tuple[str, str, list[str], str | None, str]] = [
+    (
+        "status",
+        "Check index health. Always run this first to confirm the repo you care about is indexed.",
+        [f"{CLI} status"],
+        None,
+        (
+            "total_units: 1234\n"
+            "embed_count: 1234\n"
+            "  myrepo\tfiles=42\tunits=350\tlast_indexed=2025-01-15T10:30:00"
+        ),
+    ),
+    (
+        "search",
+        "Semantic search across all indexed code. Describe what you're looking for in "
+        "plain English — the index matches against natural-language summaries, not keywords."
+        "The index currently has 41,136 piece-wise summaries of code, configuration, and markdown files in 36 repositories.",
+        [
+            f'{CLI} search "retry logic for HTTP requests"',
+            f'{CLI} search --top-k 10 --glob "*.py" "error handling"',
+        ],
+        (
+            "| Flag | Default | Description |\n"
+            "|------|---------|-------------|\n"
+            "| `--top-k N` | 5 | Number of results (1–20) |\n"
+            "| `--glob PATTERN` | — | SQLite GLOB filter on qualified path (repeatable) |"
+        ),
+        (
+            "0.9500\trepo/file.py:retry_request\n"
+            "  Retries HTTP requests with exponential backoff\n"
+            "0.8200\trepo/client.py:HttpClient:_do_request\n"
+            "  Sends HTTP request and handles transient failures"
+        ),
+    ),
+    (
+        "unit",
+        "Retrieve full source code and summary for a single unit by its qualified path.",
+        [f"{CLI} unit repo/file.py:Class:method"],
+        None,
+        (
+            "# repo/file.py:Class:method\n"
+            "# Summary of what this unit does\n"
+            "\n"
+            "def method(self):\n"
+            "    ..."
+        ),
+    ),
+    (
+        "fetch",
+        "Retrieve full source for multiple units at once. Use this after `search` to "
+        "pull the top results in a single call.",
+        [f"{CLI} fetch repo/a.py:func repo/b.py:Class:method"],
+        None,
+        (
+            "# repo/a.py:func\n"
+            "# Summary of func\n"
+            "\n"
+            "def func(): ...\n"
+            "\n"
+            "---\n"
+            "\n"
+            "# repo/b.py:Class:method\n"
+            "# Summary of method\n"
+            "\n"
+            "def method(self): ..."
+        ),
+    ),
+    (
+        "browse",
+        "Navigate the index tree hierarchically: repos → directories → files → units. "
+        "Useful for exploring code neighboring a search result.",
+        [
+            f"{CLI} browse",
+            f"{CLI} browse myrepo/src",
+            f"{CLI} browse myrepo/src/main.py",
+        ],
+        None,
+        (
+            "repo\tmyrepo\tmyrepo\n"
+            "dir\tsrc\tmyrepo/src\n"
+            "file\tmain.py\tmyrepo/src/main.py\n"
+            "unit\tMyClass\tmyrepo/src/main.py:MyClass\tclass\tTop-level application class"
+        ),
+    ),
+    (
+        "units",
+        "List all semantic units (path + summary) with optional filtering.",
+        [
+            f"{CLI} units",
+            f'{CLI} units --limit 50 --glob "backend/*.py"',
+        ],
+        (
+            "| Flag | Default | Description |\n"
+            "|------|---------|-------------|\n"
+            "| `--limit N` | 100 | Max results (1–500) |\n"
+            "| `--glob PATTERN` | — | SQLite GLOB filter (repeatable) |"
+        ),
+        "repo/file.py:func\tSummary of what func does",
+    ),
+    (
+        "files",
+        "List indexed files with optional glob filtering.",
+        [
+            f"{CLI} files",
+            f'{CLI} files --glob "*.ts"',
+        ],
+        (
+            "| Flag | Default | Description |\n"
+            "|------|---------|-------------|\n"
+            "| `--glob PATTERN` | — | SQLite GLOB filter (repeatable) |"
+        ),
+        "myrepo/src/main.py\t2025-01-15T10:30:00",
+    ),
+    (
+        "repos",
+        "List all indexed repositories.",
+        [f"{CLI} repos"],
+        None,
+        "myrepo\t/home/user/code/myrepo\t2025-01-15",
+    ),
+    (
+        "clear-repo",
+        "Remove all indexed data for a repository.",
+        [f"{CLI} clear-repo myrepo"],
+        None,
+        "cleared: myrepo",
+    ),
+]
 
-from mcp_rag.webui import app  # noqa: E402
 
-BASE_URL = "http://localhost:8081"
-
-# Paths excluded from the skill doc — UI helpers and admin/management endpoints
-# that agents have no reason to call.
-_EXCLUDE_PATHS = {
-    "/api/ls",           # browser path-picker UI only
-    "/api/index",        # indexing management
-    "/api/index/status",
-    "/api/index/cancel",
-}
-
-
-def _resolve_ref(spec: dict, ref: str) -> dict:
-    parts = ref.lstrip("#/").split("/")
-    node = spec
-    for p in parts:
-        node = node[p]
-    return node
-
-
-def _schema_to_shape(spec: dict, schema: dict, depth: int = 0) -> str:
-    if "$ref" in schema:
-        schema = _resolve_ref(spec, schema["$ref"])
-
-    typ = schema.get("type")
-    indent = "  " * depth
-
-    if typ == "array":
-        items = schema.get("items", {})
-        return f"[{_schema_to_shape(spec, items, depth)}]"
-
-    if typ == "object" or "properties" in schema:
-        props = schema.get("properties", {})
-        required = set(schema.get("required", []))
-        lines = ["{"]
-        for k, v in props.items():
-            opt = "" if k in required else "?"
-            lines.append(f"{indent}  {k}{opt}: {_schema_to_shape(spec, v, depth + 1)},")
-        lines.append(f"{indent}}}")
-        return "\n".join(lines)
-
-    if "anyOf" in schema:
-        types = [_schema_to_shape(spec, s, depth) for s in schema["anyOf"]]
-        return " | ".join(types)
-
-    return typ or "any"
-
-
-def _params_table(parameters: list[dict]) -> str:
-    if not parameters:
-        return ""
-    lines = [
-        "| Parameter | Type | Required | Description |",
-        "|-----------|------|----------|-------------|",
-    ]
-    for p in parameters:
-        schema = p.get("schema", {})
-        typ = schema.get("type", "string")
-        if schema.get("items"):
-            typ = "string[] (repeat param)"
-        req = "yes" if p.get("required") else "no"
-        desc = p.get("description", "")
-        lines.append(f"| `{p['name']}` | {typ} | {req} | {desc} |")
-    return "\n".join(lines)
-
-
-def _body_table(spec: dict, request_body: dict) -> str:
-    content = request_body.get("content", {})
-    json_content = content.get("application/json", {})
-    schema = json_content.get("schema", {})
-    if "$ref" in schema:
-        schema = _resolve_ref(spec, schema["$ref"])
-    props = schema.get("properties", {})
-    required = set(schema.get("required", []))
-    if not props:
-        return ""
-    lines = [
-        "| Field | Type | Required | Default |",
-        "|-------|------|----------|---------|",
-    ]
-    for k, v in props.items():
-        typ = v.get("type", "any")
-        req = "yes" if k in required else "no"
-        default = str(v.get("default", "—"))
-        lines.append(f"| `{k}` | {typ} | {req} | {default} |")
-    return "\n".join(lines)
-
-
-def render(spec: dict) -> str:
+def render() -> str:
     sections = [
         "---\n",
         "name: code-rag\n",
-        "description: provides preprocessed summaries of code repositories and markdown archives.\n",
+        "description: Semantic code search over pre-indexed repositories via "
+        "code-rag-cli.py. Use for exploratory or cross-repo questions about code — "
+        "architecture, patterns, usage examples — when you don't already know which "
+        "file to open.\n",
         "---\n",
+
         "# code-rag skill\n",
         "code-rag is a semantic code search server. It indexes source code by generating "
-        "natural-language summaries of each function, class, and section, then embeds those "
-        "summaries for vector search. Queries should be asked as natural-language questions, "
-        "not keyword fragments.\n",
-        f"**Base URL:** `{BASE_URL}`\n",
-        "## Recommended workflow\n",
-        "1. `GET /api/status` — confirm the index is populated and fresh\n"
-        "2. `GET /api/search?q=...` — find relevant units by natural-language topic\n"
-        "3. `POST /api/units/fetch` — retrieve full source for specific paths from search results\n"
-        "4. `GET /api/browse?path=repo/file.py` — explore structure of a file or directory\n",
+        "natural-language summaries of each function, class, and section, then embeds "
+        "those summaries for vector search. `code-rag-cli.py` is the CLI interface — "
+        "it produces plain-text, tab-delimited output designed for agentic LLM use.\n",
+
+        "## When to use\n",
+        "Use code-rag when you have a **vague or exploratory** question about a codebase: "
+        "\"how does authentication work?\", \"where are database migrations defined?\", "
+        "\"what calls the billing API?\". It finds semantically relevant code across all "
+        "indexed repositories without requiring you to know file paths or symbol names.\n",
+        "**Do NOT use** when you already know the exact file or symbol — use Read, Grep, "
+        "or Glob directly. code-rag only covers pre-indexed repositories; if a repo is "
+        "not indexed, results will be empty.\n",
+
+        "## Setup\n",
+        "The CLI requires a running code-rag webui server (default: `http://localhost:8080`). "
+        "Override with `--base-url`:\n",
+        "```bash\n"
+        f"{CLI} --base-url http://host:9090 status\n"
+        "```\n",
+
+        "## Workflow\n",
+        f"1. **`{CLI} status`** — confirm the repo is indexed; if missing, stop\n"
+        f"2. **`{CLI} search \"<question>\"`** — describe what you need in plain English\n"
+        f"3. **`{CLI} fetch <path1> <path2> ...`** — pull full source for the top hits\n"
+        f"4. **`{CLI} browse <repo/dir>`** — explore neighboring code\n",
+
+        "## Tips\n",
+        "- **Write full sentences**, not keywords. \"function that parses CSV uploads\" "
+        "outperforms \"csv parse\".\n"
+        "- **Use `--glob` to narrow scope**: "
+        f"`{CLI} search --glob \"backend/*.py\" \"error handling\"`.\n"
+        "- Read the summaries from `search` before fetching source — skip irrelevant hits.\n"
+        "- Output is tab-delimited, one record per line (except `unit`/`fetch` which "
+        "print full source blocks separated by `---`).\n",
+
+        "---\n",
+        "# Command reference\n",
     ]
 
-    paths = spec.get("paths", {})
-    for path, path_item in sorted(paths.items()):
-        if path in _EXCLUDE_PATHS:
-            continue
-        for method, op in path_item.items():
-            if method not in ("get", "post", "put", "delete", "patch"):
-                continue
-
-            summary = op.get("summary", op.get("description", ""))
-            parameters = op.get("parameters", [])
-            request_body = op.get("requestBody")
-
-            responses = op.get("responses", {})
-            success = responses.get("200") or responses.get("202") or {}
-            resp_schema = (
-                success.get("content", {}).get("application/json", {}).get("schema", {})
-            )
-
-            sections.append(f"---\n\n## `{method.upper()} {path}`\n")
-            if summary:
-                sections.append(f"{summary}\n")
-
-            params_md = _params_table(parameters)
-            if params_md:
-                sections.append(f"\n**Query parameters:**\n\n{params_md}\n")
-
-            if request_body:
-                body_md = _body_table(spec, request_body)
-                if body_md:
-                    sections.append(f"\n**Request body (JSON):**\n\n{body_md}\n")
-
-            if resp_schema:
-                shape = _schema_to_shape(spec, resp_schema)
-                sections.append(f"\n**Response:**\n```\n{shape}\n```\n")
+    for name, summary, usage, flags, output in _COMMANDS:
+        sections.append(f"\n## `{name}`\n")
+        sections.append(f"{summary}\n")
+        sections.append("```bash\n" + "\n".join(usage) + "\n```\n")
+        if flags:
+            sections.append(f"\n{flags}\n")
+        sections.append(f"\n**Output:**\n```\n{output}\n```\n")
 
     return "\n".join(sections)
 
 
 if __name__ == "__main__":
-    spec = app.openapi()
-    print(render(spec))
+    print(render())
