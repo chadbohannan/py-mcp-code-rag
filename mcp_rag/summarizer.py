@@ -101,9 +101,43 @@ def _build_prompt(unit: SemanticUnit) -> str:
             "No preamble, no headings, no bullet points.\n\n"
             f"{unit.content}"
         )
+    if unit.unit_type == 'function':
+        return (
+            'What does this function compute or perform based on its signature and body. '
+            'Be direct, no preamble. 2 sentences max. No headings, no bullet points.\n\n'
+            f'{unit.content}'
+        )
+    if unit.unit_type == 'method':
+        return (
+            'What does this method do based on its signature and body, what state does it read or modify. '
+            'Be direct, no preamble. 2 sentences max. No headings, no bullet points.\n\n'
+            f'{unit.content}'
+        )
+    if unit.unit_type == 'class':
+        return (
+            'What responsibility does this class encapsulate based on its definition. '
+            'Be direct, no preamble. 2 sentences max. No headings, no bullet points.\n\n'
+            f'{unit.content}'
+        )
+    if unit.unit_type == 'struct':
+        return (
+            'Describe this struct\'s purpose, its key fields, and what domain it models. '
+            'Be direct, no preamble. 2 sentences max. No headings, no bullet points.\n\n'
+            f'{unit.content}'
+        )
+    if unit.unit_type == 'interface':
+        return (
+            'Describe what contract this interface defines and what operations it requires. '
+            'Be direct, no preamble. 2 sentences max. No headings, no bullet points.\n\n'
+            f'{unit.content}'
+        )
+    if unit.unit_type == 'enum':
+        return (
+            'What concept or domain do these enum values model. '
+            'Be direct, no preamble. 2 sentences max. No headings, no bullet points.\n\n'
+            f'{unit.content}'
+        )
     return (
-        f"Summarize this {unit.unit_type} in 2-3 sentences. "
-        f"Say what it does and why using terse, dense natural language a developer would "
-        f"search for. No preamble, no headings, no bullet points.\n\n"
-        f"{unit.content}"
+        'Be direct, no preamble, 2 sentences max. No headings, no bullet points.\n\n'
+        f'{unit.content}'
     )

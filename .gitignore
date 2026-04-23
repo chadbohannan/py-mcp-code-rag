@@ -8,3 +8,4 @@ build/
 .pytest_cache/
 *.db*
 sqlite_vec_aarch64.so
+eval/dbs/

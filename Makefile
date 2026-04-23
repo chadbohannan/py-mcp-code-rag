@@ -1,4 +1,4 @@
-.PHONY: install test test-unit test-integration lint format index reindex serve webui skill clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
+.PHONY: install test test-unit test-integration lint format index reindex serve webui skill clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp eval-variant
 
 # Resolve absolute path at make-time so the registered command works from any working directory
 DIR := $(shell pwd)
@@ -64,6 +64,18 @@ remove-pi-mcp:
 # Regenerate SKILL.md from the live OpenAPI spec
 skill:
 	uv run python scripts/gen_skill.py > SKILL.md
+
+# Evaluate a prompt variant end-to-end: rebuild index with the variant,
+# score it against the eval query sets, and ratchet against the current
+# champion(s). Usage: make eval-variant VARIANT=<id> [SRC_DB=index.db]
+eval-variant:
+	@test -n "$(VARIANT)" || (echo "VARIANT=<id> required"; exit 2)
+	@mkdir -p eval/dbs
+	uv run python -m eval.harness.rebuild --src-db $(or $(SRC_DB),index.db) --variant $(VARIANT) --out-db eval/dbs/$(VARIANT).db --force
+	@set -e; \
+	RECEIPT=$$(uv run python -m eval.harness.score --db eval/dbs/$(VARIANT).db --variant-id $(VARIANT) --print-path); \
+	echo "receipt: $$RECEIPT"; \
+	uv run python -m eval.harness.ratchet --candidate "$$RECEIPT"
 
 # Remove the local index database and any SQLite WAL artifacts
 clean:

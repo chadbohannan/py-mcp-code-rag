@@ -19,6 +19,25 @@ from mcp_rag.summarizer import (
     OllamaSummarizer,
 )
 
+
+def _load_prompt_variant(variant_id: str | None):
+    """Load ``build_prompt`` from ``eval.variants.<id>``.
+
+    Returns None when no variant is requested so the Summarizers fall
+    back to the in-tree default. The eval harness uses this to re-index
+    the same corpus under a candidate prompt.
+    """
+    if not variant_id:
+        return None
+    import importlib
+
+    module = importlib.import_module(f"eval.variants.{variant_id}")
+    if not hasattr(module, "build_prompt"):
+        raise IndexAbortError(
+            f"variant '{variant_id}' has no build_prompt() function"
+        )
+    return module.build_prompt
+
 _DEFAULT_DB = Path("index.db")
 _SUBCOMMANDS = {"index", "serve", "webui"}
 
@@ -51,16 +70,20 @@ def _do_index(
     ollama_model: str,
     ollama_host: str,
     reindex: bool,
+    prompt_variant: str | None = None,
 ) -> None:
     embedder = FastEmbedder(model_name=embed_model)
+    prompt_builder = _load_prompt_variant(prompt_variant)
     if summarizer_type == "anthropic":
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise IndexAbortError(
                 "ANTHROPIC_API_KEY is not set. Export it before running code-rag index."
             )
-        summarizer = AnthropicSummarizer()
+        summarizer = AnthropicSummarizer(prompt_builder=prompt_builder)
     else:
-        summarizer = OllamaSummarizer(model=ollama_model, host=ollama_host)
+        summarizer = OllamaSummarizer(
+            model=ollama_model, host=ollama_host, prompt_builder=prompt_builder
+        )
     run_index(
         roots=roots,
         db_path=db_path,
@@ -94,6 +117,13 @@ def _make_index_parser() -> argparse.ArgumentParser:
     p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
     p.add_argument("--ollama-model", default=DEFAULT_OLLAMA_MODEL, dest="ollama_model")
     p.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, dest="ollama_host")
+    p.add_argument(
+        "--prompt-variant",
+        default=None,
+        dest="prompt_variant",
+        help="Load build_prompt() from eval/variants/<id>.py. "
+        "Used by the eval harness to re-index under a candidate prompt.",
+    )
     return p
 
 
@@ -177,6 +207,7 @@ def _run_index_cmd(args: argparse.Namespace) -> None:
             ollama_model=args.ollama_model,
             ollama_host=args.ollama_host,
             reindex=args.reindex,
+            prompt_variant=args.prompt_variant,
         )
     except (IndexAbortError, EmbedderLoadError) as exc:
         print(f"error: {exc}", file=sys.stderr)

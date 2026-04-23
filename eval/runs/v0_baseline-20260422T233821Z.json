@@ -1,0 +1,3286 @@
+{
+  "variant_id": "v0_baseline",
+  "timestamp": "2026-04-22T23:38:22Z",
+  "db_path": "eval/dbs/v0_baseline.db",
+  "db_mtime": 1776900713.2989702,
+  "corpus": {
+    "application-layer-network": "8428cc9e8a4412ee4a1f00a21f0484877379d01d",
+    "py-mcp-code-rag": "a2331bc66dc2f0aac8f373a7251924c0fbff6ab7"
+  },
+  "slices": [
+    "leaf_code",
+    "markdown",
+    "rollup"
+  ],
+  "splits": {
+    "dev": {
+      "n": 23,
+      "mrr_at_10": 0.4036231884057971,
+      "recall_at_1": 0.21739130434782608,
+      "recall_at_5": 0.6521739130434783,
+      "recall_at_10": 0.6521739130434783,
+      "adversarial_fpr": 0.0,
+      "by_slice": {
+        "leaf_code": {
+          "n": 15,
+          "mrr_at_10": 0.3461111111111111,
+          "recall_at_1": 0.13333333333333333,
+          "recall_at_10": 0.7333333333333333
+        },
+        "markdown": {
+          "n": 9,
+          "mrr_at_10": 0.5277777777777778,
+          "recall_at_1": 0.3333333333333333,
+          "recall_at_10": 0.7777777777777778
+        },
+        "rollup": {
+          "n": 2,
+          "mrr_at_10": 0.08333333333333333,
+          "recall_at_1": 0.0,
+          "recall_at_10": 0.5
+        }
+      },
+      "per_query": [
+        {
+          "id": "q001",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::Packet",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:init",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java",
+            "application-layer-network/go/aln/packet.go:ParsePacket",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js",
+            "application-layer-network/arduino/aln/parser.h",
+            "application-layer-network/arduino/aln/parser.cpp:Parser::ingestFrameBytes",
+            "application-layer-network/aln-wrench-qt/aln/parser.cpp",
+            "application-layer-network/aln-browser/aln/packet.js:Packet"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/aln/packet.js:Packet": "class",
+            "application-layer-network/python/src/alnmeshpy/packet.py:Packet:parsePacketBytes": "UNKNOWN",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:init": "method",
+            "application-layer-network/go/aln/packet.go:ParsePacket": "function",
+            "application-layer-network/arduino/aln/parser.cpp:Parser::parsePacket": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 4
+            }
+          }
+        },
+        {
+          "id": "q002",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/utils.go:CRC32",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:CRC32",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:CRC32",
+            "application-layer-network/go/aln/packet_test.go:TestCRC32",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint32",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::CFHamDecode",
+            "application-layer-network/arduino/aln/packet.cpp:intXOR",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::IntXOR",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT16U",
+            "application-layer-network/arduino/aln/alntypes.cpp:writeUint32"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/utils.go:CRC32": "function",
+            "application-layer-network/python/src/alnmeshpy/packet.py:crc": "UNKNOWN",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:CRC32": "method",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:CRC32": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 3
+            }
+          }
+        },
+        {
+          "id": "q003",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannel.java:IChannel",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.1 Channel Interface",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannel.java",
+            "application-layer-network/go/aln/channel.go",
+            "application-layer-network/go/aln/channel.go:Channel",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannel.java",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:WebSocketChannel",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannel.java:IChannel:send",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Core Concepts:Channels",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IPacketHandler.java:IPacketHandler"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/channel.go:Channel": "interface",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannel.java": "module",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.1 Channel Interface": "h3"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 5,
+              "reciprocal_rank": 0.2,
+              "in_slice_n": 1
+            },
+            "markdown": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            },
+            "rollup": {
+              "rank": 6,
+              "reciprocal_rank": 0.16666666666666666,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q004",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/lib/aln/router.js:RemoteNodeInfo:constructor",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:RemoteNodeInfo",
+            "application-layer-network/go/aln/router.go:RemoteNodeInfo",
+            "application-layer-network/aln-browser/aln/router.js:RemoteNodeInfo",
+            "application-layer-network/go/aln/router.go:Router:ExportRouteTable",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp",
+            "application-layer-network/aln-nodejs/lib/aln/utils.js:parseNetworkRouteSharePacket",
+            "application-layer-network/aln-browser/aln/utils.js:makeNetworkRouteSharePacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:RemoteNodeInfo",
+            "application-layer-network/aln-wrench-qt/aln/router.h"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/aln/router.js:RemoteNodeInfo": "class",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:RemoteNodeInfo": "class",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:RemoteNodeInfo": "class"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 3
+            }
+          }
+        },
+        {
+          "id": "q005",
+          "rank": 5,
+          "reciprocal_rank": 0.2,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Frame.java:Frame",
+            "application-layer-network/go/aln/packet.go:Packet:ToFrameBytes",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer:4.1 Binary Frame Structure (KISS Framing)",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/aln-wrench-qt/aln/frame.cpp:toFrameBuffer",
+            "application-layer-network/go/aln/parser.go:Parser:IngestStream",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser:readAx25FrameBytes",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Frame.java:Frame:toAX25Buffer",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser:readAx25FrameBytes"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/aln/frame.cpp:toFrameBuffer": "function",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Frame.java:Frame:toAX25Buffer": "method",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Frame.java:Frame:toAX25Buffer": "method",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer": "h2"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 5,
+              "reciprocal_rank": 0.2,
+              "in_slice_n": 3
+            },
+            "markdown": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q006",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/router_test.go:TestRoute2Hop",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testLocalOneHopRoute",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testLocalTwoHopRoute",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::send",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:send",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:send",
+            "application-layer-network/aln-browser/aln/router.js:Router:send",
+            "application-layer-network/go/aln/router_test.go:TestRoute0Hop",
+            "application-layer-network/go/aln/router_test.go:TestRoute1Hop"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/router.go:Router:routeAndSend": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q007",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:shareNetState",
+            "application-layer-network/aln-browser/aln/router.js:Router:shareNetState",
+            "application-layer-network/README.md:application-layer-network:How It Works",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:shareNetState",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::shareNetState",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:shareNetState",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.3 Service Selection and Load Balancing",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:send",
+            "application-layer-network/go/aln/router.go:Router:AddChannel",
+            "application-layer-network/go/aln/router.go:Router:ShareNetState"
+          ],
+          "must_include_types": {
+            "application-layer-network/python/src/alnmeshpy/router.py:Router:share_net_state": "UNKNOWN"
+          },
+          "slice_ranks": {}
+        },
+        {
+          "id": "q008",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:ControlField",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.2 Control Flags",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:ControlFlag",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:HammingDecode",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:ControlField",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:ControlFlag",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::controlField",
+            "application-layer-network/go/aln/packet.go:Packet:SetControlFlags",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling:9.2 Error Correction",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:headerLength"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.2 Control Flags": "h3",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:ControlFlag": "class",
+            "application-layer-network/arduino/aln/packet.cpp:Packet::evalCF": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 2
+            },
+            "markdown": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q009",
+          "rank": 4,
+          "reciprocal_rank": 0.25,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction",
+            "application-layer-network/python/examples/ip_bcast_host.py",
+            "application-layer-network/README.md",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.1 Service Advertisement Format",
+            "application-layer-network/aln-browser/README.md:aln-browser:Features",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.3 Service Selection and Load Balancing",
+            "application-layer-network/go/aln/channel.go:ChannelHost",
+            "application-layer-network/go/aln/router_utils.go:makeNetworkServiceSharePacket",
+            "application-layer-network/go/aln/router.go:Router:ServiceAddresses",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Features"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.1 Service Advertisement Format": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 4,
+              "reciprocal_rank": 0.25,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q010",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:2. Protocol Architecture:2.2 Address Space",
+            "application-layer-network/go/aln/router.go:Router:ServiceAddresses",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:NodeInfoItem:NodeInfoItem",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/mesh/MeshFragment.java:MeshFragment",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/BeaconInfoListAdapter.java:BeaconInfoListAdapter:getItemId",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/ActiveConnectionListAdapter.java:ActiveConnectionListAdapter:getItemId",
+            "application-layer-network/go/aln/types.go:bytesOfAddressType",
+            "application-layer-network/aln-browser/aln/router.js:Router:serviceAddresses"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:2. Protocol Architecture:2.2 Address Space": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q011",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.1 Distance Vector Algorithm",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction:1.1 Protocol Objectives",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:12. Constants and Limits:12.3 Protocol Version",
+            "application-layer-network/aln-browser/README.md:aln-browser:Protocol",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Learning",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:2. Protocol Architecture",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.2 Route Advertisement Format",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q012",
+          "rank": 3,
+          "reciprocal_rank": 0.3333333333333333,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser:Parser",
+            "application-layer-network/arduino/aln/parser.cpp:Parser::Parser",
+            "application-layer-network/arduino/aln/parser.h",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/aln-wrench-qt/aln/parser.cpp:Parser::acceptPacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:init",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js:Parser:acceptPacket",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser:readAx25FrameBytes",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java",
+            "application-layer-network/aln-browser/aln/packet.js:Packet"
+          ],
+          "must_include_types": {
+            "application-layer-network/python/src/alnmeshpy/parser.py": "UNKNOWN",
+            "application-layer-network/arduino/aln/parser.h": "function",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser": "class"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 2
+            }
+          }
+        },
+        {
+          "id": "q013",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/router_test.go:TestRoute2Hop",
+            "application-layer-network/aln-nodejs/tests/test_three_routers.js:LocalChannel:send",
+            "application-layer-network/aln-nodejs/tests/test_three_routers.js",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testLocalOneHopRoute",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testLocalTwoHopRoute",
+            "application-layer-network/aln-nodejs/tests/test_router.js",
+            "application-layer-network/aln-nodejs/tests/test_three_routers.js:LocalChannel",
+            "application-layer-network/go/aln/router_test.go:TestRoute1Hop",
+            "application-layer-network/python/README.md:Application Layer Network - Python 3:Integration test",
+            "application-layer-network/go/examples/local_demo/README.md:Example Demo"
+          ],
+          "must_include_types": {
+            "application-layer-network/python/README.md:node 2 is an intermediate node that demonstrates multi-hop routing": "UNKNOWN",
+            "application-layer-network/python/README.md:finally node 3 prints the content of the ping packet": "UNKNOWN"
+          },
+          "slice_ranks": {}
+        },
+        {
+          "id": "q014",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction",
+            "application-layer-network/aln-nodejs/examples/server/README.md",
+            "application-layer-network/README.md:application-layer-network:Summary",
+            "application-layer-network/aln-browser/README.md:aln-browser:Features",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs",
+            "application-layer-network/aln-nodejs/README.md",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction:1.1 Protocol Objectives",
+            "application-layer-network/aln-browser/README.md:aln-browser",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:2. Protocol Architecture:2.1 Network Model"
+          ],
+          "must_include_types": {
+            "application-layer-network/README.md": "module",
+            "application-layer-network/ALN_PROTOCOL.md": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 2
+            }
+          }
+        },
+        {
+          "id": "q015",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:ControlField",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet",
+            "application-layer-network/go/aln/packet.go:HeaderFieldOffset",
+            "application-layer-network/go/aln/packet.go:Packet",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:ControlFlag",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:ControlField",
+            "application-layer-network/aln-browser/aln/packet.js:Packet",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::controlField",
+            "application-layer-network/go/aln/packet.go:Packet:SetControlFlags",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:headerLength"
+          ],
+          "must_include_types": {
+            "application-layer-network/python/src/alnmeshpy/packet.py:Packet:parsePacketBytes": "UNKNOWN",
+            "application-layer-network/arduino/aln/parser.cpp:Parser::parsePacket": "function",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:init": "method",
+            "application-layer-network/go/aln/packet.go:ParsePacket": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 3
+            }
+          }
+        },
+        {
+          "id": "q016",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln_host/HostExample.java:HostExample",
+            "application-layer-network/go/aln/tcpchannel.go:TcpChannelHost:Listen",
+            "application-layer-network/go/examples/local_host/README.md:Exmple Host in Go",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln_host/HostExample.java:HostExample:main",
+            "application-layer-network/arduino/ESP8266_MCP9808/ESP8266_MCP9808.ino:readUdp",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:TcpChannel",
+            "application-layer-network/python/examples/local_host.py:main",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln_host/HostExample.java",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h:setListenPort",
+            "application-layer-network/go/examples/websocket_host/main.go:main"
+          ],
+          "must_include_types": {
+            "application-layer-network/python/src/alnmeshpy/tcp_host.py:TcpHost": "UNKNOWN",
+            "application-layer-network/python/src/alnmeshpy/tcp_host.py:TcpHost:listen": "UNKNOWN",
+            "application-layer-network/go/aln/tcpchannel.go:TcpChannelHost:Listen": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q017",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/aln/wschannel.js:WebSocketChannel",
+            "application-layer-network/aln-nodejs/lib/aln/wschannel.js:WebSocketChannel",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:WebSocketChannel",
+            "application-layer-network/aln-nodejs/lib/aln/wschannel.js:WebSocketChannel:send",
+            "application-layer-network/go/aln/webchannel.go",
+            "application-layer-network/aln-browser/aln/wschannel.js:WebSocketChannel:constructor",
+            "application-layer-network/go/examples/websocket_host/main.go:main",
+            "application-layer-network/aln-nodejs/lib/aln/wschannel.js:WebSocketChannel:constructor",
+            "application-layer-network/aln-browser/aln/wschannel.js:WebSocketChannel:send",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:WebSocketChannel"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel": "struct",
+            "application-layer-network/go/aln/webchannel.go:NewWebSocketChannel": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 2
+            }
+          }
+        },
+        {
+          "id": "q018",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/packet.go:Packet:ToBytes",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:init",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:CRC32",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:writeUINT16",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:CRC32",
+            "application-layer-network/go/aln/packet_test.go:TestCRC32",
+            "application-layer-network/aln-browser/aln/packet.js:Packet",
+            "application-layer-network/arduino/aln/packet.cpp:Packet::write",
+            "application-layer-network/go/aln/packet.go"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/packet.go:Packet:ToBytes": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q019",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Learning",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.2 Route Advertisement Format",
+            "application-layer-network/go/aln/router.go:RemoteNodeInfo",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Propagation",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Channel Closure and Route Cleanup",
+            "application-layer-network/go/aln/router_test.go:TestServiceCapacityChangedHandler",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:RemoteNodeInfo:constructor",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.3 Service Selection and Load Balancing",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:onPacket",
+            "application-layer-network/go/aln/router_utils.go:makeNetworkRouteSharePacket"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Learning": "h4",
+            "application-layer-network/python/src/alnmeshpy/router.py:Router:export_routes": "UNKNOWN"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q020",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`registerService(serviceID, handler)`",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`registerService(serviceID, handler)`",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:8. Application Data Transport:8.2 Request-Response Pattern",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:registerService",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:unregisterService",
+            "application-layer-network/go/aln/router.go:Router:RegisterService",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`unregisterService(serviceID)`",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:serviceAddresses",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:addLocalService",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`setOnServiceCapacityChanged(callback)`"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/aln/router.js:Router:registerService": "method",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`registerService(serviceID, handler)`": "h4"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 1
+            },
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q021",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/channel.go:LocalChannel:OnClose",
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:OnClose",
+            "application-layer-network/go/aln/channel_test.go:TestSSLChannelOnClose",
+            "application-layer-network/go/aln/channel_test.go:TestWebSocketChannelOnClose",
+            "application-layer-network/go/aln/tcpchannel.go:TCPChannel:OnClose",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:triggerOnCloseHandler",
+            "application-layer-network/go/aln/tcpchannel.go:TCPChannel:Close",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel:close",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java:IChannelCloseHandler"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:Close": "method",
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:OnClose": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 2
+            }
+          }
+        },
+        {
+          "id": "q022",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling:9.2 Error Correction",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.2 Control Flags",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:HammingDecode",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:ControlField",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::CFHamDecode",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:ControlField",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:HammingDecode",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet",
+            "application-layer-network/arduino/aln/packet.cpp:cfHamEncode",
+            "application-layer-network/arduino/aln/packet.cpp:cfHamDecode"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet": "class",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.2 Control Flags": "h3"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 8,
+              "reciprocal_rank": 0.125,
+              "in_slice_n": 1
+            },
+            "markdown": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "q023",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel:Receive",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockChannel:_receivePacket",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java:IChannelCloseHandler",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::onPacketParsed",
+            "application-layer-network/arduino/testaln.cpp:handler",
+            "application-layer-network/go/aln/channel.go:LocalChannel:OnClose",
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp:LocalChannel::doSend",
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp:LocalChannel::send",
+            "application-layer-network/aln-wrench-qt/packetsenddialog.cpp:PacketSendDialog::onSendClicked",
+            "application-layer-network/go/aln/channel.go:LocalChannel:Receive"
+          ],
+          "must_include_types": {
+            "application-layer-network/python/src/alnmeshpy/tcp_channel.py:TcpChannel:packet_handler": "UNKNOWN",
+            "application-layer-network/python/src/alnmeshpy/ble_channel.py:BLEChannel:packet_handler": "UNKNOWN",
+            "application-layer-network/python/src/alnmeshpy/bt_channel.py:BtChannel:packet_handler": "UNKNOWN"
+          },
+          "slice_ranks": {}
+        }
+      ]
+    },
+    "heldout": {
+      "n": 75,
+      "mrr_at_10": 0.7687195767195767,
+      "recall_at_1": 0.64,
+      "recall_at_5": 0.96,
+      "recall_at_10": 0.9866666666666667,
+      "adversarial_fpr": 0.0,
+      "by_slice": {
+        "leaf_code": {
+          "n": 25,
+          "mrr_at_10": 0.6937142857142856,
+          "recall_at_1": 0.52,
+          "recall_at_10": 1.0
+        },
+        "markdown": {
+          "n": 27,
+          "mrr_at_10": 0.8469135802469135,
+          "recall_at_1": 0.7777777777777778,
+          "recall_at_10": 0.9629629629629629
+        },
+        "rollup": {
+          "n": 23,
+          "mrr_at_10": 0.7584541062801932,
+          "recall_at_1": 0.6086956521739131,
+          "recall_at_10": 1.0
+        }
+      },
+      "per_query": [
+        {
+          "id": "h001",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/sslchannel.go:SSLChannel",
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel",
+            "application-layer-network/go/aln/sslchannel.go",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:connectTo",
+            "application-layer-network/go/aln/tcpchannel.go:TCPChannel",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::unregisterService",
+            "application-layer-network/go/aln/channel.go:LocalChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TlsChannel.java:TlsChannel:close",
+            "application-layer-network/go/aln/sslchannel.go:OpenSSLChannel",
+            "application-layer-network/go/aln/webchannel.go"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/sslchannel.go:SSLChannel": "struct"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h002",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartSerial.java:BleUartSerial:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:readUINT16",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartChannel.java:BleUartChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser:readAx25FrameBytes",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:writeUINT16",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::write",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Frame.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartChannel.java:BleUartChannel:receive",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartChannel.java:BleUartChannel:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:writeUINT16"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartSerial.java:BleUartSerial:send": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h003",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/router.go:Router",
+            "application-layer-network/aln-wrench-qt/aln/router.h",
+            "application-layer-network/aln-wrench-qt/aln/router.h",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router",
+            "application-layer-network/go/aln/router.go:Router:AddChannel",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`addChannel(channel)`",
+            "application-layer-network/aln-browser/aln/router.js:Router",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp",
+            "application-layer-network/go/aln/router.go"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/router.go:Router": "struct"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h004",
+          "rank": 3,
+          "reciprocal_rank": 0.3333333333333333,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java:IChannelCloseHandler",
+            "application-layer-network/go/aln/tcpchannel.go:TCPChannel:OnClose",
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:OnClose",
+            "application-layer-network/go/aln/channel.go:LocalChannel:OnClose",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java",
+            "application-layer-network/go/aln/channel_test.go:TestSSLChannelOnClose",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:triggerOnCloseHandler",
+            "application-layer-network/go/aln/channel_test.go:TestWebSocketChannelOnClose",
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:Close",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel:close"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:OnClose": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h005",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/types.go:bytesToAddressType",
+            "application-layer-network/go/aln/types.go:bytesOfAddressType",
+            "application-layer-network/go/aln/types.go:bytesToINT32U",
+            "application-layer-network/go/aln/types.go:bytesToINT16U",
+            "application-layer-network/go/aln/types.go:bytesOfINT16U",
+            "application-layer-network/go/aln/types.go:bytesOfINT32U",
+            "application-layer-network/go/aln/utils.go:CRC32",
+            "application-layer-network/go/aln/types.go",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:2. Protocol Architecture:2.2 Address Space",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h:broadcastAddress"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/types.go:bytesToAddressType": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h006",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT16U",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:readUint16",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint16",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:readUINT16",
+            "application-layer-network/go/aln/types.go:bytesToINT16U",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT32U",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:writeINT16U",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:readUint32",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryBuilder:writeUint16",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint32"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:readUint16": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h007",
+          "rank": 7,
+          "reciprocal_rank": 0.14285714285714285,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/arduino/aln/alntypes.cpp:writeUint16",
+            "application-layer-network/arduino/aln/alntypes.cpp:writeUint32",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:writeINT16U",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:writeToBuffer",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:writeToBuffer",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:writeUINT32",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryBuilder:writeUint32",
+            "application-layer-network/go/aln/types.go:bytesOfINT32U",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint32",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:writeUINT16"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryBuilder:writeUint32": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 7,
+              "reciprocal_rank": 0.14285714285714285,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h008",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/limitedchannel.go:NewLimitedChannel",
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel:Receive",
+            "application-layer-network/go/aln/limitedchannel.go",
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel",
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel:OnClose",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java:IChannelCloseHandler",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java",
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel:Send",
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:OnClose",
+            "application-layer-network/go/aln/limitedchannel_test.go:TestLimitedChannelOnClose"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/limitedchannel.go:NewLimitedChannel": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h009",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:toString",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::toString",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:toString",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/PacketTest.java:PacketTest",
+            "application-layer-network/aln-browser/aln/packet.js:Packet",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/PacketTest.java:PacketTest:testPacketBuffer",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet",
+            "application-layer-network/go/aln/packet.go:Packet:ToJsonString",
+            "application-layer-network/arduino/aln/packet.cpp:Packet::write",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:Packet"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::toString": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h010",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:TcpChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:receive",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/TcpChannel.java:TcpChannel:receive",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::onConnectRequest",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:readSocket",
+            "application-layer-network/go/aln/tcpchannel.go:OpenTCPChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:listenToTCP",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::onTcpListenPending",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/TcpChannel.java:TcpChannel:send",
+            "application-layer-network/aln-wrench-qt/README.md:ALN Wrench Qt:Connecting to a host"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:TcpChannel": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h011",
+          "rank": 4,
+          "reciprocal_rank": 0.25,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::removeChannel",
+            "application-layer-network/aln-browser/aln/router.js:Router:removeChannel",
+            "application-layer-network/go/aln/router.go:Router:RemoveChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:removeChannel",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:removeChannel",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:removeChannel",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::onChannelClose",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testChannelClosedCleanup",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Channel Closure and Route Cleanup",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::unregisterService"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:removeChannel": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 4,
+              "reciprocal_rank": 0.25,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h012",
+          "rank": 5,
+          "reciprocal_rank": 0.2,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::addChannel",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:addChannel",
+            "application-layer-network/aln-browser/aln/router.js:Router:addChannel",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:addChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:addChannel",
+            "application-layer-network/go/aln/router.go:Router:AddChannel",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`addChannel(channel)`",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::onChannelClose",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::onChannelClosing",
+            "application-layer-network/go/aln/router.go:Router:RegisterContextHandler"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:addChannel": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 5,
+              "reciprocal_rank": 0.2,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h013",
+          "rank": 3,
+          "reciprocal_rank": 0.3333333333333333,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/arduino/aln/parser.cpp:Parser::reset",
+            "application-layer-network/aln-wrench-qt/aln/parser.cpp:Parser::reset",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser:reset",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js:Parser:reset",
+            "application-layer-network/go/aln/parser.go:Parser:Clear",
+            "application-layer-network/arduino/aln/packet.cpp:Packet::clear",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser:reset",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::clear",
+            "application-layer-network/go/aln/parser.go:NewParser",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser:Parser"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser:reset": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h014",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::poll",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::flush",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::available",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::write",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::end",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::onReceive",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::read",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::onBLEWritten",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT16U",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:readUint16"
+          ],
+          "must_include_types": {
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::poll": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h015",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/TcpChannel.java:TcpChannel:close",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:close",
+            "application-layer-network/aln-nodejs/lib/aln/tcpchannel.js:TcpChannel:close",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TlsChannel.java:TlsChannel:close",
+            "application-layer-network/go/aln/tcpchannel.go:TCPChannel:Close",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::listen",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::disconnect",
+            "application-layer-network/go/aln/tcpchannel.go:TCPChannel",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BluetoothChannel.java:BluetoothChannel:close"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/TcpChannel.java:TcpChannel:close": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h016",
+          "rank": 3,
+          "reciprocal_rank": 0.3333333333333333,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java:LoopBackTest:testLoopBackRecieve",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java:LoopBackTest:testLoopBackSend",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel:LoopBack",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java:LoopBackTest",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel:send",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:receive",
+            "application-layer-network/go/aln/channel.go:LocalChannel:Receive",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel:receive"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel:LoopBack": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h017",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/arduino/aln/packet.cpp:Packet::setService",
+            "application-layer-network/go/aln/router_utils.go:makeNetworkServiceSharePacket",
+            "application-layer-network/aln-nodejs/lib/aln/utils.js:parseNetworkServiceSharePacket",
+            "application-layer-network/go/aln/router_utils.go:parseNetworkServiceSharePacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:parseNetServiceShare",
+            "application-layer-network/aln-nodejs/lib/aln/utils.js:makeNetworkServiceSharePacket",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp",
+            "application-layer-network/aln-browser/aln/utils.js:parseNetworkServiceSharePacket",
+            "application-layer-network/aln-browser/aln/utils.js:makeNetworkServiceSharePacket",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::Packet"
+          ],
+          "must_include_types": {
+            "application-layer-network/arduino/aln/packet.cpp:Packet::setService": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h018",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:handleNetState",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:handleNetState",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:onPacket",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:7. Network State Management:7.1 Network Queries",
+            "application-layer-network/aln-browser/aln/router.js:Router:onPacket",
+            "application-layer-network/go/aln/router.go:Router:AddChannel",
+            "application-layer-network/README.md:application-layer-network:How It Works",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::handleNetState",
+            "application-layer-network/go/aln/router_utils.go:makeNetQueryPacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:handleNetState": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h019",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:availableServices",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::nodeServices",
+            "application-layer-network/aln-browser/aln/router.js:Router:serviceAddresses",
+            "application-layer-network/aln-browser/aln/router.js:Router:serviceSummary",
+            "application-layer-network/aln-browser/aln/router.js:Router:exportServiceTable",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:serviceAddresses",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:serviceAddresses",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::selectServiceAddresses",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:serviceAddresses",
+            "application-layer-network/go/aln/router.go:Router:ServiceAddresses"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::nodeServices": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h020",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/tcpchannel.go:NewTcpChannelHost",
+            "application-layer-network/go/aln/tcpchannel.go:TcpChannelHost",
+            "application-layer-network/aln-browser/aln/utils.js:makeNetworkServiceSharePacket",
+            "application-layer-network/aln-wrench-qt/aln/router.h",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp",
+            "application-layer-network/python/examples/local_time_service.py:main",
+            "application-layer-network/aln-wrench-qt/aln/router.h",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::peerName",
+            "application-layer-network/python/examples/ip_bcast_client_logger.py:main",
+            "application-layer-network/go/aln/tcpchannel.go:OpenTCPChannel"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/tcpchannel.go:TcpChannelHost": "struct"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h021",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/tcpchannel.go:OpenTCPChannel",
+            "application-layer-network/arduino/ESP8266_MCP9808/ESP8266_MCP9808.ino:connectTCP",
+            "application-layer-network/go/aln/tcpchannel.go:TcpChannelHost",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln_host/HostExample.java:HostExample",
+            "application-layer-network/go/aln/tcpchannel.go:TcpChannelHost:Listen",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:TcpChannel",
+            "application-layer-network/python/examples/ip_bcast_host.py:get_local_ip",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::peerName",
+            "application-layer-network/python/examples/ip_edge_node.py:main",
+            "application-layer-network/go/aln/tcpchannel.go:NewTcpChannelHost"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/tcpchannel.go:OpenTCPChannel": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h022",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT32U",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT16U",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint32",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:writeINT16U",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint16",
+            "application-layer-network/go/aln/types.go:bytesToINT16U",
+            "application-layer-network/arduino/aln/alntypes.cpp:writeUint32",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:writeUINT32",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:readUINT16",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:readUint32"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT32U": "function"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h023",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:connectTo",
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp:LocalChannel::disconnect",
+            "application-layer-network/python/examples/ip_bcast_client_logger.py:main",
+            "application-layer-network/go/aln/tcpchannel.go:OpenTCPChannel",
+            "application-layer-network/go/aln/sslchannel.go:OpenSSLChannel",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::onSocketClose",
+            "application-layer-network/aln-wrench-qt/aln/tcpchannel.cpp:TcpChannel::disconnect",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::onChannelClose",
+            "application-layer-network/go/aln/channel_test.go:TestWebSocketChannelOnClose",
+            "application-layer-network/go/aln/tcpchannel.go:TCPChannel:OnClose"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:connectTo": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h024",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:HammingDecode",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:HammingDecode",
+            "application-layer-network/arduino/aln/packet.cpp:cfHamEncode",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling:9.2 Error Correction",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:cfHamDecode",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::CFHamDecode",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.2 Control Flags",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:ControlField",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h:setIsBroadcastListening",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:HammingDecode": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h025",
+          "rank": 4,
+          "reciprocal_rank": 0.25,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.1 Service Advertisement Format",
+            "application-layer-network/aln-nodejs/lib/aln/utils.js:makeNetworkServiceSharePacket",
+            "application-layer-network/go/aln/router_utils.go:makeNetworkServiceSharePacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:composeNetServiceShare",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.2 Route Advertisement Format",
+            "application-layer-network/aln-browser/aln/utils.js:makeNetworkServiceSharePacket",
+            "application-layer-network/aln-browser/aln/utils.js:parseNetworkServiceSharePacket",
+            "application-layer-network/aln-browser/aln/router.js:Router:exportServiceTable",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:ServiceNodeInfo",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:composeNetServiceShare"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:composeNetServiceShare": "method",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:composeNetServiceShare": "method"
+          },
+          "slice_ranks": {
+            "leaf_code": {
+              "rank": 4,
+              "reciprocal_rank": 0.25,
+              "in_slice_n": 2
+            }
+          }
+        },
+        {
+          "id": "h026",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format:Field Sizes",
+            "application-layer-network/arduino/aln/alntypes.cpp",
+            "application-layer-network/go/aln/types.go:bytesOfINT32U",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::CFHamEncode",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Protocol Details:TCP Connections (Port 8000)",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:cfHamEncode",
+            "application-layer-network/go/aln/types.go",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h027",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format:Field Sizes",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:12. Constants and Limits:12.1 Size Limits",
+            "application-layer-network/go/aln/packet.go:HeaderFieldOffset",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:headerLength",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`send(packet)`",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:10. Security Considerations:10.2 Denial of Service",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling:9.1 Error Reporting"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format:Field Sizes": "h4"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h028",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer:4.2 WebSocket Frame Structure (JSON Encoding)",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:Packet:toJson",
+            "application-layer-network/aln-browser/README.md:aln-browser",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Protocol Details:WebSocket Connections (Port 8080)",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:cfHamEncode",
+            "application-layer-network/aln-browser/aln/packet.js:Packet:toJson",
+            "application-layer-network/aln-browser/aln/wschannel.js",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format",
+            "application-layer-network/aln-nodejs/lib/aln/wschannel.js:WebSocketChannel:send",
+            "application-layer-network/aln-nodejs/lib/aln/wschannel.js"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer:4.2 WebSocket Frame Structure (JSON Encoding)": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h029",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.4 Service Lifecycle Management",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.3 Service Selection and Load Balancing",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.1 Service Advertisement Format",
+            "application-layer-network/aln-browser/aln/router.js:Router:unregisterService",
+            "application-layer-network/go/aln/router.go:Router:UnregisterService",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Services Provided",
+            "application-layer-network/aln-browser/README.md:aln-browser:Examples:Monitoring Service Capacity",
+            "application-layer-network/aln-browser/aln/router.js:Router:registerService",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`unregisterService(serviceID)`",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.4 Service Lifecycle Management": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h030",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.2 Required Behaviors",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.3 Optional Features",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:7. Network State Management:7.2 State Synchronization",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:10. Security Considerations",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:12. Constants and Limits",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Learning",
+            "application-layer-network/aln-browser/README.md:aln-browser:Examples",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Usage"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.2 Required Behaviors": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h031",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Learning",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:RemoteNodeInfo:constructor",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Propagation",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.2 Route Advertisement Format",
+            "application-layer-network/go/aln/router.go:RemoteNodeInfo",
+            "application-layer-network/aln-browser/aln/router.js:Router:summary",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:onPacket",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:RemoteNodeInfo",
+            "application-layer-network/go/aln/router_utils.go:makeNetworkRouteSharePacket",
+            "application-layer-network/aln-browser/aln/router.js:RemoteNodeInfo"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol:5.3 Routing Behavior:Route Learning": "h4"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h032",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:7. Network State Management:7.1 Network Queries",
+            "application-layer-network/go/aln/router_utils.go:makeNetQueryPacket",
+            "application-layer-network/aln-browser/aln/utils.js:makeNetQueryPacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:composeNetQuery",
+            "application-layer-network/aln-nodejs/lib/aln/utils.js:makeNetQueryPacket",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:onPacket",
+            "application-layer-network/README.md:application-layer-network:How It Works",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:composeNetQuery",
+            "application-layer-network/aln-browser/aln/router.js:Router:exportRouteTable"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:7. Network State Management:7.1 Network Queries": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h033",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs",
+            "application-layer-network/README.md:application-layer-network:Summary",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction:1.1 Protocol Objectives",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.3 Service Selection and Load Balancing",
+            "application-layer-network/aln-browser/README.md:aln-browser:Features",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.1 Service Advertisement Format",
+            "application-layer-network/ALN_PROTOCOL.md",
+            "application-layer-network/aln-nodejs/examples/server/README.md",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:8. Application Data Transport:8.1 Service Communication"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h034",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:12. Constants and Limits:12.2 Magic Numbers",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer:4.1 Binary Frame Structure (KISS Framing)",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:3. Packet Format:3.4 Wire Format",
+            "application-layer-network/arduino/aln/alntypes.cpp",
+            "application-layer-network/go/aln/packet.go:Packet:ToFrameBytes",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:cfHamEncode",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::CFHamEncode",
+            "application-layer-network/aln-browser/aln/packet.js:cfHamEncode",
+            "application-layer-network/go/aln/types.go",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Protocol Details:TCP Connections (Port 8000)"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:12. Constants and Limits:12.2 Magic Numbers": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h035",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling:9.2 Error Correction",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling:9.1 Error Reporting",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:10. Security Considerations:10.2 Denial of Service",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.2 Required Behaviors",
+            "application-layer-network/aln-wrench-qt/aln/packet.h",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.3 Optional Features",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:10. Security Considerations",
+            "application-layer-network/aln-wrench-qt/aln/parser.cpp:Parser::acceptPacket",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`send(packet)`"
+          ],
+          "must_include_types": {
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h036",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/README.md:aln-browser:Quick Start",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Quick Start",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:WebSocketChannel",
+            "application-layer-network/go/examples/websocket_host/README.md",
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`addChannel(channel)`",
+            "application-layer-network/aln-browser/README.md:aln-browser:Installation:CDN (unpkg)",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Protocol Details:WebSocket Connections (Port 8080)",
+            "application-layer-network/aln-browser/aln/router.js:Router:registerService",
+            "application-layer-network/aln-browser/README.md:aln-browser:Running the Demo"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/README.md:aln-browser:Quick Start": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h037",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/README.md:aln-browser:Architecture",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Protocol Details:WebSocket Connections (Port 8080)",
+            "application-layer-network/aln-browser/README.md:aln-browser",
+            "application-layer-network/aln-nodejs/lib/aln/wschannel.js",
+            "application-layer-network/aln-browser/README.md:aln-browser:Security Considerations",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Usage:Connect via WebSocket (JSON Protocol)",
+            "application-layer-network/go/examples/websocket_host/README.md",
+            "application-layer-network/aln-nodejs/lib/aln/wschannel.js:WebSocketChannel",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:WebSocketChannel",
+            "application-layer-network/aln-browser/README.md:aln-browser:Running the Demo"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/README.md:aln-browser:Architecture": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h038",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:Router",
+            "application-layer-network/aln-browser/aln/router.js:Router:constructor",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router",
+            "application-layer-network/aln-browser/aln/router.js:RemoteNodeInfo:constructor",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:RemoteNodeInfo:constructor",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:constructor",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:Router",
+            "application-layer-network/aln-wrench-qt/aln/router.h",
+            "application-layer-network/aln-browser/aln/router.js:Router"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h039",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/aln/packet.js:Packet",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Packet",
+            "application-layer-network/aln-browser/aln/packet.js",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Packet",
+            "application-layer-network/aln-nodejs/lib/aln/utils.js:makeNetworkServiceSharePacket",
+            "application-layer-network/go/aln/packet.go:Packet",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:Packet",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:Packet",
+            "application-layer-network/aln-browser/aln/utils.js:parseNetworkServiceSharePacket",
+            "application-layer-network/aln-browser/aln/packet.js:Packet:constructor"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Packet": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h040",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`send(packet)`",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`send(packet)`",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:HammingDecode",
+            "application-layer-network/aln-browser/aln/utils.js:parseNetworkRouteSharePacket",
+            "application-layer-network/aln-browser/aln/router.js:Router:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/NetUtil.java:NetUtil:beaconInfoFromUri",
+            "application-layer-network/go/aln/router_test.go:TestRoute1Hop",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:clear",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannel.java:IChannel:send",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::send"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`send(packet)`": "h4"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h041",
+          "rank": 3,
+          "reciprocal_rank": 0.3333333333333333,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/aln/router.js:Router:releaseContext",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:releaseContext",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`releaseContext(contextID)`",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:releaseContext",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:releaseContext",
+            "application-layer-network/go/aln/router.go:Router:ReleaseContext",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`releaseContext(contextID)`",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::releaseContext",
+            "application-layer-network/aln-browser/aln/router.js:Router:registerContextHandler",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:registerContextHandler"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`releaseContext(contextID)`": "h4"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h042",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/README.md:aln-browser:Examples:Service Discovery",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Extending the Server:Add a New Service",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`registerService(serviceID, handler)`",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Examples:Example: Service Discovery",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::echoServicePacketHandler",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockWebSocket:_receiveMessage",
+            "application-layer-network/go/examples/local_demo/main.go:main",
+            "application-layer-network/arduino/testaln.cpp:handler",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`registerContextHandler(handler)`",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:8. Application Data Transport:8.2 Request-Response Pattern"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/README.md:aln-browser:Examples:Service Discovery": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h043",
+          "rank": 0,
+          "reciprocal_rank": 0.0,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": false,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/README.md",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.cpp",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h",
+            "application-layer-network/aln-nodejs/tests/test_router.js",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:TestPacketHandler:onPacket",
+            "application-layer-network/aln-wrench-qt/packetsenddialog.cpp",
+            "application-layer-network/aln-wrench-qt/packetsenddialog.h",
+            "application-layer-network/aln-wrench-qt/connectionitemmodel.h",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::handleNetState"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/README.md:ALN Wrench Qt": "h1"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 0,
+              "reciprocal_rank": 0.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h044",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example:Features",
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example",
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example:Testing with Browser Client",
+            "application-layer-network/go/examples/websocket_host/README.md",
+            "application-layer-network/go/examples/websocket_host/main.go:main",
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example:Testing with TCP Client",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Protocol Details:WebSocket Connections (Port 8080)",
+            "application-layer-network/go/examples/local_host/README.md:Exmple Host in Go",
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example:Running",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:TcpChannel"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example:Features": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h045",
+          "rank": 3,
+          "reciprocal_rank": 0.3333333333333333,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/examples/local_client/main.go:main",
+            "application-layer-network/python/examples/ip_bcast_host.py:main",
+            "application-layer-network/go/examples/local_host/README.md:Exmple Host in Go",
+            "application-layer-network/go/examples/local_client/README.md:Exmple Client in Go",
+            "application-layer-network/go/examples/local_host/main.go:main",
+            "application-layer-network/python/examples/local_ping_client.py:main",
+            "application-layer-network/python/examples/local_host.py:main",
+            "application-layer-network/python/examples/local_ping_service.py:main",
+            "application-layer-network/go/examples/websocket_host/main.go:main",
+            "application-layer-network/go/examples/local_demo/main.go:main"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/examples/local_host/README.md:Exmple Host in Go": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h046",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`registerService(serviceID, handler)`",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`registerService(serviceID, handler)`",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:registerService",
+            "application-layer-network/aln-browser/aln/router.js:Router:registerService",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Core Concepts:Services",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Examples:Example: Request/Response",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`registerContextHandler(handler)`",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`unregisterService(serviceID)`",
+            "application-layer-network/go/aln/router.go:Router:RegisterService",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`registerService(serviceID, handler)`": "h4"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h047",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`addChannel(channel)`",
+            "application-layer-network/aln-nodejs/README.md",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:addChannel",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:TcpChannel",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router",
+            "application-layer-network/aln-browser/aln/router.js:Router:addChannel",
+            "application-layer-network/aln-browser/aln/router.js:Router:exportRouteTable",
+            "application-layer-network/aln-nodejs/lib/aln/router.js",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Core Concepts:Channels",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`send(packet)`"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`addChannel(channel)`": "h4"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h048",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`unregisterService(serviceID)`",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:unregisterService",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`unregisterService(serviceID)`",
+            "application-layer-network/aln-browser/aln/router.js:Router:unregisterService",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`registerService(serviceID, handler)`",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`registerService(serviceID, handler)`",
+            "application-layer-network/aln-wrench-qt/aln/router.cpp:Router::unregisterService",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:unregisterService",
+            "application-layer-network/aln-browser/aln/router.js:Router:registerService",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:registerService"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`unregisterService(serviceID)`": "h4"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h049",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Examples:Example: Request/Response",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:8. Application Data Transport:8.2 Request-Response Pattern",
+            "application-layer-network/aln-wrench-qt/packetsenddialog.cpp:ResponseHandler",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockWebSocket:_receiveMessage",
+            "application-layer-network/aln-wrench-qt/packetsenddialog.cpp:ResponseHandler:onPacket",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`registerContextHandler(handler)`",
+            "application-layer-network/aln-browser/README.md:aln-browser:API Reference:Router:`registerContextHandler(handler)`",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockChannel:_receivePacket",
+            "application-layer-network/aln-nodejs/lib/aln/router.js:Router:send",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js:Parser:acceptPacket"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Examples:Example: Request/Response": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h050",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Architecture",
+            "application-layer-network/go/examples/websocket_host/README.md:WebSocket Host Example",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Overview",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:See Also",
+            "application-layer-network/aln-nodejs/examples/server/README.md",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example",
+            "application-layer-network/go/examples/websocket_host/README.md",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Extending the Server:Add HTTP Endpoints",
+            "application-layer-network/aln-browser/README.md:aln-browser:Architecture",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Extending the Server:Add a New Service"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Architecture": "h2"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h051",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Quick Start:3. Configure Ports (Optional)",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h:setListenPort",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:7. Network State Management",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:12. Constants and Limits",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:9. Error Handling",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h:setAdvertisingPort",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Examples:Running the Examples",
+            "application-layer-network/aln-browser/README.md:aln-browser:Installation",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Protocol Details:TCP Connections (Port 8000)",
+            "application-layer-network/aln-browser/README.md:aln-browser:Installation:CDN (unpkg)"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:Quick Start:3. Configure Ports (Optional)": "h3"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h052",
+          "rank": 5,
+          "reciprocal_rank": 0.2,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.3 Optional Features",
+            "application-layer-network/aln-browser/README.md:aln-browser:Features",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Features",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:1. Introduction",
+            "application-layer-network/README.md:Development Status",
+            "application-layer-network/aln-browser/README.md:aln-browser:Browser Compatibility",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:12. Constants and Limits:12.3 Protocol Version",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:11. Implementation Guidelines:11.2 Required Behaviors",
+            "application-layer-network/aln-nodejs/examples/server/README.md:ALN Server Example:See Also",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:7. Network State Management:7.2 State Synchronization"
+          ],
+          "must_include_types": {
+            "application-layer-network/README.md:Development Status": "h1"
+          },
+          "slice_ranks": {
+            "markdown": {
+              "rank": 5,
+              "reciprocal_rank": 0.2,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h053",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/aln/frame.cpp",
+            "application-layer-network/aln-wrench-qt/aln/frame.cpp:toFrameBuffer",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Frame.java",
+            "application-layer-network/aln-wrench-qt/aln/frame.cpp:toFrameBuffer",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Frame.java:Frame",
+            "application-layer-network/arduino/aln/framer.cpp",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:toPacketBuffer",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:toFrameBuffer",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:toFrameBuffer",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:writeToBuffer"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/aln/frame.cpp": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h054",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::end",
+            "application-layer-network/arduino/ESP32_BLE_UART/README.md",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::poll",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::write",
+            "application-layer-network/arduino/ESP32_BLE_UART/README.md",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::ArduinoBLESerial",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::onBLEWritten",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::flush",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::addService"
+          ],
+          "must_include_types": {
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h055",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:shareNetState",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:handleNetState",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:Router",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:composeNetRouteShare",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:exportRouteTable"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h056",
+          "rank": 9,
+          "reciprocal_rank": 0.1111111111111111,
+          "recall_at_1": false,
+          "recall_at_5": false,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:Packet:toJson",
+            "application-layer-network/aln-browser/aln/router.js",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:Packet",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Packet",
+            "application-layer-network/aln-browser/aln/wschannel.js",
+            "application-layer-network/aln-nodejs/README.md",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:Installation",
+            "application-layer-network/aln-browser/aln/packet.js:Packet",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js",
+            "application-layer-network/aln-browser/aln/packet.js"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/lib/aln/packet.js": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 9,
+              "reciprocal_rank": 0.1111111111111111,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h057",
+          "rank": 3,
+          "reciprocal_rank": 0.3333333333333333,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/aln/binary-utils.js",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:constructor",
+            "application-layer-network/aln-browser/aln/packet.js",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryBuilder:toBinary",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:toString",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:toUTF8",
+            "application-layer-network/aln-browser/aln/packet.js:Packet:constructor",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:readBytes",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/aln/packet.js": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 3,
+              "reciprocal_rank": 0.3333333333333333,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h058",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/parser.go:Parser",
+            "application-layer-network/go/aln/parser.go",
+            "application-layer-network/go/aln/parser.go:Parser:IngestStream",
+            "application-layer-network/go/aln/parser.go:NewParser",
+            "application-layer-network/go/aln/parser_test.go",
+            "application-layer-network/go/aln/packet.go:ParsePacket",
+            "application-layer-network/arduino/aln/parser.h",
+            "application-layer-network/go/aln/parser.go:Parser:Clear",
+            "application-layer-network/go/aln/packet.go:Packet:ToFrameBytes",
+            "application-layer-network/go/aln/router.go:Router"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/parser.go": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h059",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-nodejs/lib/aln/parser.js",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js:Parser",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js:Parser:acceptPacket",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java",
+            "application-layer-network/aln-nodejs/lib/aln/parser.js:Parser:constructor",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:Packet:toJson",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/ParserTest.java"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-nodejs/lib/aln/parser.js": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h060",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser:readAx25FrameBytes",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Parser.java:Parser:readAx25FrameBytes",
+            "application-layer-network/arduino/aln/parser.cpp:Parser::ingestFrameBytes",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Frame.java:Frame",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Frame.java",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Frame.java"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Parser.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h061",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel",
+            "application-layer-network/go/aln/limitedchannel.go",
+            "application-layer-network/go/aln/limitedchannel.go:NewLimitedChannel",
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel:Receive",
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel:Send",
+            "application-layer-network/go/aln/channel.go",
+            "application-layer-network/go/aln/channel.go:Channel",
+            "application-layer-network/go/aln/limitedchannel.go:LimitedChannel:OnClose",
+            "application-layer-network/go/aln/channel.go:LocalChannel:OnClose",
+            "application-layer-network/go/aln/webchannel.go:WebSocketChannel:OnClose"
+          ],
+          "must_include_types": {
+            "application-layer-network/go/aln/limitedchannel.go": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h062",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:receive",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:LocalChannel",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel:send",
+            "application-layer-network/aln-nodejs/tests/test_router.js:LocalChannel",
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp:LocalChannel::LocalChannel"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h063",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IPacketHandler.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IPacketHandler.java",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IPacketHandler.java:IPacketHandler",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IPacketHandler.java:IPacketHandler",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IPacketHandler.java:IPacketHandler:onPacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IPacketHandler.java:IPacketHandler:onPacket",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannel.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/mesh/SendPacketActionItem.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:send",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:PacketSignaler:onPacket"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IPacketHandler.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h064",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testLocalTwoHopRoute",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testLocalOneHopRoute",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/PacketTest.java",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testNetServiceShare",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/PacketTest.java:PacketTest",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/PacketTest.java:PacketTest:testPacketBuffer",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testNetShareParser",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:Router:shareNetState"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h065",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:setTcpHostPortForInterface",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:connectTo",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:loadSavedConnections",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartSerial.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartSerial.java:OnConnectHandler:onConnect",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:connectTo",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartSerial.java:BleUartSerial:connect",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:onCreate",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/BleUartSerial.java:BleUartSerial"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h066",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/tests/test-helpers.js",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockChannel",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockWebSocket",
+            "application-layer-network/go/aln/channel_test.go",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockWebSocket:send",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockWebSocket:constructor",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockChannel:send",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockWebSocket:_triggerOpen",
+            "application-layer-network/aln-browser/README.md:aln-browser:Testing",
+            "application-layer-network/aln-browser/tests/test-helpers.js:MockChannel:_getSentPackets"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/tests/test-helpers.js": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h067",
+          "rank": 4,
+          "reciprocal_rank": 0.25,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java:IChannelCloseHandler",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannelCloseHandler.java:IChannelCloseHandler",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannelCloseHandler.java",
+            "application-layer-network/go/aln/channel.go:Channel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Router.java:OnStateChangedListener:onStateChanged",
+            "application-layer-network/aln-nodejs/tests/test_three_routers.js:LocalChannel:close",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannelCloseHandler.java:IChannelCloseHandler:onChannelClosed",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:close",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/TcpChannel.java:TcpChannel:triggerOnCloseHandler"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannelCloseHandler.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 4,
+              "reciprocal_rank": 0.25,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h068",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:onResume",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:onCreateView",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:scanLeDevice",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:onPause",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/MainActivity.java:MainActivity:onCreate",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:stopBLEScan",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:startBLEScan",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:initBluetooth"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h069",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::init",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::MainWindow",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.cpp",
+            "application-layer-network/aln-wrench-qt/main.cpp",
+            "application-layer-network/aln-wrench-qt/connectionitemmodel.h",
+            "application-layer-network/aln-wrench-qt/networkinterfacesitemmodel.h",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::onNetStateChanged",
+            "application-layer-network/aln-wrench-qt/README.md",
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp:MainWindow::onNetworkDiscoveryChanged"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/mainwindow.cpp": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h070",
+          "rank": 4,
+          "reciprocal_rank": 0.25,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/mesh/MeshFragment.java:MeshFragment",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/NetUtil.java:NetUtil",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/NetUtil.java:NetUtil:getLocalInetInfo",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/NetUtil.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/mesh/MeshFragment.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/mesh/NodeListAdapter.java:NodeListAdapter",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/mesh/NodeServiceListAdapter.java:NodeServiceListAdapter:getItem",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/mesh/NodeListAdapter.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/BeaconInfoListAdapter.java:BeaconInfoListAdapter:getItemId",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/LocalNetInfoListAdapter.java:LocalNetInfoListAdapter:getItem"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/NetUtil.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 4,
+              "reciprocal_rank": 0.25,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h071",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/aln/binary-utils.js",
+            "application-layer-network/aln-browser/aln/binary-utils.js:binaryToBase64",
+            "application-layer-network/aln-browser/aln/binary-utils.js:base64ToBinary",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:constructor",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryBuilder:toBinary",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryBuilder:constructor",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:toString",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryParser:toUTF8",
+            "application-layer-network/aln-browser/aln/binary-utils.js:BinaryBuilder"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-browser/aln/binary-utils.js": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h072",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp:LocalChannel::LocalChannel",
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel",
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp:LocalChannel::LocalChannel",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java:LoopBackTest",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java",
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp:LocalChannel::doSend",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testLocalOneHopRoute",
+            "application-layer-network/aln-nodejs/tests/test_router.js",
+            "application-layer-network/aln-nodejs/tests/test_router.js:LocalChannel:send"
+          ],
+          "must_include_types": {
+            "application-layer-network/aln-wrench-qt/aln/localchannel.cpp": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h073",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/arduino/aln/alntypes.cpp",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint16",
+            "application-layer-network/arduino/aln/alntypes.cpp:writeUint16",
+            "application-layer-network/arduino/aln/alntypes.cpp:writeUint32",
+            "application-layer-network/arduino/aln/alntypes.cpp:readUint32",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:writeINT16U",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT16U",
+            "application-layer-network/aln-wrench-qt/aln/alntypes.cpp:readINT32U",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:writeUINT32"
+          ],
+          "must_include_types": {
+            "application-layer-network/arduino/aln/alntypes.cpp": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h074",
+          "rank": 1,
+          "reciprocal_rank": 1.0,
+          "recall_at_1": true,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java:LoopBackTest",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java:LoopBackTest:testLoopBackSend",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java:LoopBackTest:testLoopBackRecieve",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/PacketTest.java",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/LocalChannel.java:LocalChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/LocalChannel.java:LocalChannel:LoopBack",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/RouterTest.java:RouterTest:testMulticastWithSelf",
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/ParserTest.java"
+          ],
+          "must_include_types": {
+            "application-layer-network/java/aln/src/test/java/org/biglittleidea/aln/LoopBackTest.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 1,
+              "reciprocal_rank": 1.0,
+              "in_slice_n": 1
+            }
+          }
+        },
+        {
+          "id": "h075",
+          "rank": 2,
+          "reciprocal_rank": 0.5,
+          "recall_at_1": false,
+          "recall_at_5": true,
+          "recall_at_10": true,
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/ActiveConnectionListAdapter.java:ActiveConnectionListAdapter",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/ActiveConnectionListAdapter.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/ActiveConnectionListAdapter.java:ActiveConnectionListAdapter:getView",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/StoredConnectionListAdapter.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/StoredConnectionListAdapter.java:StoredConnectionListAdapter:getView",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/StoredConnectionListAdapter.java:StoredConnectionListAdapter:StoredConnectionListAdapter",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/BeaconInfoListAdapter.java:BeaconInfoListAdapter:getView",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/StoredConnectionListAdapter.java:StoredConnectionListAdapter",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothDiscoveryListAdapter.java:BluetoothDiscoveryListAdapter",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/service/LocalServiceListAdapter.java:LocalServiceListAdapter:getView"
+          ],
+          "must_include_types": {
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/wifi/ActiveConnectionListAdapter.java": "module"
+          },
+          "slice_ranks": {
+            "rollup": {
+              "rank": 2,
+              "reciprocal_rank": 0.5,
+              "in_slice_n": 1
+            }
+          }
+        }
+      ]
+    },
+    "adversarial": {
+      "n": 3,
+      "adversarial_fpr": 0.0,
+      "per_query": [
+        {
+          "id": "adv001",
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::start",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:scanLeDevice",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:onPause",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment:onResume",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:startBLEScan",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:stopBLEScan",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java:BluetoothFragment",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothDiscoveryListAdapter.java",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/ui/bluetooth/BluetoothFragment.java",
+            "application-layer-network/arduino/ESP32_BLE_UART/ArduinoBLESerial.cpp:ArduinoBLESerial::ArduinoBLESerial"
+          ]
+        },
+        {
+          "id": "adv002",
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.4 Service Lifecycle Management",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol:6.3 Service Selection and Load Balancing",
+            "application-layer-network/aln-browser/README.md:aln-browser:Installation",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:ServiceNodeInfo",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:6. Service Discovery Protocol",
+            "application-layer-network/aln-nodejs/README.md:aln-nodejs:API Reference:Router:`setOnServiceCapacityChanged(callback)`",
+            "application-layer-network/aln-browser/aln/router.js",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/App.java:App:loadServices",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/MainActivity.java:MainActivity:onPause",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/alnn/MainActivity.java"
+          ]
+        },
+        {
+          "id": "adv003",
+          "adversarial_hit": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:toPacketBuffer",
+            "application-layer-network/README.md:application-layer-network:Summary",
+            "application-layer-network/aln-wrench-qt/aln/packet.cpp:Packet::controlField",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer:4.1 Binary Frame Structure (KISS Framing)",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:ControlFlag",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:5. Routing Protocol",
+            "application-layer-network/ALN_PROTOCOL.md:Application Layer Network (ALN) Protocol Specification:4. Frame Layer",
+            "application-layer-network/aln-nodejs/lib/aln/packet.js:cfHamEncode",
+            "application-layer-network/aln-browser/aln/router.js:Router",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Packet.java:Packet:writeUINT16"
+          ]
+        }
+      ]
+    },
+    "smoke": {
+      "n": 3,
+      "pass_rate": 0.3333333333333333,
+      "per_query": [
+        {
+          "id": "smoke001",
+          "rank": 1,
+          "passed": true,
+          "top_paths": [
+            "application-layer-network/go/aln/packet_test.go:TestCRC32",
+            "application-layer-network/go/aln/utils.go:CRC32",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/Packet.java:Packet:CRC32"
+          ]
+        },
+        {
+          "id": "smoke002",
+          "rank": 0,
+          "passed": false,
+          "top_paths": [
+            "application-layer-network/aln-browser/aln/router.js:Router:shareNetState",
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/Router.java:Router:shareNetState",
+            "application-layer-network/go/aln/router.go:Router:ShareNetState"
+          ]
+        },
+        {
+          "id": "smoke003",
+          "rank": 0,
+          "passed": false,
+          "top_paths": [
+            "application-layer-network/java/aln/src/main/java/org/biglittleidea/aln/IChannel.java:IChannel:send",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannel.java:IChannel",
+            "application-layer-network/java-android/app/src/main/java/biglittleidea/aln/IChannel.java:IChannel:send"
+          ]
+        }
+      ]
+    }
+  },
+  "intrinsic": {
+    "empty_summaries": 0,
+    "unmapped_types": {},
+    "by_slice": {
+      "leaf_code": {
+        "n": 877,
+        "banned_preamble_rate": 0.33181299885974913,
+        "name_restatement_mean": 0.20822202313080307,
+        "symbol_grounding_mean": 0.5146059649683326,
+        "symbol_grounding_n": 875,
+        "length_chars_p50": 243.0,
+        "length_chars_p95": 349.0,
+        "length_sentences_mean": 2.083238312428734
+      },
+      "markdown": {
+        "n": 168,
+        "banned_preamble_rate": 0.041666666666666664,
+        "name_restatement_mean": 0.1190880548023405,
+        "symbol_grounding_mean": 0.49901804544661693,
+        "symbol_grounding_n": 168,
+        "length_chars_p50": 224.0,
+        "length_chars_p95": 363.2,
+        "length_sentences_mean": 2.113095238095238
+      },
+      "rollup": {
+        "n": 120,
+        "banned_preamble_rate": 0.7333333333333333,
+        "name_restatement_mean": 0.0,
+        "symbol_grounding_mean": null,
+        "symbol_grounding_n": 0,
+        "length_chars_p50": 434.5,
+        "length_chars_p95": 518.4,
+        "length_sentences_mean": 2.966666666666667
+      }
+    }
+  }
+}
