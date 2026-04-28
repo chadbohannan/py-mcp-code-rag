@@ -86,24 +86,26 @@ class OllamaSummarizer:
         return content or ""
 
 
+_STYLE_SHORT = "Be direct, no preamble. 2 sentences max. No headings, no bullet points."
+_STYLE_DENSE = (
+    "2-3 sentences, terse and dense. No preamble, no headings, no bullet points."
+)
+_FALLBACK = "Summarize this {unit_type}. " + _STYLE_SHORT
+
+_PROMPTS: dict[str, str] = {
+    "directory": f"Summarize this directory's purpose and what it contains based on its files and subdirectories below. {_STYLE_DENSE}",
+    "module": f"Summarize this file's purpose, key exports, and role relative to the modules it depends on. {_STYLE_DENSE}",
+    "function": f"What does this function compute or perform based on its signature and body. {_STYLE_SHORT}",
+    "method": f"What does this method do based on its signature and body, what state does it read or modify. {_STYLE_SHORT}",
+    "class": f"What responsibility does this class encapsulate based on its definition. {_STYLE_SHORT}",
+    "struct": f"Describe this struct's purpose, its key fields, and what domain it models. {_STYLE_SHORT}",
+    "interface": f"Describe what contract this interface defines and what operations it requires. {_STYLE_SHORT}",
+    "enum": f"What concept or domain do these enum values model. {_STYLE_SHORT}",
+}
+
+
 def _build_prompt(unit: SemanticUnit) -> str:
-    if unit.unit_type == "directory":
-        return (
-            "Summarize this directory's purpose and what it contains based on its "
-            "files and subdirectories below. 2-3 sentences, terse and dense. "
-            "No preamble, no headings, no bullet points.\n\n"
-            f"{unit.content}"
-        )
-    if unit.unit_type == "module":
-        return (
-            "Summarize this file's purpose, key exports, and role relative to the "
-            "modules it depends on. 2-3 sentences, terse and dense. "
-            "No preamble, no headings, no bullet points.\n\n"
-            f"{unit.content}"
-        )
-    return (
-        f"Summarize this {unit.unit_type} in 2-3 sentences. "
-        f"Say what it does and why using terse, dense natural language a developer would "
-        f"search for. No preamble, no headings, no bullet points.\n\n"
-        f"{unit.content}"
+    instruction = _PROMPTS.get(
+        unit.unit_type, _FALLBACK.format(unit_type=unit.unit_type)
     )
+    return f"{instruction}\n\n{unit.content}"
