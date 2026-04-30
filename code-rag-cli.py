@@ -171,7 +171,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--base-url",
-        default="http://localhost:8080",
+        default="http://localhost:8081",
         dest="base_url",
         help="Base URL of the code-rag webui server",
     )
