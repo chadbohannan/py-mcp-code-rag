@@ -15,7 +15,7 @@ import time
 import pytest
 
 from mcp_rag.db import open_db
-from mcp_rag.indexer import IndexAbortError, run_index
+from mcp_rag.indexer import DEFAULT_EXCLUDE_GLOBS, IndexAbortError, run_index
 from tests.conftest import FakeEmbedder, FakeSummarizer, make_git_project
 
 
@@ -614,3 +614,62 @@ def test_reindex_updates_meta_embed_model(tmp_path, summarizer):
     ).fetchone()[0]
     conn.close()
     assert stored_dim == "8"
+
+
+# ---------------------------------------------------------------------------
+# Exclude globs
+# ---------------------------------------------------------------------------
+
+
+def test_exclude_globs_skips_generated_go_files(tmp_path, embedder, summarizer):
+    root = make_git_project(tmp_path / "proj", {
+        "main.go": "package main\n\nfunc main() {}\n",
+        "api.pb.go": "package main\n\nfunc GeneratedStub() {}\n",
+    })
+    db_path = tmp_path / "index.db"
+    run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
+
+    conn = open_db(db_path, embed_dim=embedder.dim, embed_model=embedder.model)
+    paths = [r[0] for r in conn.execute("SELECT path FROM units").fetchall()]
+    conn.close()
+
+    assert any("main.go" in p for p in paths)
+    assert not any("api.pb.go" in p for p in paths)
+
+
+def test_exclude_globs_empty_includes_generated_files(tmp_path, embedder, summarizer):
+    root = make_git_project(tmp_path / "proj", {
+        "main.go": "package main\n\nfunc main() {}\n",
+        "api.pb.go": "package main\n\nfunc GeneratedStub() {}\n",
+    })
+    db_path = tmp_path / "index.db"
+    run_index(
+        [root], db_path=db_path, embedder=embedder, summarizer=summarizer,
+        exclude_globs=(),
+    )
+
+    conn = open_db(db_path, embed_dim=embedder.dim, embed_model=embedder.model)
+    paths = [r[0] for r in conn.execute("SELECT path FROM units").fetchall()]
+    conn.close()
+
+    assert any("main.go" in p for p in paths)
+    assert any("api.pb.go" in p for p in paths)
+
+
+def test_exclude_globs_custom_pattern(tmp_path, embedder, summarizer):
+    root = make_git_project(tmp_path / "proj", {
+        "app.py": "def run(): pass\n",
+        "generated_client.py": "def stub(): pass\n",
+    })
+    db_path = tmp_path / "index.db"
+    run_index(
+        [root], db_path=db_path, embedder=embedder, summarizer=summarizer,
+        exclude_globs=("generated_*.py",),
+    )
+
+    conn = open_db(db_path, embed_dim=embedder.dim, embed_model=embedder.model)
+    paths = [r[0] for r in conn.execute("SELECT path FROM units").fetchall()]
+    conn.close()
+
+    assert any("app.py" in p for p in paths)
+    assert not any("generated_client.py" in p for p in paths)

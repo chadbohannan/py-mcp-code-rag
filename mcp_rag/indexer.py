@@ -88,6 +88,17 @@ _SUPPORTED_EXTENSIONS = frozenset(
     }
 )
 
+DEFAULT_EXCLUDE_GLOBS: tuple[str, ...] = (
+    "*.pb.go",
+    "*_generated.go",
+    "*.gen.go",
+    "*_pb2.py",
+    "*_pb2_grpc.py",
+    "*.generated.ts",
+    "*.min.js",
+    "*.min.css",
+)
+
 
 class IndexAbortError(Exception):
     """Raised when the indexer cannot proceed."""
@@ -101,6 +112,7 @@ def run_index(
     reindex: bool = False,
     progress_cb: Callable[[dict], None] | None = None,
     cancel_event: threading.Event | None = None,
+    exclude_globs: tuple[str, ...] = DEFAULT_EXCLUDE_GLOBS,
 ) -> None:
     """Build or update the index for *roots* into *db_path*.
 
@@ -216,6 +228,7 @@ def run_index(
                         unit_bar,
                         progress_cb=progress_cb,
                         cancel_event=cancel_event,
+                        exclude_globs=exclude_globs,
                     )
                     repo_bar.update(1)
             except BaseException:
@@ -737,6 +750,7 @@ def _index_repo(
     unit_bar: tqdm | None = None,
     progress_cb: Callable[[dict], None] | None = None,
     cancel_event: threading.Event | None = None,
+    exclude_globs: tuple[str, ...] = DEFAULT_EXCLUDE_GLOBS,
 ) -> int:
     """Index one git repository. Returns the number of deleted files."""
     disk_files: set[Path] = set(discover_files(git_root))
@@ -774,6 +788,19 @@ def _index_repo(
     parsable_files = sorted(
         f for f in disk_files if f.suffix.lower() in _SUPPORTED_EXTENSIONS
     )
+    if exclude_globs:
+        before = len(parsable_files)
+        parsable_files = [
+            f for f in parsable_files
+            if not any(f.match(g) for g in exclude_globs)
+        ]
+        excluded = before - len(parsable_files)
+        if excluded:
+            logger.info(
+                "Excluded %d file(s) matching exclude globs in %s",
+                excluded,
+                repo_name,
+            )
 
     # Build import graph and topological sort for dependency-ordered processing
     import_graph = _build_import_graph(parsable_files, git_root, disk_files)

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from mcp_rag import server
 from mcp_rag.embedder import DEFAULT_MODEL, EmbedderLoadError, FastEmbedder
-from mcp_rag.indexer import IndexAbortError, run_index
+from mcp_rag.indexer import DEFAULT_EXCLUDE_GLOBS, IndexAbortError, run_index
 from mcp_rag.server import mcp
 from mcp_rag.summarizer import (
     DEFAULT_OLLAMA_HOST,
@@ -51,6 +51,7 @@ def _do_index(
     ollama_model: str,
     ollama_host: str,
     reindex: bool,
+    exclude_globs: tuple[str, ...] = DEFAULT_EXCLUDE_GLOBS,
 ) -> None:
     embedder = FastEmbedder(model_name=embed_model)
     if summarizer_type == "anthropic":
@@ -67,6 +68,7 @@ def _do_index(
         embedder=embedder,
         summarizer=summarizer,
         reindex=reindex,
+        exclude_globs=exclude_globs,
     )
 
 
@@ -85,6 +87,30 @@ def _do_serve(db_path: Path, http: bool = False, port: int = 8000) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_exclude_globs(args: argparse.Namespace) -> tuple[str, ...]:
+    if args.no_default_excludes:
+        return ()
+    if args.exclude:
+        return tuple(args.exclude)
+    return DEFAULT_EXCLUDE_GLOBS
+
+
+def _add_exclude_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--exclude",
+        action="append",
+        metavar="GLOB",
+        help="Exclude files matching GLOB (repeatable; replaces defaults). "
+        f"Defaults: {', '.join(DEFAULT_EXCLUDE_GLOBS)}",
+    )
+    p.add_argument(
+        "--no-default-excludes",
+        action="store_true",
+        dest="no_default_excludes",
+        help="Disable the built-in exclude patterns for generated files",
+    )
+
+
 def _make_index_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="code-rag index")
     p.add_argument("paths", nargs="+", type=Path, metavar="PATH")
@@ -94,6 +120,7 @@ def _make_index_parser() -> argparse.ArgumentParser:
     p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
     p.add_argument("--ollama-model", default=DEFAULT_OLLAMA_MODEL, dest="ollama_model")
     p.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, dest="ollama_host")
+    _add_exclude_args(p)
     return p
 
 
@@ -114,6 +141,7 @@ def _make_webui_parser() -> argparse.ArgumentParser:
     p.add_argument("--summarizer", choices=["anthropic", "ollama"], default="ollama")
     p.add_argument("--ollama-model", default=DEFAULT_OLLAMA_MODEL, dest="ollama_model")
     p.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, dest="ollama_host")
+    _add_exclude_args(p)
     return p
 
 
@@ -177,6 +205,7 @@ def _run_index_cmd(args: argparse.Namespace) -> None:
             ollama_model=args.ollama_model,
             ollama_host=args.ollama_host,
             reindex=args.reindex,
+            exclude_globs=_resolve_exclude_globs(args),
         )
     except (IndexAbortError, EmbedderLoadError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -226,6 +255,7 @@ def _run_webui_cmd(args: argparse.Namespace) -> None:
         db_path=args.db,
         embedder=embedder,
         summarizer_factory=make_summarizer,
+        exclude_globs=_resolve_exclude_globs(args),
     )
     print(f"code-rag web UI: http://{args.host}:{args.port}", file=sys.stderr)
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning", ws="wsproto")

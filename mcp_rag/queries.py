@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os.path
 import sqlite3
 from pathlib import Path
 
@@ -169,7 +170,7 @@ def _build_browse_nodes(conn: sqlite3.Connection, path: str) -> list[dict]:
 
     is_unit_path = ":" in path
     file_seg = path.split(":")[0].split("/")[-1]
-    is_file_path = "." in file_seg
+    is_file_path = os.path.splitext(file_seg)[1] != ""
 
     prefix = path + ":" if (is_unit_path or is_file_path) else path + "/"
 
@@ -220,7 +221,7 @@ def _build_browse_nodes(conn: sqlite3.Connection, path: str) -> list[dict]:
                 continue
             child_path = prefix + next_seg
             if child_path not in seen_dirs:
-                is_f = "." in next_seg
+                is_f = os.path.splitext(next_seg)[1] != ""
                 seen_dirs[child_path] = {
                     "type": "file" if is_f else "dir",
                     "name": next_seg,

@@ -28,7 +28,7 @@ from mcp_rag.api_models import (
     UnitSummary,
 )
 from mcp_rag.db import open_db
-from mcp_rag.indexer import IndexAbortError, run_index
+from mcp_rag.indexer import DEFAULT_EXCLUDE_GLOBS, IndexAbortError, run_index
 from mcp_rag.models import Embedder
 from mcp_rag import job, queries
 
@@ -41,6 +41,7 @@ _STATIC_DIR = Path(__file__).parent / "static"
 _db_path: Path | None = None
 _embedder: Embedder | None = None
 _summarizer_factory: Callable | None = None
+_exclude_globs: tuple[str, ...] = DEFAULT_EXCLUDE_GLOBS
 
 _last_progress: dict | None = None
 _ws_clients: dict[WebSocket, asyncio.AbstractEventLoop] = {}
@@ -83,10 +84,10 @@ def _launch_index_job(
                 reindex=reindex,
                 progress_cb=progress_cb,
                 cancel_event=cancel_ev,
+                exclude_globs=_exclude_globs,
             )
             job.finish("ok")
         except IndexAbortError as exc:
-            progress_cb({"type": "error", "message": str(exc)})
             job.finish(str(exc))
         except Exception as exc:
             progress_cb({"type": "error", "message": str(exc)})
@@ -505,9 +506,11 @@ def create_app(
     db_path: Path,
     embedder: Embedder,
     summarizer_factory: Callable,
+    exclude_globs: tuple[str, ...] = DEFAULT_EXCLUDE_GLOBS,
 ) -> FastAPI:
-    global _db_path, _embedder, _summarizer_factory
+    global _db_path, _embedder, _summarizer_factory, _exclude_globs
     _db_path = db_path
     _embedder = embedder
     _summarizer_factory = summarizer_factory
+    _exclude_globs = exclude_globs
     return app
