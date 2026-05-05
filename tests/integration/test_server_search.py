@@ -10,7 +10,6 @@ before each test and tears it down after.
 
 import textwrap
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 from fastmcp import Client
@@ -64,16 +63,19 @@ def summarizer():
 @pytest.fixture
 def populated_db(tmp_path, embedder, summarizer):
     """DB with two Python files: auth.py (validate_token) and utils.py (format_name)."""
-    root = make_git_project(tmp_path / "proj", {
-        "auth.py": textwrap.dedent("""\
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "auth.py": textwrap.dedent("""\
             def validate_token(token: str) -> bool:
                 return len(token) > 0
         """),
-        "utils.py": textwrap.dedent("""\
+            "utils.py": textwrap.dedent("""\
             def format_name(first: str, last: str) -> str:
                 return f"{first} {last}"
         """),
-    })
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     return db_path, root
@@ -142,9 +144,7 @@ async def test_search_path_is_qualified(configured_server):
     for r in results:
         # Qualified paths start with repo name; file units have : or extension,
         # module/directory units may be bare paths like "proj" or "proj/src"
-        assert r["path"].startswith("proj"), (
-            f"unexpected path format: {r['path']}"
-        )
+        assert r["path"].startswith("proj"), f"unexpected path format: {r['path']}"
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +168,12 @@ async def test_search_top_k_default_is_5(configured_server):
 @pytest.mark.asyncio
 async def test_search_top_k_capped_at_20(tmp_path, embedder, summarizer):
     """top_k=100 must not return more than 20 results."""
-    root = make_git_project(tmp_path / "proj", {
-        "big.py": "\n".join(f"def fn_{i}(): pass" for i in range(25)) + "\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "big.py": "\n".join(f"def fn_{i}(): pass" for i in range(25)) + "\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     server_module.configure(db_path, embedder)
@@ -213,7 +216,9 @@ async def test_search_exact_summary_scores_1(populated_db, embedder):
 @pytest.mark.asyncio
 async def test_search_globs_filters_by_file(configured_server):
     """globs=["*auth*"] should only return units from auth.py."""
-    results = await _call("search", {"query": "function", "top_k": 5, "globs": ["*auth*"]})
+    results = await _call(
+        "search", {"query": "function", "top_k": 5, "globs": ["*auth*"]}
+    )
     assert len(results) >= 1
     assert all("auth.py" in r["path"] for r in results)
 
@@ -221,14 +226,18 @@ async def test_search_globs_filters_by_file(configured_server):
 @pytest.mark.asyncio
 async def test_search_globs_excludes_non_matching(configured_server):
     """globs that match nothing returns empty list."""
-    results = await _call("search", {"query": "function", "top_k": 5, "globs": ["nonexistent*"]})
+    results = await _call(
+        "search", {"query": "function", "top_k": 5, "globs": ["nonexistent*"]}
+    )
     assert results == []
 
 
 @pytest.mark.asyncio
 async def test_search_globs_wildcard_unit_name(configured_server):
     """globs=["*:validate_token"] matches by unit name."""
-    results = await _call("search", {"query": "token", "top_k": 5, "globs": ["*:validate_token"]})
+    results = await _call(
+        "search", {"query": "token", "top_k": 5, "globs": ["*:validate_token"]}
+    )
     assert len(results) == 1
     assert "validate_token" in results[0]["path"]
 
@@ -244,11 +253,14 @@ async def test_search_globs_none_returns_all(configured_server):
 @pytest.mark.asyncio
 async def test_search_globs_multiple_and(configured_server):
     """Multiple globs are AND'd — all must match."""
-    results = await _call("search", {
-        "query": "function",
-        "top_k": 5,
-        "globs": ["proj/*", "*:validate_token"],
-    })
+    results = await _call(
+        "search",
+        {
+            "query": "function",
+            "top_k": 5,
+            "globs": ["proj/*", "*:validate_token"],
+        },
+    )
     assert len(results) == 1
     assert "validate_token" in results[0]["path"]
 

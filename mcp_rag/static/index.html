@@ -296,6 +296,10 @@ pre.source-code {
       <div class="progress-bar-outer"><div id="unit-progress-bar" class="progress-bar-inner unit-progress"></div></div>
       <div id="unit-progress-label" class="progress-label">Waiting for file...</div>
     </div>
+    <div id="index-queue" style="display:none" class="mt">
+      <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.35rem">Queued:</div>
+      <div id="index-queue-items" style="display:flex;flex-wrap:wrap;gap:0.35rem"></div>
+    </div>
     <div id="index-log" class="log-box"></div>
 
     <div class="mt">
@@ -404,18 +408,12 @@ function renderFolderList(data) {
     </div>`;
   }
   for (const d of data.dirs) {
-    html += `<div class="folder-item" ondblclick="folderNavigate('${escHtml(d.path)}')" onclick="folderClick(this, '${escHtml(d.path)}')">
+    html += `<div class="folder-item" onclick="folderNavigate('${escHtml(d.path)}')">
       <span class="folder-icon">&#128193;</span>
       <span class="folder-name">${escHtml(d.name)}</span>
     </div>`;
   }
   el.innerHTML = html;
-}
-
-function folderClick(el, path) {
-  // Single click selects visually, hint to double-click
-  document.querySelectorAll('.folder-list .folder-item').forEach(i => i.style.background = '');
-  el.style.background = 'var(--surface)';
 }
 
 function folderUp() {
@@ -586,22 +584,54 @@ function _wsConnect(onopen) {
   };
 }
 
+function _enqueuePaths(paths) {
+  if (!paths.length) return;
+  document.getElementById('btn-cancel').disabled = false;
+  _indexingActive = true;
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ action: 'start', paths }));
+  } else {
+    setProgress(0, 'Connecting...');
+    _wsConnect(() => {
+      ws.send(JSON.stringify({ action: 'start', paths }));
+    });
+  }
+}
+
+function _removeQueued(path) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ action: 'remove_queued', path }));
+  }
+}
+
+function renderQueue(queue) {
+  const wrap = document.getElementById('index-queue');
+  const el = document.getElementById('index-queue-items');
+  if (!queue || !queue.length) {
+    wrap.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'block';
+  el.innerHTML = queue.map(p => {
+    const short = p.split('/').slice(-2).join('/');
+    return `<span class="path-chip" title="${escHtml(p)}">
+      ${escHtml(short)}
+      <button onclick="event.stopPropagation();_removeQueued('${escHtml(p)}')">&times;</button>
+    </span>`;
+  }).join('');
+}
+
 function startIndex() {
   const pathsStr = document.getElementById('index-paths').value.trim();
   const paths = pathsStr
     ? pathsStr.split(',').map(p => p.trim()).filter(Boolean)
     : [...selectedPaths];
   if (!paths.length) return;
-  document.getElementById('btn-start').disabled = true;
-  document.getElementById('btn-cancel').disabled = false;
   document.getElementById('index-log').innerHTML = '';
-  setProgress(0, 'Connecting...');
-  _indexingActive = true;
-
-  _wsConnect(() => {
-    ws.send(JSON.stringify({ action: 'start', paths }));
-    logMsg('Indexing started for: ' + paths.join(', '));
-  });
+  _enqueuePaths(paths);
+  logMsg('Enqueued: ' + paths.join(', '));
 }
 
 function cancelIndex() {
@@ -633,21 +663,9 @@ async function clearRepo(repoName, btn) {
 }
 
 function reindexRepo(root, btn) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    logMsg('Cannot start: indexing already in progress.');
-    return;
-  }
   btn.classList.add('spinning');
-  document.getElementById('btn-start').disabled = true;
-  document.getElementById('btn-cancel').disabled = false;
-  document.getElementById('index-log').innerHTML = '';
-  setProgress(0, 'Connecting...');
-  _indexingActive = true;
-
-  _wsConnect(() => {
-    ws.send(JSON.stringify({ action: 'start', paths: [root] }));
-    logMsg('Re-indexing: ' + root);
-  });
+  _enqueuePaths([root]);
+  logMsg('Enqueued for re-index: ' + root);
 }
 
 function handleProgress(msg) {
@@ -663,6 +681,7 @@ function handleProgress(msg) {
     _indexingActive = false;
     setProgress(100, 'Done!');
     logMsg('Indexing complete.');
+    renderQueue([]);
     if (ws) ws.close();
     return;
   }
@@ -670,6 +689,7 @@ function handleProgress(msg) {
     _indexingActive = false;
     setProgress(0, 'Cancelled');
     logMsg('Indexing cancelled.');
+    renderQueue([]);
     if (ws) ws.close();
     return;
   }
@@ -677,6 +697,12 @@ function handleProgress(msg) {
     logMsg('Cancelling...');
     return;
   }
+  if (phase === 'enqueued' || phase === 'queue_updated' || phase === 'queued') {
+    if (msg.queue) renderQueue(msg.queue);
+    return;
+  }
+
+  if (msg.queue !== undefined) renderQueue(msg.queue);
 
   const total = msg.files_total || 0;
   const done = msg.files_done || 0;

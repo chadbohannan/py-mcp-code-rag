@@ -58,13 +58,16 @@ def _get_read_conn() -> sqlite3.Connection:
 # ---------------------------------------------------------------------------
 
 
-def _launch_index_job(
-    paths: list[Path],
-    reindex: bool,
+def _launch_index_worker(
     cancel_ev: threading.Event,
     progress_cb: Callable[[dict], None],
 ) -> None:
-    """Start an index job in a daemon thread. Caller must have acquired job.start()."""
+    """Start a worker thread that drains the job queue one path at a time.
+
+    Caller must have acquired job.start() and enqueued at least one path.
+    The worker keeps running until the queue is empty, picking up paths
+    added while it was processing earlier ones.
+    """
 
     def _run() -> None:
         try:
@@ -76,16 +79,29 @@ def _launch_index_job(
             from mcp_rag.embedder import FastEmbedder
 
             embedder = FastEmbedder(model_name=_embedder.model)
-            run_index(
-                roots=[p.resolve() for p in paths],
-                db_path=_db_path,
-                embedder=embedder,
-                summarizer=summarizer,
-                reindex=reindex,
-                progress_cb=progress_cb,
-                cancel_event=cancel_ev,
-                exclude_globs=_exclude_globs,
-            )
+
+            while True:
+                path = job.dequeue()
+                if path is None:
+                    break
+                progress_cb(
+                    {
+                        "type": "status",
+                        "phase": "queued",
+                        "queue": job.pending(),
+                    }
+                )
+                run_index(
+                    roots=[path],
+                    db_path=_db_path,
+                    embedder=embedder,
+                    summarizer=summarizer,
+                    reindex=False,
+                    progress_cb=progress_cb,
+                    cancel_event=cancel_ev,
+                    exclude_globs=_exclude_globs,
+                )
+
             job.finish("ok")
         except IndexAbortError as exc:
             job.finish(str(exc))
@@ -94,6 +110,21 @@ def _launch_index_job(
             job.finish(str(exc))
 
     threading.Thread(target=_run, daemon=True).start()
+
+
+def _enqueue_and_start(
+    paths: list[Path],
+    progress_cb: Callable[[dict], None],
+) -> bool:
+    """Enqueue paths and start the worker if not already running.
+
+    Returns True if the paths were accepted (enqueued or worker started).
+    """
+    job.enqueue(paths)
+    cancel_ev = job.start()
+    if cancel_ev is not None:
+        _launch_index_worker(cancel_ev, progress_cb)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +190,6 @@ async def api_search(
         return queries.search(conn, _embedder, q, top_k=top_k, globs=globs or None)
     finally:
         conn.close()
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -383,7 +412,7 @@ async def api_ls(
     "/api/index",
     response_model=JobStatus,
     status_code=202,
-    summary="Start an indexing job (returns 409 if one is already running)",
+    summary="Enqueue paths for indexing; starts the worker if not already running",
 )
 async def api_index_start(body: IndexRequest) -> JobStatus:
     if _db_path is None or _embedder is None or _summarizer_factory is None:
@@ -396,11 +425,7 @@ async def api_index_start(body: IndexRequest) -> JobStatus:
             status_code=400, detail=f"Paths do not exist: {', '.join(bad)}"
         )
 
-    cancel_ev = job.start()
-    if cancel_ev is None:
-        raise HTTPException(status_code=409, detail="Indexing already running")
-
-    _launch_index_job(paths, body.reindex, cancel_ev, progress_cb=_broadcast)
+    _enqueue_and_start(paths, progress_cb=_broadcast)
     return JobStatus(**job.status())
 
 
@@ -438,7 +463,6 @@ def _broadcast(event: dict) -> None:
 
 
 @app.websocket("/ws/index")
-
 async def ws_index(websocket: WebSocket) -> None:
     await websocket.accept()
 
@@ -463,7 +487,6 @@ async def ws_index(websocket: WebSocket) -> None:
 
             if action == "start":
                 paths = [Path(p) for p in msg.get("paths", [])]
-                reindex = msg.get("reindex", False)
 
                 if not paths:
                     await websocket.send_json(
@@ -481,14 +504,25 @@ async def ws_index(websocket: WebSocket) -> None:
                     )
                     continue
 
-                cancel_ev = job.start()
-                if cancel_ev is None:
-                    await websocket.send_json(
-                        {"type": "error", "message": "Indexing already running."}
-                    )
-                    continue
+                _enqueue_and_start(paths, _broadcast)
+                _broadcast(
+                    {
+                        "type": "status",
+                        "phase": "enqueued",
+                        "queue": job.pending(),
+                    }
+                )
 
-                _launch_index_job(paths, reindex, cancel_ev, _broadcast)
+            if action == "remove_queued":
+                path = msg.get("path", "")
+                job.remove_pending(path)
+                _broadcast(
+                    {
+                        "type": "status",
+                        "phase": "queue_updated",
+                        "queue": job.pending(),
+                    }
+                )
 
     except Exception:
         pass

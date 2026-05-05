@@ -3,7 +3,13 @@
 import textwrap
 
 
-from mcp_rag.parsers import parse_file, parse_markdown, parse_python, parse_sql, parse_terraform
+from mcp_rag.parsers import (
+    parse_file,
+    parse_markdown,
+    parse_python,
+    parse_sql,
+    parse_terraform,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +71,9 @@ def test_parse_python_method():
                 return a + b
     """)
     units = parse_python(source)
-    methods = [u for u in units if u.unit_type == "method" and u.unit_name == "Calc:add"]
+    methods = [
+        u for u in units if u.unit_type == "method" and u.unit_name == "Calc:add"
+    ]
     assert len(methods) == 1
 
 
@@ -597,7 +605,9 @@ def test_parse_file_tf_dispatches_to_terraform_parser(tmp_path):
         encoding="utf-8",
     )
     units = parse_file(tf_file)
-    assert any(u.unit_type == "resource" and u.unit_name == "aws_instance.web" for u in units)
+    assert any(
+        u.unit_type == "resource" and u.unit_name == "aws_instance.web" for u in units
+    )
 
 
 def test_parse_file_tfvars_dispatches_to_terraform_parser(tmp_path):

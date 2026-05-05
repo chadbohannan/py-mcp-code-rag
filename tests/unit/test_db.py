@@ -187,8 +187,17 @@ def test_cascade_delete_units_on_file_delete(tmp_path):
         "INSERT INTO units (repo_id, file_id, path, content, content_md5, summary, "
         "unit_type, unit_name, char_offset) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (repo_id, file_id, "file.py:foo", "def foo(): pass", "md5", "summary",
-         "function", "foo", 0),
+        (
+            repo_id,
+            file_id,
+            "file.py:foo",
+            "def foo(): pass",
+            "md5",
+            "summary",
+            "function",
+            "foo",
+            0,
+        ),
     )
     conn.commit()
 
@@ -217,8 +226,17 @@ def test_cascade_delete_embeddings_on_unit_delete(tmp_path):
         "INSERT INTO units (repo_id, file_id, path, content, content_md5, summary, "
         "unit_type, unit_name, char_offset) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (repo_id, file_id, "file.py:bar", "def bar(): pass", "md5bar", "sumbar",
-         "function", "bar", 0),
+        (
+            repo_id,
+            file_id,
+            "file.py:bar",
+            "def bar(): pass",
+            "md5bar",
+            "sumbar",
+            "function",
+            "bar",
+            0,
+        ),
     )
     unit_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     import struct

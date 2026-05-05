@@ -15,7 +15,7 @@ import time
 import pytest
 
 from mcp_rag.db import open_db
-from mcp_rag.indexer import DEFAULT_EXCLUDE_GLOBS, IndexAbortError, run_index
+from mcp_rag.indexer import IndexAbortError, run_index
 from tests.conftest import FakeEmbedder, FakeSummarizer, make_git_project
 
 
@@ -32,8 +32,6 @@ def embedder() -> FakeEmbedder:
 @pytest.fixture
 def summarizer() -> FakeSummarizer:
     return FakeSummarizer()
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -74,28 +72,32 @@ def test_first_run_logs_new_index_message(tmp_path, embedder, summarizer):
 
 
 def test_first_run_indexes_python_file(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "service.py": textwrap.dedent("""\
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "service.py": textwrap.dedent("""\
             def process(data):
                 return data.strip()
         """),
-    })
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    paths = [
-        row[0] for row in conn.execute("SELECT path FROM units").fetchall()
-    ]
+    paths = [row[0] for row in conn.execute("SELECT path FROM units").fetchall()]
     conn.close()
 
     assert any("process" in p for p in paths)
 
 
 def test_first_run_indexes_markdown_file(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "README.md": "# Overview\n\nIntro text.\n\n# Usage\n\nUsage text.\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "README.md": "# Overview\n\nIntro text.\n\n# Usage\n\nUsage text.\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -106,24 +108,28 @@ def test_first_run_indexes_markdown_file(tmp_path, embedder, summarizer):
 
 
 def test_first_run_indexes_sql_file_under_4kb(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "query.sql": "SELECT id FROM users;",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "query.sql": "SELECT id FROM users;",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    paths = [
-        row[0] for row in conn.execute("SELECT path FROM units").fetchall()
-    ]
+    paths = [row[0] for row in conn.execute("SELECT path FROM units").fetchall()]
     conn.close()
     assert any("query.sql" in p for p in paths)
 
 
 def test_first_run_skips_binary_file(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "app.py": "def run(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "app.py": "def run(): pass\n",
+        },
+    )
     # Add binary file after init (won't be tracked but discover_files includes untracked)
     (root / "image.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 512)
     db_path = tmp_path / "index.db"
@@ -137,24 +143,28 @@ def test_first_run_skips_binary_file(tmp_path, embedder, summarizer):
 
 
 def test_first_run_skips_oversized_sql(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "big.sql": "-- x\n" * 1024,
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "big.sql": "-- x\n" * 1024,
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    unit_count = conn.execute(
-        "SELECT COUNT(*) FROM units"
-    ).fetchone()[0]
+    unit_count = conn.execute("SELECT COUNT(*) FROM units").fetchone()[0]
     conn.close()
     assert unit_count == 0
 
 
 def test_first_run_calls_summarizer_per_unit(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "def alpha(): pass\ndef beta(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "def alpha(): pass\ndef beta(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     # At least two units (alpha, beta)
@@ -162,9 +172,12 @@ def test_first_run_calls_summarizer_per_unit(tmp_path, embedder, summarizer):
 
 
 def test_first_run_stores_summary_in_units(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "def compute(): return 1\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "def compute(): return 1\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -178,9 +191,12 @@ def test_first_run_stores_summary_in_units(tmp_path, embedder, summarizer):
 
 
 def test_first_run_creates_embeddings_per_unit(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "def foo(): pass\ndef bar(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "def foo(): pass\ndef bar(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -192,9 +208,12 @@ def test_first_run_creates_embeddings_per_unit(tmp_path, embedder, summarizer):
 
 
 def test_first_run_writes_file_fingerprint(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "app.py": "def run(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "app.py": "def run(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -208,9 +227,12 @@ def test_first_run_writes_file_fingerprint(tmp_path, embedder, summarizer):
 
 
 def test_first_run_stores_repo_in_repos_table(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "app.py": "def run(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "app.py": "def run(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -223,16 +245,17 @@ def test_first_run_stores_repo_in_repos_table(tmp_path, embedder, summarizer):
 
 
 def test_first_run_qualified_path_includes_repo_name(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "myrepo", {
-        "lib.py": "def helper(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "myrepo",
+        {
+            "lib.py": "def helper(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    paths = [
-        row[0] for row in conn.execute("SELECT path FROM units").fetchall()
-    ]
+    paths = [row[0] for row in conn.execute("SELECT path FROM units").fetchall()]
     conn.close()
     assert any(p.startswith("myrepo/") for p in paths)
 
@@ -243,9 +266,12 @@ def test_first_run_qualified_path_includes_repo_name(tmp_path, embedder, summari
 
 
 def test_second_run_unchanged_file_no_resummarize(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "stable.py": "def stable(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "stable.py": "def stable(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     calls_after_first = len(summarizer.calls)
@@ -256,24 +282,23 @@ def test_second_run_unchanged_file_no_resummarize(tmp_path, embedder, summarizer
 
 
 def test_second_run_unchanged_file_same_embedding_count(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "stable.py": "def stable(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "stable.py": "def stable(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    count_after_first = conn.execute(
-        "SELECT COUNT(*) FROM embeddings"
-    ).fetchone()[0]
+    count_after_first = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
     conn.close()
 
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    count_after_second = conn.execute(
-        "SELECT COUNT(*) FROM embeddings"
-    ).fetchone()[0]
+    count_after_second = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
     conn.close()
 
     assert count_after_first == count_after_second
@@ -285,9 +310,12 @@ def test_second_run_unchanged_file_same_embedding_count(tmp_path, embedder, summ
 
 
 def test_changed_file_triggers_new_unit(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "def alpha(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "def alpha(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -302,17 +330,18 @@ def test_changed_file_triggers_new_unit(tmp_path, embedder, summarizer):
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
-    paths = [
-        row[0] for row in conn.execute("SELECT path FROM units").fetchall()
-    ]
+    paths = [row[0] for row in conn.execute("SELECT path FROM units").fetchall()]
     conn.close()
     assert any("beta" in p for p in paths)
 
 
 def test_changed_unit_content_triggers_resummarize(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "def greet(): return 'hello'\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "def greet(): return 'hello'\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
     calls_after_first = len(summarizer.calls)
@@ -333,9 +362,12 @@ def test_unchanged_unit_in_changed_file_not_resummarized(
     When a file changes, units whose content_md5 is unchanged must NOT be
     re-summarized.
     """
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "def stable(): return 1\n\ndef changing(): return 0\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "def stable(): return 1\n\ndef changing(): return 0\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -356,9 +388,12 @@ def test_unchanged_unit_in_changed_file_not_resummarized(
 
 
 def test_changed_file_updates_fingerprint(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "x = 1\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "x = 1\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -385,9 +420,12 @@ def test_changed_file_updates_fingerprint(tmp_path, embedder, summarizer):
 
 
 def test_deleted_file_cascades_to_db(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "gone.py": "def gone(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "gone.py": "def gone(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -402,9 +440,12 @@ def test_deleted_file_cascades_to_db(tmp_path, embedder, summarizer):
 
 
 def test_deleted_file_count_logged_to_stderr(tmp_path, embedder, summarizer, capsys):
-    root = make_git_project(tmp_path / "proj", {
-        "bye.py": "def bye(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "bye.py": "def bye(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -426,9 +467,12 @@ def test_single_file_indexing_is_atomic(tmp_path, embedder, monkeypatch):
     If the summarizer raises on the second unit, the DB must remain in its
     pre-run state (no partial inserts for that file).
     """
-    root = make_git_project(tmp_path / "proj", {
-        "mod.py": "def first(): pass\ndef second(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "mod.py": "def first(): pass\ndef second(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
 
     # First run succeeds
@@ -503,8 +547,7 @@ def test_multi_repo_both_indexed_into_same_db(tmp_path, embedder, summarizer):
 
     conn = open_db(db_path, embed_dim=4, embed_model="fake-model")
     repos = {
-        row[0]
-        for row in conn.execute("SELECT DISTINCT name FROM repos").fetchall()
+        row[0] for row in conn.execute("SELECT DISTINCT name FROM repos").fetchall()
     }
     conn.close()
     assert "proj_a" in repos
@@ -622,10 +665,13 @@ def test_reindex_updates_meta_embed_model(tmp_path, summarizer):
 
 
 def test_exclude_globs_skips_generated_go_files(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "main.go": "package main\n\nfunc main() {}\n",
-        "api.pb.go": "package main\n\nfunc GeneratedStub() {}\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "main.go": "package main\n\nfunc main() {}\n",
+            "api.pb.go": "package main\n\nfunc GeneratedStub() {}\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index([root], db_path=db_path, embedder=embedder, summarizer=summarizer)
 
@@ -638,13 +684,19 @@ def test_exclude_globs_skips_generated_go_files(tmp_path, embedder, summarizer):
 
 
 def test_exclude_globs_empty_includes_generated_files(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "main.go": "package main\n\nfunc main() {}\n",
-        "api.pb.go": "package main\n\nfunc GeneratedStub() {}\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "main.go": "package main\n\nfunc main() {}\n",
+            "api.pb.go": "package main\n\nfunc GeneratedStub() {}\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index(
-        [root], db_path=db_path, embedder=embedder, summarizer=summarizer,
+        [root],
+        db_path=db_path,
+        embedder=embedder,
+        summarizer=summarizer,
         exclude_globs=(),
     )
 
@@ -657,13 +709,19 @@ def test_exclude_globs_empty_includes_generated_files(tmp_path, embedder, summar
 
 
 def test_exclude_globs_custom_pattern(tmp_path, embedder, summarizer):
-    root = make_git_project(tmp_path / "proj", {
-        "app.py": "def run(): pass\n",
-        "generated_client.py": "def stub(): pass\n",
-    })
+    root = make_git_project(
+        tmp_path / "proj",
+        {
+            "app.py": "def run(): pass\n",
+            "generated_client.py": "def stub(): pass\n",
+        },
+    )
     db_path = tmp_path / "index.db"
     run_index(
-        [root], db_path=db_path, embedder=embedder, summarizer=summarizer,
+        [root],
+        db_path=db_path,
+        embedder=embedder,
+        summarizer=summarizer,
         exclude_globs=("generated_*.py",),
     )
 

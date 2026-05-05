@@ -791,8 +791,7 @@ def _index_repo(
     if exclude_globs:
         before = len(parsable_files)
         parsable_files = [
-            f for f in parsable_files
-            if not any(f.match(g) for g in exclude_globs)
+            f for f in parsable_files if not any(f.match(g) for g in exclude_globs)
         ]
         excluded = before - len(parsable_files)
         if excluded:

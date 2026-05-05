@@ -4,8 +4,6 @@ These tests use real filesystem I/O (tmp_path) but no database or network.
 Git-based tests require `git` to be in PATH.
 """
 
-from pathlib import Path
-
 import pytest
 
 from mcp_rag.discovery import discover_files, discover_git_repos
@@ -127,17 +125,20 @@ def test_discover_files_non_git_excludes_node_modules(tmp_path):
     assert (nm / "lib.js") not in files
 
 
-@pytest.mark.parametrize("dirname", [
-    ".terraform",
-    ".webpack",
-    ".cache",
-    ".npm",
-    "bower_components",
-    "coverage",
-    "lib-cov",
-    ".Trash",
-    ".Trashes",
-])
+@pytest.mark.parametrize(
+    "dirname",
+    [
+        ".terraform",
+        ".webpack",
+        ".cache",
+        ".npm",
+        "bower_components",
+        "coverage",
+        "lib-cov",
+        ".Trash",
+        ".Trashes",
+    ],
+)
 def test_discover_files_non_git_excludes_vendor_dirs(tmp_path, dirname):
     excluded = tmp_path / dirname
     excluded.mkdir()

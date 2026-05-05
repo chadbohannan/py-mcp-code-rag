@@ -53,7 +53,11 @@ def test_parse_java_constructor():
         }
     """)
     units = parse_java(source)
-    ctor = next(u for u in units if u.unit_type == "method" and "Point:Point" in (u.unit_name or ""))
+    ctor = next(
+        u
+        for u in units
+        if u.unit_type == "method" and "Point:Point" in (u.unit_name or "")
+    )
     assert ctor is not None
 
 
@@ -107,7 +111,9 @@ def test_parse_java_enum_with_method():
     """)
     units = parse_java(source)
     assert any(u.unit_type == "enum" and u.unit_name == "Planet" for u in units)
-    assert any(u.unit_type == "method" and u.unit_name == "Planet:getMass" for u in units)
+    assert any(
+        u.unit_type == "method" and u.unit_name == "Planet:getMass" for u in units
+    )
 
 
 # ---------------------------------------------------------------------------

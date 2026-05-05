@@ -83,3 +83,4 @@ class JobStatus(BaseModel):
     running: bool
     last_result: str | None = None
     last_finished_at: str | None = None
+    queue: list[str] = []

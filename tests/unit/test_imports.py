@@ -1,7 +1,5 @@
 """Unit tests for import extraction and resolution."""
 
-from pathlib import Path
-
 from mcp_rag.imports import (
     _extract_python_imports,
     _extract_js_ts_imports,
@@ -96,9 +94,7 @@ def test_js_bare_import():
 
 def test_js_multiple_imports():
     source = (
-        "import { a } from './a';\n"
-        "import b from './b';\n"
-        "const c = require('./c');\n"
+        "import { a } from './a';\nimport b from './b';\nconst c = require('./c');\n"
     )
     result = _extract_js_ts_imports(source)
     assert len(result) == 3
@@ -150,7 +146,7 @@ def test_c_quoted_include():
 
 
 def test_c_no_system_includes():
-    source = '#include <stdlib.h>\n'
+    source = "#include <stdlib.h>\n"
     assert _extract_c_cpp_imports(source) == []
 
 
@@ -201,14 +197,18 @@ def test_extract_and_resolve_python(tmp_path):
     source_file.write_text("from lib.utils import helper\n")
 
     repo_files = {target.resolve(), utils.resolve(), source_file.resolve()}
-    result = extract_and_resolve_imports(source_file, source_file.read_text(), tmp_path, repo_files)
+    result = extract_and_resolve_imports(
+        source_file, source_file.read_text(), tmp_path, repo_files
+    )
     assert utils.resolve() in result
 
 
 def test_extract_and_resolve_unsupported_extension(tmp_path):
     source_file = tmp_path / "data.sql"
     source_file.write_text("SELECT 1;")
-    result = extract_and_resolve_imports(source_file, source_file.read_text(), tmp_path, set())
+    result = extract_and_resolve_imports(
+        source_file, source_file.read_text(), tmp_path, set()
+    )
     assert result == []
 
 

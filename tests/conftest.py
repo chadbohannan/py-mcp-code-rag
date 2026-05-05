@@ -73,22 +73,31 @@ def git_init(path: Path) -> None:
     subprocess.run(["git", "init", str(path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
-        check=True, capture_output=True, cwd=str(path),
+        check=True,
+        capture_output=True,
+        cwd=str(path),
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        check=True, capture_output=True, cwd=str(path),
+        check=True,
+        capture_output=True,
+        cwd=str(path),
     )
 
 
 def git_add_commit(path: Path, message: str = "init") -> None:
     """Stage all files and commit in the repo at *path*."""
     subprocess.run(
-        ["git", "add", "."], check=True, capture_output=True, cwd=str(path),
+        ["git", "add", "."],
+        check=True,
+        capture_output=True,
+        cwd=str(path),
     )
     subprocess.run(
         ["git", "commit", "-m", message, "--allow-empty"],
-        check=True, capture_output=True, cwd=str(path),
+        check=True,
+        capture_output=True,
+        cwd=str(path),
     )
 
 

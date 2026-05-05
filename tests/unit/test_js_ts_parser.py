@@ -88,7 +88,11 @@ def test_parse_js_class_with_methods():
     types = {u.unit_type for u in units}
     assert "class" in types
     assert "method" in types
-    method = next(u for u in units if u.unit_type == "method" and "increment" in (u.unit_name or ""))
+    method = next(
+        u
+        for u in units
+        if u.unit_type == "method" and "increment" in (u.unit_name or "")
+    )
     assert method.unit_name == "Counter:increment"
 
 

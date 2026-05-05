@@ -118,7 +118,10 @@ def parse_markdown(source: str) -> list[SemanticUnit]:
                 fence_marker = "```"
             elif stripped_line.startswith("~~~"):
                 fence_marker = "~~~"
-        elif stripped_line.startswith(fence_marker) and stripped_line.rstrip(fence_marker[0]) == "":
+        elif (
+            stripped_line.startswith(fence_marker)
+            and stripped_line.rstrip(fence_marker[0]) == ""
+        ):
             fence_marker = None
         if line.startswith("#") and fence_marker is None:
             # Flush previous section

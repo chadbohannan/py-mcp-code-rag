@@ -23,9 +23,7 @@ _FILE = _ROOT / "mod.py"
 # ---------------------------------------------------------------------------
 
 
-def _stored(
-    id: int, path: str, content: str, char_offset: int
-) -> StoredUnit:
+def _stored(id: int, path: str, content: str, char_offset: int) -> StoredUnit:
     return StoredUnit(
         id=id,
         path=path,

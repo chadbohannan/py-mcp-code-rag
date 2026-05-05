@@ -1,7 +1,6 @@
 """Unit tests for the Go parser (tree-sitter implementation) in mcp_rag.parsers."""
 
 import hashlib
-import warnings
 
 import pytest
 
