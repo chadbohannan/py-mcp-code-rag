@@ -426,6 +426,13 @@ async def api_index_start(body: IndexRequest) -> JobStatus:
         )
 
     _enqueue_and_start(paths, progress_cb=_broadcast)
+    _broadcast(
+        {
+            "type": "status",
+            "phase": "enqueued",
+            "queue": job.pending(),
+        }
+    )
     return JobStatus(**job.status())
 
 

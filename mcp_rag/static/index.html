@@ -462,19 +462,21 @@ function renderSelectedPaths() {
 // Load initial folder on page load
 folderNavigate('');
 
-// Reconnect to any in-progress indexing job on page load.
+// Open the WebSocket eagerly so we receive progress for jobs started by
+// agents via the REST API, even if no job was running at page load.
 (async () => {
   try {
-    const res = await fetch('/api/status');
+    const res = await fetch('/api/index/status');
     const data = await res.json();
-    if (data._indexing) {
+    if (data.running) {
       _indexingActive = true;
       document.getElementById('btn-start').disabled = true;
       document.getElementById('btn-cancel').disabled = false;
       setProgress(0, 'Reconnecting to indexing job...');
-      _wsConnect(() => logMsg('Reconnected to indexing job.'));
     }
+    if (data.queue && data.queue.length) renderQueue(data.queue);
   } catch(e) { /* ignore */ }
+  _wsConnect(() => {});
 })();
 
 // ---------------------------------------------------------------------------
@@ -575,6 +577,9 @@ function _wsConnect(onopen) {
       document.getElementById('btn-start').disabled = false;
       document.getElementById('btn-cancel').disabled = true;
       loadStatus();
+      // Stay connected so we receive events for jobs started by agents
+      // through the REST API while the user is idle.
+      setTimeout(() => _wsConnect(() => {}), 3000);
     }
   };
 
@@ -699,6 +704,12 @@ function handleProgress(msg) {
   }
   if (phase === 'enqueued' || phase === 'queue_updated' || phase === 'queued') {
     if (msg.queue) renderQueue(msg.queue);
+    // An agent may have started a job via the REST API; reflect it in the UI.
+    if ((phase === 'enqueued' || phase === 'queued') && !_indexingActive) {
+      _indexingActive = true;
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-cancel').disabled = false;
+    }
     return;
   }
 
