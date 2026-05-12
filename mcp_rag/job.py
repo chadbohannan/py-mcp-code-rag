@@ -17,6 +17,7 @@ _cancel: threading.Event | None = None
 _last_result: str | None = None
 _last_finished_at: str | None = None
 _queue: list[Path] = []
+_current: Path | None = None
 
 
 def enqueue(paths: list[Path]) -> bool:
@@ -34,9 +35,21 @@ def enqueue(paths: list[Path]) -> bool:
 
 
 def dequeue() -> Path | None:
-    """Pop the next path from the queue, or None if empty."""
+    """Pop the next path from the queue, or None if empty.
+
+    Also records the popped path as the currently-processing entry, which is
+    cleared on the next dequeue or by `finish()`.
+    """
+    global _current
     with _lock:
-        return _queue.pop(0) if _queue else None
+        _current = _queue.pop(0) if _queue else None
+        return _current
+
+
+def current() -> str | None:
+    """Return the path currently being processed, or None."""
+    with _lock:
+        return str(_current) if _current is not None else None
 
 
 def pending() -> list[str]:
@@ -72,10 +85,11 @@ def start() -> threading.Event | None:
 
 
 def finish(result: str) -> None:
-    global _running, _cancel, _last_result, _last_finished_at
+    global _running, _cancel, _current, _last_result, _last_finished_at
     with _lock:
         _running = False
         _cancel = None
+        _current = None
         _last_result = result
         _last_finished_at = datetime.now(timezone.utc).isoformat()
 
@@ -97,4 +111,5 @@ def status() -> dict:
             "last_result": _last_result,
             "last_finished_at": _last_finished_at,
             "queue": [str(p) for p in _queue],
+            "current": str(_current) if _current is not None else None,
         }

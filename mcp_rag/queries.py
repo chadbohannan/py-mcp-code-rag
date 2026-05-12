@@ -112,6 +112,72 @@ def list_repos(conn: sqlite3.Connection) -> list[dict]:
     return repos
 
 
+def repo_staleness(conn: sqlite3.Connection) -> list[dict]:
+    """For each indexed repo, compare last_indexed_at with the git HEAD commit time.
+
+    Returns one entry per repo with `stale=True` when the repo has commits
+    newer than the last index run, when the repo was never indexed, or when
+    the git root is missing/unreadable.
+    """
+    import subprocess
+    from datetime import datetime
+
+    rows = conn.execute("""
+        SELECT r.name, r.root, MAX(f.indexed_at) AS last_indexed_at
+        FROM repos r
+        LEFT JOIN files f ON f.repo_id = r.id
+        GROUP BY r.id
+        ORDER BY r.name
+    """).fetchall()
+
+    results: list[dict] = []
+    for name, root, last_indexed_at in rows:
+        last_commit_at: str | None = None
+        stale = False
+        reason = ""
+        try:
+            r = subprocess.run(
+                ["git", "log", "-1", "--format=%cI", "HEAD"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if r.returncode != 0:
+                stale = True
+                reason = "git unavailable"
+            else:
+                last_commit_at = r.stdout.strip() or None
+                if last_indexed_at is None:
+                    stale = True
+                    reason = "never indexed"
+                elif last_commit_at:
+                    try:
+                        idx_dt = datetime.fromisoformat(last_indexed_at)
+                        commit_dt = datetime.fromisoformat(last_commit_at)
+                        if commit_dt > idx_dt:
+                            stale = True
+                            reason = "new commits since last index"
+                    except ValueError:
+                        stale = True
+                        reason = "unparseable timestamp"
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+            stale = True
+            reason = f"git error: {exc}"
+
+        results.append(
+            {
+                "repo": name,
+                "root": root,
+                "last_indexed_at": last_indexed_at,
+                "last_commit_at": last_commit_at,
+                "stale": stale,
+                "reason": reason,
+            }
+        )
+    return results
+
+
 def index_status(conn: sqlite3.Connection) -> dict:
     rows = conn.execute("""
         SELECT
