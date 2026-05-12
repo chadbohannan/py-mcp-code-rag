@@ -79,8 +79,18 @@ class IndexRequest(BaseModel):
     reindex: bool = False
 
 
+class RepoStaleness(BaseModel):
+    repo: str
+    root: str
+    last_indexed_at: str | None = None
+    last_commit_at: str | None = None
+    stale: bool
+    reason: str
+
+
 class JobStatus(BaseModel):
     running: bool
     last_result: str | None = None
     last_finished_at: str | None = None
     queue: list[str] = []
+    current: str | None = None

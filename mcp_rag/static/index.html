@@ -217,7 +217,20 @@ pre.source-code {
   display: inline-flex; align-items: center; gap: 0.35rem;
   background: var(--accent-dim); color: #fff; padding: 0.15rem 0.5rem;
   border-radius: 10px; font-family: var(--mono); font-size: 0.75rem;
+  border: 1px solid transparent;
 }
+.path-chip.chip-staged { background: transparent; color: var(--text); border-color: var(--border); }
+.path-chip.chip-staged button { color: var(--text-muted); }
+.path-chip.chip-queued { background: var(--accent-dim); color: #fff; }
+.path-chip.chip-active {
+  background: #1e3a1e; color: var(--green); border-color: var(--green);
+}
+.path-chip.chip-active .spinner {
+  width: 0.7rem; height: 0.7rem; border: 2px solid var(--green);
+  border-top-color: transparent; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .path-chip button {
   background: none; border: none; color: #fff; cursor: pointer;
   font-size: 0.85rem; padding: 0; line-height: 1; opacity: 0.7;
@@ -259,6 +272,35 @@ pre.source-code {
   padding: 0.35rem 1rem; font-size: 0.75rem; color: var(--text-muted);
   display: flex; justify-content: space-between;
 }
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  width: min(620px, 92vw); max-height: 86vh; display: flex; flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.modal-header {
+  padding: 0.85rem 1rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-header h3 { font-size: 0.95rem; font-weight: 600; }
+.modal-body { padding: 0.75rem 1rem; overflow-y: auto; flex: 1; }
+.modal-footer {
+  padding: 0.75rem 1rem; border-top: 1px solid var(--border);
+  display: flex; gap: 0.5rem; justify-content: flex-end;
+}
+.modal .stale-row {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.modal .stale-row:last-child { border-bottom: none; }
+.modal .stale-row label { flex: 1; cursor: pointer; }
+.modal .stale-row .reason { color: var(--yellow); font-size: 0.75rem; }
+.modal .stale-row .ts { color: var(--text-muted); font-size: 0.72rem; font-family: var(--mono); }
 </style>
 </head>
 <body>
@@ -296,17 +338,21 @@ pre.source-code {
       <div class="progress-bar-outer"><div id="unit-progress-bar" class="progress-bar-inner unit-progress"></div></div>
       <div id="unit-progress-label" class="progress-label">Waiting for file...</div>
     </div>
-    <div id="index-queue" style="display:none" class="mt">
-      <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.35rem">Queued:</div>
-      <div id="index-queue-items" style="display:flex;flex-wrap:wrap;gap:0.35rem"></div>
-    </div>
     <div id="index-log" class="log-box"></div>
 
     <div class="mt">
-      <h3 style="font-size:0.9rem;margin-bottom:0.5rem">Index Status</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <h3 style="font-size:0.9rem">Index Status</h3>
+        <button onclick="checkStaleRepos(this)" style="font-size:0.78rem;padding:0.35rem 0.7rem">
+          Check for updates
+        </button>
+      </div>
       <div id="index-status" class="muted">Loading...</div>
     </div>
   </div>
+
+  <!-- STALE REPOS MODAL -->
+  <div id="stale-modal" style="display:none"></div>
 
   <!-- SEARCH TAB -->
   <div id="tab-search" class="tab-panel">
@@ -361,7 +407,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // Folder picker
 // ---------------------------------------------------------------------------
 let currentFolder = '';
-let selectedPaths = [];
+// Unified pill state — one render pipeline for selection through completion.
+// Order in display: active (1) -> queued (server) -> staged (local).
+let stagedPaths = [];     // selected, not yet sent to server
+let queuedPaths = [];     // server queue, from WS / status events
+let activePath = null;    // currently being indexed
 let browsePath = '';
 let _suppressHistory = false;
 
@@ -399,7 +449,7 @@ function renderFolderList(data) {
   let html = '';
   // "Select this folder" row when it's a git repo
   if (data.is_git) {
-    const alreadySelected = selectedPaths.includes(data.path);
+    const alreadySelected = _pathInPills(data.path);
     html += `<div class="folder-item" onclick="selectPath('${escHtml(data.path)}')" style="color:var(--green)">
       <span class="folder-icon">+</span>
       <span class="folder-name">Select this repo</span>
@@ -427,54 +477,78 @@ function folderGoHome() {
 }
 
 function selectPath(path) {
-  if (selectedPaths.includes(path)) return;
-  selectedPaths.push(path);
-  renderSelectedPaths();
-  // Also update the text input
-  document.getElementById('index-paths').value = selectedPaths.join(', ');
-  // Re-render folder list to show "added" state
+  if (_pathInPills(path)) return;
+  stagedPaths.push(path);
+  renderPills();
+  document.getElementById('index-paths').value = stagedPaths.join(', ');
   folderNavigate(currentFolder);
 }
 
 function removePath(path) {
-  selectedPaths = selectedPaths.filter(p => p !== path);
-  renderSelectedPaths();
-  document.getElementById('index-paths').value = selectedPaths.join(', ');
-  // Re-render folder list
+  stagedPaths = stagedPaths.filter(p => p !== path);
+  renderPills();
+  document.getElementById('index-paths').value = stagedPaths.join(', ');
   if (currentFolder) folderNavigate(currentFolder);
 }
 
-function renderSelectedPaths() {
+function _pathInPills(path) {
+  return stagedPaths.includes(path) || queuedPaths.includes(path) || activePath === path;
+}
+
+function _shortPath(p) {
+  return p.split('/').slice(-2).join('/');
+}
+
+function syncJobButtons() {
+  // Cancel reflects server state: enabled whenever there is anything to stop.
+  // Start stays enabled so the user can keep adding to the queue mid-run.
+  const busy = _indexingActive || activePath !== null || queuedPaths.length > 0;
+  document.getElementById('btn-cancel').disabled = !busy;
+  document.getElementById('btn-start').disabled = false;
+}
+
+function renderPills() {
   const el = document.getElementById('selected-paths');
-  if (!selectedPaths.length) {
-    el.innerHTML = '';
-    return;
+  const parts = [];
+  if (activePath) {
+    parts.push(`<span class="path-chip chip-active" title="Indexing: ${escHtml(activePath)}">
+      <span class="spinner"></span>${escHtml(_shortPath(activePath))}
+    </span>`);
   }
-  el.innerHTML = selectedPaths.map(p => {
-    const short = p.split('/').slice(-2).join('/');
-    return `<span class="path-chip" title="${escHtml(p)}">
-      ${escHtml(short)}
+  for (const p of queuedPaths) {
+    parts.push(`<span class="path-chip chip-queued" title="Queued: ${escHtml(p)}">
+      ${escHtml(_shortPath(p))}
+      <button onclick="event.stopPropagation();_removeQueued('${escHtml(p)}')">&times;</button>
+    </span>`);
+  }
+  for (const p of stagedPaths) {
+    parts.push(`<span class="path-chip chip-staged" title="Staged: ${escHtml(p)}">
+      ${escHtml(_shortPath(p))}
       <button onclick="event.stopPropagation();removePath('${escHtml(p)}')">&times;</button>
-    </span>`;
-  }).join('');
+    </span>`);
+  }
+  el.innerHTML = parts.join('');
 }
 
 // Load initial folder on page load
 folderNavigate('');
 
-// Reconnect to any in-progress indexing job on page load.
+// Open the WebSocket eagerly so we receive progress for jobs started by
+// agents via the REST API, even if no job was running at page load.
 (async () => {
   try {
-    const res = await fetch('/api/status');
+    const res = await fetch('/api/index/status');
     const data = await res.json();
-    if (data._indexing) {
+    if (data.running) {
       _indexingActive = true;
-      document.getElementById('btn-start').disabled = true;
-      document.getElementById('btn-cancel').disabled = false;
       setProgress(0, 'Reconnecting to indexing job...');
-      _wsConnect(() => logMsg('Reconnected to indexing job.'));
     }
+    queuedPaths = data.queue || [];
+    activePath = data.current || null;
+    renderPills();
+    syncJobButtons();
   } catch(e) { /* ignore */ }
+  _wsConnect(() => {});
 })();
 
 // ---------------------------------------------------------------------------
@@ -572,9 +646,11 @@ function _wsConnect(onopen) {
       // Job is still running server-side; reconnect after a short delay.
       setTimeout(() => _wsConnect(() => logMsg('Reconnected to indexing job.')), 1500);
     } else {
-      document.getElementById('btn-start').disabled = false;
-      document.getElementById('btn-cancel').disabled = true;
+      syncJobButtons();
       loadStatus();
+      // Stay connected so we receive events for jobs started by agents
+      // through the REST API while the user is idle.
+      setTimeout(() => _wsConnect(() => {}), 3000);
     }
   };
 
@@ -586,8 +662,8 @@ function _wsConnect(onopen) {
 
 function _enqueuePaths(paths) {
   if (!paths.length) return;
-  document.getElementById('btn-cancel').disabled = false;
   _indexingActive = true;
+  syncJobButtons();
 
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ action: 'start', paths }));
@@ -605,31 +681,22 @@ function _removeQueued(path) {
   }
 }
 
-function renderQueue(queue) {
-  const wrap = document.getElementById('index-queue');
-  const el = document.getElementById('index-queue-items');
-  if (!queue || !queue.length) {
-    wrap.style.display = 'none';
-    el.innerHTML = '';
-    return;
-  }
-  wrap.style.display = 'block';
-  el.innerHTML = queue.map(p => {
-    const short = p.split('/').slice(-2).join('/');
-    return `<span class="path-chip" title="${escHtml(p)}">
-      ${escHtml(short)}
-      <button onclick="event.stopPropagation();_removeQueued('${escHtml(p)}')">&times;</button>
-    </span>`;
-  }).join('');
-}
-
 function startIndex() {
   const pathsStr = document.getElementById('index-paths').value.trim();
   const paths = pathsStr
     ? pathsStr.split(',').map(p => p.trim()).filter(Boolean)
-    : [...selectedPaths];
+    : [...stagedPaths];
   if (!paths.length) return;
   document.getElementById('index-log').innerHTML = '';
+  // Clear staging — these paths are now the server's responsibility.
+  // The pending broadcast will populate queuedPaths shortly; meanwhile
+  // promote them optimistically so the user sees no flicker.
+  stagedPaths = stagedPaths.filter(p => !paths.includes(p));
+  for (const p of paths) {
+    if (!queuedPaths.includes(p) && activePath !== p) queuedPaths.push(p);
+  }
+  document.getElementById('index-paths').value = stagedPaths.join(', ');
+  renderPills();
   _enqueuePaths(paths);
   logMsg('Enqueued: ' + paths.join(', '));
 }
@@ -668,6 +735,81 @@ function reindexRepo(root, btn) {
   logMsg('Enqueued for re-index: ' + root);
 }
 
+async function checkStaleRepos(btn) {
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = 'Checking...';
+  try {
+    const res = await fetch('/api/repos/staleness');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const stale = data.filter(r => r.stale);
+    showStaleModal(stale, data.length);
+  } catch (e) {
+    logMsg('Staleness check failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+function showStaleModal(stale, total) {
+  const modal = document.getElementById('stale-modal');
+  const fmt = ts => ts ? new Date(ts).toLocaleString() : 'never';
+
+  const body = stale.length
+    ? stale.map((r, i) => `
+        <div class="stale-row">
+          <input type="checkbox" id="stale-${i}" data-root="${escHtml(r.root)}" checked>
+          <label for="stale-${i}">
+            <div><span class="badge badge-blue">${escHtml(r.repo)}</span>
+              <span class="reason">${escHtml(r.reason)}</span></div>
+            <div class="ts">indexed: ${fmt(r.last_indexed_at)} &nbsp; head: ${fmt(r.last_commit_at)}</div>
+          </label>
+        </div>`).join('')
+    : `<div class="muted" style="padding:1rem;text-align:center">
+         All ${total} indexed repo${total === 1 ? '' : 's'} ${total === 1 ? 'is' : 'are'} up to date.
+       </div>`;
+
+  modal.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeStaleModal()">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Repos behind git HEAD (${stale.length} of ${total})</h3>
+          <button onclick="closeStaleModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.2rem">&times;</button>
+        </div>
+        <div class="modal-body">${body}</div>
+        <div class="modal-footer">
+          <button onclick="closeStaleModal()">Close</button>
+          ${stale.length ? `
+            <button onclick="staleSelectAll(true)" style="font-size:0.78rem">Select all</button>
+            <button onclick="staleSelectAll(false)" style="font-size:0.78rem">Clear</button>
+            <button class="btn-primary" onclick="enqueueStaleSelected()">Re-index selected</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  modal.style.display = 'block';
+}
+
+function closeStaleModal() {
+  const modal = document.getElementById('stale-modal');
+  modal.style.display = 'none';
+  modal.innerHTML = '';
+}
+
+function staleSelectAll(checked) {
+  document.querySelectorAll('#stale-modal input[type=checkbox]').forEach(cb => cb.checked = checked);
+}
+
+function enqueueStaleSelected() {
+  const roots = [...document.querySelectorAll('#stale-modal input[type=checkbox]:checked')]
+    .map(cb => cb.dataset.root);
+  if (!roots.length) { closeStaleModal(); return; }
+  _enqueuePaths(roots);
+  logMsg('Enqueued ' + roots.length + ' stale repo' + (roots.length === 1 ? '' : 's') + ' for re-index.');
+  closeStaleModal();
+}
+
 function handleProgress(msg) {
   if (msg.type === 'error') {
     logMsg('ERROR: ' + msg.message);
@@ -677,19 +819,28 @@ function handleProgress(msg) {
   if (msg.type !== 'status') return;
 
   const phase = msg.phase;
+  if (msg.queue !== undefined) queuedPaths = msg.queue;
+  if (msg.current !== undefined) activePath = msg.current;
+
   if (phase === 'done') {
     _indexingActive = false;
+    activePath = null;
+    queuedPaths = [];
+    renderPills();
+    syncJobButtons();
     setProgress(100, 'Done!');
     logMsg('Indexing complete.');
-    renderQueue([]);
     if (ws) ws.close();
     return;
   }
   if (phase === 'cancelled') {
     _indexingActive = false;
+    activePath = null;
+    queuedPaths = [];
+    renderPills();
+    syncJobButtons();
     setProgress(0, 'Cancelled');
     logMsg('Indexing cancelled.');
-    renderQueue([]);
     if (ws) ws.close();
     return;
   }
@@ -697,12 +848,23 @@ function handleProgress(msg) {
     logMsg('Cancelling...');
     return;
   }
+  if (phase === 'processing') {
+    renderPills();
+    if (!_indexingActive) _indexingActive = true;
+    syncJobButtons();
+    return;
+  }
   if (phase === 'enqueued' || phase === 'queue_updated' || phase === 'queued') {
-    if (msg.queue) renderQueue(msg.queue);
+    renderPills();
+    if ((phase === 'enqueued' || phase === 'queued') && !_indexingActive) {
+      _indexingActive = true;
+    }
+    syncJobButtons();
     return;
   }
 
-  if (msg.queue !== undefined) renderQueue(msg.queue);
+  renderPills();
+  syncJobButtons();
 
   const total = msg.files_total || 0;
   const done = msg.files_done || 0;

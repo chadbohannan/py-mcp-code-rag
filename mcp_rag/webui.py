@@ -23,6 +23,7 @@ from mcp_rag.api_models import (
     JobStatus,
     LsResponse,
     RepoEntry,
+    RepoStaleness,
     SearchResult,
     UnitDetail,
     UnitSummary,
@@ -80,6 +81,16 @@ def _launch_index_worker(
 
             embedder = FastEmbedder(model_name=_embedder.model)
 
+            # `run_index` emits its own "done" event when each root finishes.
+            # That signals per-root completion, not whole-job completion — so
+            # rewrite it before forwarding so the UI keeps the remaining
+            # queue/active state rendered. The outer "done" is broadcast by
+            # this worker only when the queue actually drains.
+            def _filtered_cb(event: dict) -> None:
+                if event.get("type") == "status" and event.get("phase") == "done":
+                    event = {**event, "phase": "root_done"}
+                progress_cb(event)
+
             while True:
                 path = job.dequeue()
                 if path is None:
@@ -87,7 +98,8 @@ def _launch_index_worker(
                 progress_cb(
                     {
                         "type": "status",
-                        "phase": "queued",
+                        "phase": "processing",
+                        "current": str(path),
                         "queue": job.pending(),
                     }
                 )
@@ -97,11 +109,19 @@ def _launch_index_worker(
                     embedder=embedder,
                     summarizer=summarizer,
                     reindex=False,
-                    progress_cb=progress_cb,
+                    progress_cb=_filtered_cb,
                     cancel_event=cancel_ev,
                     exclude_globs=_exclude_globs,
                 )
 
+            progress_cb(
+                {
+                    "type": "status",
+                    "phase": "done",
+                    "queue": [],
+                    "current": None,
+                }
+            )
             job.finish("ok")
         except IndexAbortError as exc:
             job.finish(str(exc))
@@ -313,6 +333,22 @@ async def api_repos() -> list[RepoEntry]:
 
 
 @app.get(
+    "/api/repos/staleness",
+    response_model=list[RepoStaleness],
+    summary="Compare each indexed repo's last_indexed_at against its git HEAD commit time",
+)
+async def api_repos_staleness() -> list[RepoStaleness]:
+    if _db_path is None or _embedder is None:
+        return []
+    conn = _get_read_conn()
+    try:
+        rows = queries.repo_staleness(conn)
+    finally:
+        conn.close()
+    return [RepoStaleness(**r) for r in rows]
+
+
+@app.get(
     "/api/status",
     response_model=IndexStatus,
     summary="Index health: per-repo file/unit counts and last-indexed timestamp",
@@ -426,6 +462,13 @@ async def api_index_start(body: IndexRequest) -> JobStatus:
         )
 
     _enqueue_and_start(paths, progress_cb=_broadcast)
+    _broadcast(
+        {
+            "type": "status",
+            "phase": "enqueued",
+            "queue": job.pending(),
+        }
+    )
     return JobStatus(**job.status())
 
 

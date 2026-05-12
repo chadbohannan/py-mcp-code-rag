@@ -47,6 +47,26 @@ Browse the index tree: repos → dirs → files → units
 
 ---
 
+## `POST /api/clear_repo`
+
+Remove all indexed data for a repository by name
+
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `repo` | string | yes | Repository name to clear |
+
+
+**Response:**
+```
+{
+}
+```
+
+---
+
 ## `GET /api/files`
 
 List indexed files with optional glob filter
@@ -82,6 +102,25 @@ List all indexed repositories
   root: string,
   added_at: string,
   description: string,
+}]
+```
+
+---
+
+## `GET /api/repos/staleness`
+
+Compare each indexed repo's last_indexed_at against its git HEAD commit time
+
+
+**Response:**
+```
+[{
+  repo: string,
+  root: string,
+  last_indexed_at?: string | null,
+  last_commit_at?: string | null,
+  stale: boolean,
+  reason: string,
 }]
 ```
 
