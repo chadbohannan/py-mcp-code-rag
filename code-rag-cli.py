@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -64,11 +66,22 @@ def _post(
     return _request(_url(base, path, params), json.dumps(body or {}).encode())
 
 
+def _emit(data: Any, args: argparse.Namespace) -> bool:
+    """If --json is set, dump raw JSON and return True; else return False."""
+    if args.json_output:
+        print(json.dumps(data, indent=2))
+        return True
+    return False
+
+
 def _cmd_search(args: argparse.Namespace, base: str) -> None:
     params: dict = {"q": args.query, "top_k": args.top_k}
     if args.globs:
         params["globs"] = args.globs
-    for r in _get(base, "/api/search", params):
+    data = _get(base, "/api/search", params)
+    if _emit(data, args):
+        return
+    for r in data:
         print(f"{r['score']:.4f}\t{r['path']}")
         print(f"  {r['summary']}")
 
@@ -82,11 +95,17 @@ def _print_unit(r: dict) -> None:
 
 
 def _cmd_unit(args: argparse.Namespace, base: str) -> None:
-    _print_unit(_get(base, "/api/unit", {"path": args.path}))
+    data = _get(base, "/api/unit", {"path": args.path})
+    if _emit(data, args):
+        return
+    _print_unit(data)
 
 
 def _cmd_fetch(args: argparse.Namespace, base: str) -> None:
-    for i, r in enumerate(_post(base, "/api/units/fetch", {"paths": args.paths})):
+    data = _post(base, "/api/units/fetch", {"paths": args.paths})
+    if _emit(data, args):
+        return
+    for i, r in enumerate(data):
         if i > 0:
             print("\n---\n")
         _print_unit(r)
@@ -96,7 +115,10 @@ def _cmd_units(args: argparse.Namespace, base: str) -> None:
     params: dict = {"limit": args.limit}
     if args.globs:
         params["globs"] = args.globs
-    for r in _get(base, "/api/units", params):
+    data = _get(base, "/api/units", params)
+    if _emit(data, args):
+        return
+    for r in data:
         print(f"{r['path']}\t{r['summary']}")
 
 
@@ -104,17 +126,25 @@ def _cmd_files(args: argparse.Namespace, base: str) -> None:
     params: dict = {}
     if args.globs:
         params["globs"] = args.globs
-    for f in _get(base, "/api/files", params):
+    data = _get(base, "/api/files", params)
+    if _emit(data, args):
+        return
+    for f in data:
         print(f"{f['repo']}/{f['path']}\t{f['indexed_at']}")
 
 
-def _cmd_repos(_args: argparse.Namespace, base: str) -> None:
-    for r in _get(base, "/api/repos"):
+def _cmd_repos(args: argparse.Namespace, base: str) -> None:
+    data = _get(base, "/api/repos")
+    if _emit(data, args):
+        return
+    for r in data:
         print(f"{r['name']}\t{r['root']}\t{r['added_at']}")
 
 
-def _cmd_status(_args: argparse.Namespace, base: str) -> None:
+def _cmd_status(args: argparse.Namespace, base: str) -> None:
     data = _get(base, "/api/status")
+    if _emit(data, args):
+        return
     print(f"total_units: {data['total_units']}")
     print(f"embed_count: {data['embed_count']}")
     for r in data["repos"]:
@@ -125,7 +155,10 @@ def _cmd_status(_args: argparse.Namespace, base: str) -> None:
 
 
 def _cmd_browse(args: argparse.Namespace, base: str) -> None:
-    for n in _get(base, "/api/browse", {"path": args.path}):
+    data = _get(base, "/api/browse", {"path": args.path})
+    if _emit(data, args):
+        return
+    for n in data:
         parts = [n["type"], n["name"], n["path"]]
         if n.get("unit_type"):
             parts.append(n["unit_type"])
@@ -135,25 +168,70 @@ def _cmd_browse(args: argparse.Namespace, base: str) -> None:
 
 
 def _cmd_index_start(args: argparse.Namespace, base: str) -> None:
-    _print_job_status(
-        _post(base, "/api/index", {"paths": args.paths, "reindex": args.reindex})
-    )
+    status = _post(base, "/api/index", {"paths": args.paths, "reindex": args.reindex})
+    if not args.wait:
+        if _emit(status, args):
+            return
+        _print_job_status(status)
+        return
+    while status.get("running"):
+        time.sleep(2)
+        sys.stderr.write(".")
+        sys.stderr.flush()
+        status = _get(base, "/api/index/status")
+    sys.stderr.write("\n")
+    if not _emit(status, args):
+        _print_job_status(status)
+    if status.get("last_result") != "ok":
+        sys.exit(1)
 
 
-def _cmd_index_status(_args: argparse.Namespace, base: str) -> None:
-    _print_job_status(_get(base, "/api/index/status"))
+def _cmd_index_status(args: argparse.Namespace, base: str) -> None:
+    data = _get(base, "/api/index/status")
+    if _emit(data, args):
+        return
+    _print_job_status(data)
 
 
-def _cmd_index_cancel(_args: argparse.Namespace, base: str) -> None:
-    _print_job_status(_post(base, "/api/index/cancel"))
+def _cmd_index_cancel(args: argparse.Namespace, base: str) -> None:
+    data = _post(base, "/api/index/cancel")
+    if _emit(data, args):
+        return
+    _print_job_status(data)
 
 
 def _cmd_clear_repo(args: argparse.Namespace, base: str) -> None:
     data = _post(base, "/api/clear_repo", params={"repo": args.repo})
+    if _emit(data, args):
+        return
     if data.get("ok"):
         print(f"cleared: {data.get('repo')}")
     else:
         print(json.dumps(data))
+
+
+def _cmd_staleness(args: argparse.Namespace, base: str) -> None:
+    data = _get(base, "/api/repos/staleness")
+    if _emit(data, args):
+        return
+    for r in data:
+        print(
+            f"{r['repo']}\t"
+            f"indexed={r.get('last_indexed_at') or 'never'}\t"
+            f"head={r.get('last_commit_at') or 'unknown'}\t"
+            f"stale={r['stale']}\t{r['reason']}"
+        )
+
+
+def _cmd_ls(args: argparse.Namespace, base: str) -> None:
+    params: dict = {"path": args.path} if args.path else {}
+    data = _get(base, "/api/ls", params)
+    if _emit(data, args):
+        return
+    marker = " *" if data.get("is_git") else ""
+    print(f"{data['path']}{marker}")
+    for entry in data.get("dirs", []):
+        print(entry["name"])
 
 
 def _print_job_status(data: dict) -> None:
@@ -171,9 +249,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--base-url",
-        default="http://localhost:8081",
+        default=os.environ.get("CODE_RAG_URL", "http://localhost:8081"),
         dest="base_url",
-        help="Base URL of the code-rag webui server",
+        help="Base URL of the code-rag webui server (env: CODE_RAG_URL)",
+    )
+    p.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Emit raw JSON instead of human-readable output",
     )
     sub = p.add_subparsers(required=True)
 
@@ -213,6 +297,11 @@ def _build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("index", help="Start an indexing job")
     s.add_argument("paths", nargs="+", help="Directory paths to index")
     s.add_argument("--reindex", action="store_true")
+    s.add_argument(
+        "--wait",
+        action="store_true",
+        help="Block until the job completes; exit non-zero on failure",
+    )
     s.set_defaults(func=_cmd_index_start)
 
     s = sub.add_parser("index-status", help="Poll indexing job state")
@@ -224,6 +313,13 @@ def _build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("clear-repo", help="Remove indexed data for a repository")
     s.add_argument("repo", help="Repository name")
     s.set_defaults(func=_cmd_clear_repo)
+
+    s = sub.add_parser("staleness", help="Show per-repo index freshness vs HEAD")
+    s.set_defaults(func=_cmd_staleness)
+
+    s = sub.add_parser("ls", help="List filesystem directories (server-side)")
+    s.add_argument("path", nargs="?", default="", help="Absolute path; defaults to server home")
+    s.set_defaults(func=_cmd_ls)
 
     return p
 
