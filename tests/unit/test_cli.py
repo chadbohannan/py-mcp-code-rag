@@ -1,8 +1,7 @@
 """Unit tests for the CLI entry point (mcp_rag.__main__).
 
-All external I/O (run_index, FastEmbedder, AnthropicSummarizer, mcp.run,
-_read_embed_meta) is monkeypatched so no files, network, or servers are
-touched.
+All external I/O (run_index, FastEmbedder, AnthropicSummarizer) is
+monkeypatched so no files, network, or servers are touched.
 """
 
 from pathlib import Path
@@ -58,27 +57,6 @@ def mock_ollama_summarizer(monkeypatch):
 def mock_run_index(monkeypatch):
     m = MagicMock()
     monkeypatch.setattr("mcp_rag.__main__.run_index", m)
-    return m
-
-
-@pytest.fixture
-def mock_server(monkeypatch):
-    m = MagicMock()
-    monkeypatch.setattr("mcp_rag.__main__.server", m)
-    return m
-
-
-@pytest.fixture
-def mock_mcp(monkeypatch):
-    m = MagicMock()
-    monkeypatch.setattr("mcp_rag.__main__.mcp", m)
-    return m
-
-
-@pytest.fixture
-def mock_read_meta(monkeypatch):
-    m = MagicMock(return_value=("fake-model", 4))
-    monkeypatch.setattr("mcp_rag.__main__._read_embed_meta", m)
     return m
 
 
@@ -176,136 +154,6 @@ def test_index_abort_error_exits_1(
 
 
 # ---------------------------------------------------------------------------
-# serve subcommand
-# ---------------------------------------------------------------------------
-
-
-def test_serve_configures_server(
-    monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    monkeypatch.setattr("sys.argv", _argv("serve"))
-    main()
-    mock_server.configure.assert_called_once()
-
-
-def test_serve_calls_mcp_run(
-    monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    monkeypatch.setattr("sys.argv", _argv("serve"))
-    main()
-    mock_mcp.run.assert_called_once()
-
-
-def test_serve_uses_stdio_by_default(
-    monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    monkeypatch.setattr("sys.argv", _argv("serve"))
-    main()
-    call_kwargs = mock_mcp.run.call_args.kwargs
-    assert call_kwargs.get("transport") != "streamable-http"
-
-
-def test_serve_http_flag_uses_http_transport(
-    monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    monkeypatch.setattr("sys.argv", _argv("serve", "--http"))
-    main()
-    call_kwargs = mock_mcp.run.call_args.kwargs
-    assert call_kwargs.get("transport") == "streamable-http"
-
-
-def test_serve_http_binds_localhost(
-    monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    monkeypatch.setattr("sys.argv", _argv("serve", "--http"))
-    main()
-    assert mock_mcp.run.call_args.kwargs.get("host") == "127.0.0.1"
-
-
-def test_serve_default_port_is_8000(
-    monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    monkeypatch.setattr("sys.argv", _argv("serve", "--http"))
-    main()
-    assert mock_mcp.run.call_args.kwargs.get("port") == 8000
-
-
-def test_serve_custom_port(
-    monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    monkeypatch.setattr("sys.argv", _argv("serve", "--http", "--port", "9000"))
-    main()
-    assert mock_mcp.run.call_args.kwargs.get("port") == 9000
-
-
-def test_serve_custom_db(
-    tmp_path, monkeypatch, mock_embedder, mock_server, mock_mcp, mock_read_meta
-):
-    db = tmp_path / "my.db"
-    monkeypatch.setattr("sys.argv", _argv("serve", "--db", str(db)))
-    main()
-    db_arg = mock_server.configure.call_args.args[0]
-    assert db_arg == db
-
-
-# ---------------------------------------------------------------------------
-# combined mode
-# ---------------------------------------------------------------------------
-
-
-def test_combined_indexes_when_db_absent(
-    tmp_path,
-    monkeypatch,
-    mock_embedder,
-    mock_summarizer,
-    mock_server,
-    mock_mcp,
-    mock_run_index,
-    mock_read_meta,
-):
-    db = tmp_path / "index.db"  # does not exist
-    monkeypatch.setattr("sys.argv", _argv("--db", str(db), str(tmp_path)))
-    main()
-    mock_run_index.assert_called_once()
-    mock_mcp.run.assert_called_once()
-
-
-def test_combined_skips_index_when_db_present(
-    tmp_path,
-    monkeypatch,
-    mock_embedder,
-    mock_summarizer,
-    mock_server,
-    mock_mcp,
-    mock_run_index,
-    mock_read_meta,
-):
-    db = tmp_path / "index.db"
-    db.touch()  # DB exists
-    monkeypatch.setattr("sys.argv", _argv("--db", str(db), str(tmp_path)))
-    main()
-    mock_run_index.assert_not_called()
-    mock_mcp.run.assert_called_once()
-
-
-def test_combined_serve_only_when_no_paths(
-    tmp_path,
-    monkeypatch,
-    mock_embedder,
-    mock_server,
-    mock_mcp,
-    mock_run_index,
-    mock_read_meta,
-):
-    """No paths given → go straight to serve even if DB absent."""
-    db = tmp_path / "index.db"
-    monkeypatch.setattr("sys.argv", _argv("--db", str(db)))
-    main()
-    mock_run_index.assert_not_called()
-    mock_mcp.run.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
 # index subcommand — summarizer selection
 # ---------------------------------------------------------------------------
 
@@ -377,24 +225,3 @@ def test_index_ollama_no_api_key_required(
     )
     main()  # must not raise or exit
     mock_run_index.assert_called_once()
-
-
-def test_combined_ollama_summarizer(
-    tmp_path,
-    monkeypatch,
-    mock_embedder,
-    mock_ollama_summarizer,
-    mock_server,
-    mock_mcp,
-    mock_run_index,
-    mock_read_meta,
-):
-    db = tmp_path / "index.db"  # does not exist
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setattr(
-        "sys.argv", _argv("--db", str(db), "--summarizer", "ollama", str(tmp_path))
-    )
-    main()
-    mock_run_index.assert_called_once()
-    summarizer_arg = mock_run_index.call_args.kwargs["summarizer"]
-    assert summarizer_arg is mock_ollama_summarizer[1]
