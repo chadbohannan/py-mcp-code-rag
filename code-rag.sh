@@ -231,7 +231,7 @@ Commands:
   clear-repo REPO              Remove indexed data for a repository
 
 Options:
-  --base-url URL               Base URL (default: http://localhost:8080)
+  --base-url URL               Base URL (default: http://localhost:8081)
   -h, --help                   Show this help
 EOF
 }
