@@ -131,10 +131,13 @@ Simplified to two subcommands; argparse subparsers replace the hand-rolled posit
 **Removed:**
 
 - `_do_serve()` (and the `from mcp_rag import server` import)
-- `_read_embed_meta()` — only `serve` consumed it; webui reads metadata via `open_db`
 - `_make_serve_parser`, `_make_combined_parser`
 - `_run_serve_cmd`, `_run_combined_cmd`
 - The positional-arg sniffing loop in `main()` that decided between subcommand vs. combined mode
+
+**Kept:**
+
+- `_read_embed_meta()` — webui still uses it to pick an embedder when `--embed-model` isn't passed.
 
 **Result skeleton:**
 
