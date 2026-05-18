@@ -48,12 +48,20 @@ and using structural rather than fixed-window boundaries.
 
 ## runtime design
 
-- **index mode** (`mcp-rag index [paths...]`): parses each file into semantic units, generates
+- **index mode** (`code-rag index [paths...]`): parses each file into semantic units, generates
   a Claude summary per unit with source-path context, and embeds the summary into the vector
-  index. Incremental — only changed files are re-processed. Requires `ANTHROPIC_API_KEY`.
+  index. Incremental — only changed files are re-processed. Requires `ANTHROPIC_API_KEY` when
+  `--summarizer anthropic` is used; `--summarizer ollama` is the default and is offline.
 
-- **serve mode** (`mcp-rag serve [paths...]`): starts the MCP stdio server. Embeds each
-  incoming query and returns the closest matching source units by vector similarity, with path
-  and relevance score. Read-only; no API key required.
+- **webui mode** (`code-rag webui [options]`): starts the FastAPI server. Exposes the REST API
+  (documented in `SKILL.md`) and a browser UI. All read and write access to the index goes
+  through this service.
 
-- **combined mode** (`mcp-rag [paths...]`): indexes if the index is absent, then serves.
+Two standalone HTTP clients sit on top of the web UI:
+
+- **`code-rag-mcp.py`** — an MCP server that proxies 10 tools to the REST API; stdio by
+  default, `--http` for streamable-HTTP transport. Embeds each incoming query through the
+  web UI's `/api/search` endpoint and returns matched units.
+
+- **`code-rag-cli.py`** — a stdlib-only CLI client for humans and shell scripts; mirrors the
+  REST API as named subcommands and supports a top-level `--json` flag for raw passthrough.
