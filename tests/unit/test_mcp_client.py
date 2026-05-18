@@ -125,3 +125,16 @@ def test_unreachable_server_raises_toolerror(mcp_mod):
         from fastmcp.exceptions import ToolError
         with pytest.raises(ToolError, match="cannot reach code-rag"):
             asyncio.run(mcp_mod.search("anything"))
+
+
+def test_http_error_raises_toolerror(mcp_mod):
+    import io
+    import urllib.error
+    err = urllib.error.HTTPError(
+        url="http://x", code=422, msg="Unprocessable",
+        hdrs=None, fp=io.BytesIO(b'{"detail":"bad query"}')
+    )
+    with patch("urllib.request.urlopen", side_effect=err):
+        from fastmcp.exceptions import ToolError
+        with pytest.raises(ToolError, match="422"):
+            asyncio.run(mcp_mod.search("bad"))
