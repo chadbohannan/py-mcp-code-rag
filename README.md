@@ -1,6 +1,6 @@
 # code-rag
 
-Semantic code search over local codebases, exposed as an [MCP](https://modelcontextprotocol.io/) stdio server. Designed for navigating complex, sprawling codebases — surfacing architectural intent rather than matching surface text.
+Semantic code search over local codebases, exposed as a REST API and an [MCP](https://modelcontextprotocol.io/) server. Designed for navigating complex, sprawling codebases — surfacing architectural intent rather than matching surface text.
 
 ## How it works
 
@@ -35,8 +35,11 @@ make install
 # Index a codebase
 make index SRC=../my-project DB=./index.db
 
-# Start the MCP server
-make serve DB=./index.db
+# Start the REST API + web UI (primary interface)
+make webui DB=./index.db
+
+# In another terminal, start the MCP server pointing at the web UI
+make mcp
 ```
 
 ## Installation
@@ -53,7 +56,9 @@ make install
 
 ```
 code-rag index [paths...] [options]    Build or update the index
-code-rag serve [options]               Start the MCP server (stdio)
+code-rag webui [options]               Start the REST API + web UI
+code-rag-cli.py SUBCOMMAND [args]      Stdlib CLI client to a running web UI
+code-rag-mcp.py [options]              MCP server proxying tools to the web UI
 ```
 
 ### Indexing
@@ -88,34 +93,72 @@ code-rag index --summarizer ollama --ollama-model gemma3 .
 | `--ollama-model MODEL` | — | Ollama model name |
 | `--ollama-host HOST` | — | Ollama API host |
 
-### Serving
+### Web UI (REST API)
 
-Start the MCP stdio server. Read-only — no API key required.
+The primary interface. Serves the REST API (documented in `SKILL.md`) and the browser UI.
 
 ```bash
-code-rag serve --db index.db
+code-rag webui --db index.db --port 8081
 ```
 
-**Serve options:**
+**Webui options:**
 
 | Flag | Default | Description |
 |---|---|---|
 | `--db PATH` | `./index.db` | Index file location |
+| `--host HOST` | `0.0.0.0` | Bind address |
+| `--port N` | `8080` | Listen port |
+| `--embed-model MODEL` | (from DB) | Override the embedding model |
+| `--summarizer {anthropic,ollama}` | `ollama` | Summarization backend used for reindex jobs triggered via the web UI |
+
+### MCP server
+
+A standalone script that proxies MCP tool calls to a running web UI over REST. Stdio by default; pass `--http` for streamable-HTTP transport.
+
+```bash
+# Stdio MCP server (default — for direct agent stdin/stdout integration)
+python code-rag-mcp.py --base-url http://localhost:8081
+
+# Or via the env var
+CODE_RAG_URL=http://localhost:8081 python code-rag-mcp.py
+```
+
+**MCP server options:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--base-url URL` | `http://localhost:8081` | Web UI to talk to (env: `CODE_RAG_URL`) |
+| `--http` | off | Run as streamable-HTTP MCP server on `127.0.0.1` |
+| `--port N` | `8000` | Port for `--http` mode |
+
+### Standalone CLI client
+
+For shell scripts and human use, `code-rag-cli.py` wraps the REST API in plain-text output:
+
+```bash
+python code-rag-cli.py search "how does authentication work?"
+python code-rag-cli.py --json repos | jq '.[].name'
+python code-rag-cli.py index /path/to/repo --wait
+```
+
+Subcommands: `search`, `unit`, `fetch`, `units`, `files`, `repos`, `status`, `browse`, `index`, `index-status`, `index-cancel`, `clear-repo`, `staleness`, `ls`. The top-level `--json` flag emits raw JSON from any subcommand.
 
 ### Agent integration
 
-Register code-rag with your agent of choice. Both commands accept `DB=` to point at a non-default index file.
+Register `code-rag-mcp.py` with your agent of choice. Both commands accept `BASE_URL=` to point at a non-default web UI.
 
 | Agent | Register | Unregister |
 |---|---|---|
 | Claude Code | `make add-claude-mcp` | `make remove-claude-mcp` |
 | pi-agent | `make add-pi-mcp` | `make remove-pi-mcp` |
 
+The web UI must be running for the MCP server to work — start it once on the host that owns the index, then point agents at it.
+
 #### System prompt
 
 For best results, include the following in your agent's system prompt or persona config:
 
-> code-rag is a stdio RAG server for an index of code repositories indexed to accelerate design, debugging, and discovery of relevant code prior to the use of filesystem tools. Use code-rag for vague or exploratory queries about a codebase; start with `index_status` then discover relevant code using the search tool with natural language topic descriptions.
+> code-rag is a RAG server for an index of code repositories indexed to accelerate design, debugging, and discovery of relevant code prior to the use of filesystem tools. Use code-rag for vague or exploratory queries about a codebase; start with `index_status` then discover relevant code using the search tool with natural language topic descriptions.
 
 For agents that support per-project instruction files (e.g. `AGENTS.md` for Claude Code), place this text there so it applies automatically whenever you work in an indexed repo.
 
@@ -128,7 +171,8 @@ All targets that operate on a source directory accept `SRC=` (defaults to `.`). 
 | `install` | Install all dependencies | `make install` |
 | `index` | Index a directory (incremental) | `make index SRC=../repo DB=my.db` |
 | `reindex` | Rebuild embeddings from scratch | `make reindex SRC=../repo` |
-| `serve` | Start MCP stdio server | `make serve DB=my.db` |
+| `mcp` | Start MCP server (stdio) | `make mcp BASE_URL=http://host:8081` |
+| `webui` | Start REST API + web UI | `make webui DB=my.db PORT=8081` |
 | `test` | Run full test suite | `make test` |
 | `test-unit` | Run unit tests only | `make test-unit` |
 | `test-integration` | Run integration tests | `make test-integration` |
@@ -160,25 +204,32 @@ Binary files are detected and skipped automatically. Unrecognized extensions are
 
 ## MCP tools
 
-### `search`
+`code-rag-mcp.py` exposes 10 tools, all proxied to the REST API documented in `SKILL.md`:
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `query` | `str` | required | Natural language question about the codebase |
-| `top_k` | `int` | `5` | Number of results (max 20) |
+| Tool | Purpose |
+|---|---|
+| `search` | Natural-language vector search; returns ranked unit summaries |
+| `get_unit` | Fetch full source for one or more qualified paths |
+| `list_units` | List indexed units with optional glob filter |
+| `list_files` | List indexed files with optional glob filter |
+| `list_repos` | List indexed repositories |
+| `index_status` | Per-repo file/unit counts and last-indexed timestamp |
+| `staleness` | Per-repo index freshness vs. each repo's git HEAD |
+| `index_start` | Enqueue paths for indexing (returns immediately) |
+| `index_job_status` | Poll the running indexing job |
+| `index_cancel` | Signal the running job to cancel |
 
-Returns matching source units ranked by cosine similarity, each with file path, unit type/name, original source content, summary, and relevance score.
-
-### `index_status`
-
-No parameters. Returns per-root statistics: file count, unit count, and last indexed timestamp.
+Full parameter and response schemas are in `SKILL.md` (generated from the live OpenAPI spec).
 
 ## Architecture
 
+- **Web UI** (`mcp_rag/webui.py`): FastAPI ASGI app — REST API + browser UI; single source of truth for SQLite reads/writes
+- **MCP server** (`code-rag-mcp.py`): standalone script proxying 10 MCP tools over HTTP to the web UI
+- **CLI client** (`code-rag-cli.py`): standalone stdlib-only script for human/script use
 - **Embeddings**: [fastembed](https://github.com/qdrant/fastembed) in-process via ONNX Runtime (`nomic-ai/nomic-embed-text-v1.5-Q`, 768-dim)
 - **Storage**: SQLite (WAL mode) + [sqlite-vec](https://github.com/asg017/sqlite-vec) — documents, metadata, and vectors in a single file
 - **Summarization**: Anthropic API (Claude Haiku) or Ollama, index-time only
-- **MCP transport**: stdio (default)
+- **MCP transport**: stdio by default; streamable-HTTP via `--http`
 
 ## License
 
