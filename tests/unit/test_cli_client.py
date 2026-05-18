@@ -1,4 +1,5 @@
 """Unit tests for code-rag-cli.py (HTTP client CLI)."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -33,6 +34,7 @@ def _fake_responses(payloads):
 
 # --- --base-url / CODE_RAG_URL ----------------------------------------------
 
+
 def test_explicit_base_url_overrides_env(monkeypatch):
     monkeypatch.setenv("CODE_RAG_URL", "http://env-host:1")
     args = cli._build_parser().parse_args(["--base-url", "http://flag-host:2", "repos"])
@@ -46,6 +48,7 @@ def test_env_var_overrides_default(monkeypatch):
 
 
 # --- --json flag ------------------------------------------------------------
+
 
 def test_json_flag_outputs_raw_payload(capsys):
     payload = [{"path": "x", "summary": "s", "score": 0.9}]
@@ -66,11 +69,18 @@ def test_no_json_flag_uses_pretty_format(capsys):
 
 # --- staleness --------------------------------------------------------------
 
+
 def test_staleness_subcommand(capsys):
-    payload = [{
-        "repo": "alpha", "root": "/r", "last_indexed_at": "t1",
-        "last_commit_at": "t2", "stale": True, "reason": "older than HEAD",
-    }]
+    payload = [
+        {
+            "repo": "alpha",
+            "root": "/r",
+            "last_indexed_at": "t1",
+            "last_commit_at": "t2",
+            "stale": True,
+            "reason": "older than HEAD",
+        }
+    ]
     with patch("urllib.request.urlopen", return_value=_fake_response(payload)) as m:
         args = cli._build_parser().parse_args(["staleness"])
         args.func(args, args.base_url)
@@ -81,9 +91,12 @@ def test_staleness_subcommand(capsys):
 
 # --- ls ---------------------------------------------------------------------
 
+
 def test_ls_with_path_and_git_marker(capsys):
     payload = {
-        "path": "/home/u/r", "parent": "/home/u", "is_git": True,
+        "path": "/home/u/r",
+        "parent": "/home/u",
+        "is_git": True,
         "dirs": [{"name": "src", "path": "/home/u/r/src"}],
     }
     with patch("urllib.request.urlopen", return_value=_fake_response(payload)) as m:
@@ -96,13 +109,19 @@ def test_ls_with_path_and_git_marker(capsys):
 
 # --- index --wait -----------------------------------------------------------
 
+
 def test_index_wait_polls_and_exits_ok(tmp_path, capsys):
-    responses = _fake_responses([
-        {"running": True,  "last_result": None, "last_finished_at": None},
-        {"running": True,  "last_result": None, "last_finished_at": None},
-        {"running": False, "last_result": "ok", "last_finished_at": "t"},
-    ])
-    with patch("urllib.request.urlopen", side_effect=responses), patch("time.sleep") as s:
+    responses = _fake_responses(
+        [
+            {"running": True, "last_result": None, "last_finished_at": None},
+            {"running": True, "last_result": None, "last_finished_at": None},
+            {"running": False, "last_result": "ok", "last_finished_at": "t"},
+        ]
+    )
+    with (
+        patch("urllib.request.urlopen", side_effect=responses),
+        patch("time.sleep") as s,
+    ):
         args = cli._build_parser().parse_args(["index", "--wait", str(tmp_path)])
         args.func(args, args.base_url)
     assert s.called
@@ -110,10 +129,12 @@ def test_index_wait_polls_and_exits_ok(tmp_path, capsys):
 
 
 def test_index_wait_nonzero_on_failure(tmp_path):
-    responses = _fake_responses([
-        {"running": True,  "last_result": None, "last_finished_at": None},
-        {"running": False, "last_result": "boom", "last_finished_at": "t"},
-    ])
+    responses = _fake_responses(
+        [
+            {"running": True, "last_result": None, "last_finished_at": None},
+            {"running": False, "last_result": "boom", "last_finished_at": "t"},
+        ]
+    )
     with patch("urllib.request.urlopen", side_effect=responses), patch("time.sleep"):
         args = cli._build_parser().parse_args(["index", "--wait", str(tmp_path)])
         with pytest.raises(SystemExit) as ei:

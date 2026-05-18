@@ -121,9 +121,7 @@ async def get_unit(paths: list[str]) -> list[dict]:
 
 
 @mcp.tool
-async def list_units(
-    globs: list[str] | None = None, limit: int = 100
-) -> list[dict]:
+async def list_units(globs: list[str] | None = None, limit: int = 100) -> list[dict]:
     """List semantic units (functions, classes, methods, sections, etc.).
 
     Returns the qualified path (``repo/file.py:Class:method``) and summary for

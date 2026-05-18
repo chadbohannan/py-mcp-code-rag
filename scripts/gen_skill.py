@@ -18,8 +18,8 @@ BASE_URL = "http://localhost:8081"
 # Paths excluded from the skill doc — UI helpers and admin/management endpoints
 # that agents have no reason to call.
 _EXCLUDE_PATHS = {
-    "/api/ls",           # browser path-picker UI only
-    "/api/index",        # indexing management
+    "/api/ls",  # browser path-picker UI only
+    "/api/index",  # indexing management
     "/api/index/status",
     "/api/index/cancel",
 }

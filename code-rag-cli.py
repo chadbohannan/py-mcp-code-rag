@@ -318,7 +318,9 @@ def _build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=_cmd_staleness)
 
     s = sub.add_parser("ls", help="List filesystem directories (server-side)")
-    s.add_argument("path", nargs="?", default="", help="Absolute path; defaults to server home")
+    s.add_argument(
+        "path", nargs="?", default="", help="Absolute path; defaults to server home"
+    )
     s.set_defaults(func=_cmd_ls)
 
     return p

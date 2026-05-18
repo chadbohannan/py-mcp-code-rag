@@ -1,4 +1,5 @@
 """Unit tests for code-rag-mcp.py."""
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,7 @@ def _fake_response(payload):
 
 
 # --- Read tools ------------------------------------------------------------
+
 
 def test_search_builds_search_url(mcp_mod):
     payload = [{"path": "x", "summary": "s", "score": 0.9}]
@@ -77,9 +79,17 @@ def test_list_repos(mcp_mod):
 
 def test_index_status_returns_repos_list(mcp_mod):
     payload = {
-        "repos": [{"repo": "r", "root": "/r", "file_count": 1,
-                   "unit_count": 2, "last_indexed_at": "t"}],
-        "total_units": 2, "embed_count": 2,
+        "repos": [
+            {
+                "repo": "r",
+                "root": "/r",
+                "file_count": 1,
+                "unit_count": 2,
+                "last_indexed_at": "t",
+            }
+        ],
+        "total_units": 2,
+        "embed_count": 2,
     }
     with patch("urllib.request.urlopen", return_value=_fake_response(payload)) as m:
         result = asyncio.run(mcp_mod.index_status())
@@ -88,6 +98,7 @@ def test_index_status_returns_repos_list(mcp_mod):
 
 
 # --- Index control tools ---------------------------------------------------
+
 
 def test_index_start_posts_paths_and_reindex(mcp_mod):
     payload = {"running": True, "last_result": None, "last_finished_at": None}
@@ -118,11 +129,16 @@ def test_index_cancel_is_post(mcp_mod):
 
 # --- Error path ------------------------------------------------------------
 
+
 def test_unreachable_server_raises_toolerror(mcp_mod):
     import urllib.error
-    with patch("urllib.request.urlopen",
-               side_effect=urllib.error.URLError("connection refused")):
+
+    with patch(
+        "urllib.request.urlopen",
+        side_effect=urllib.error.URLError("connection refused"),
+    ):
         from fastmcp.exceptions import ToolError
+
         with pytest.raises(ToolError, match="cannot reach code-rag"):
             asyncio.run(mcp_mod.search("anything"))
 
@@ -130,11 +146,16 @@ def test_unreachable_server_raises_toolerror(mcp_mod):
 def test_http_error_raises_toolerror(mcp_mod):
     import io
     import urllib.error
+
     err = urllib.error.HTTPError(
-        url="http://x", code=422, msg="Unprocessable",
-        hdrs=None, fp=io.BytesIO(b'{"detail":"bad query"}')
+        url="http://x",
+        code=422,
+        msg="Unprocessable",
+        hdrs=None,
+        fp=io.BytesIO(b'{"detail":"bad query"}'),
     )
     with patch("urllib.request.urlopen", side_effect=err):
         from fastmcp.exceptions import ToolError
+
         with pytest.raises(ToolError, match="422"):
             asyncio.run(mcp_mod.search("bad"))
