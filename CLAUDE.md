@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **code-rag** is a semantic code search server. The core technique is **Semantic Surrogate Indexing**: instead of embedding raw source code, it generates Claude-written natural-language summaries of each code unit (function, class, method, SQL block, etc.) and embeds *those summaries* into vector space. This makes natural-language queries match effectively against code semantics, not just keywords.
 
-The primary interface is a **REST API** served by the web UI mode. `skill.md` documents the API for LLM consumption. An MCP stdio server is also available as a secondary interface.
+The primary interface is a **REST API** served by the `webui` subcommand. `skill.md` documents the API for LLM consumption. `code-rag-mcp.py` (at repo root) is a standalone MCP server that proxies tool calls to the REST API; `code-rag-cli.py` is a parallel stdlib CLI client for humans/scripts.
 
 ## Commands
 
@@ -30,13 +30,13 @@ uv run code-rag index /path/to/repo --db ./index.db
 # Start REST API + web UI (primary interface)
 uv run code-rag webui --db ./index.db --port 8081
 
-# Start MCP stdio server (secondary interface)
-uv run code-rag serve --db ./index.db
+# Start MCP server (stdio) — talks to the running webui
+python code-rag-mcp.py --base-url http://localhost:8081
 ```
 
 ## Architecture
 
-Three modes dispatched from `mcp_rag/__main__.py`:
+Two CLI subcommands dispatched from `mcp_rag/__main__.py`:
 
 **INDEX mode** (`indexer.py`) — offline pipeline:
 1. **Discovery** (`discovery.py`): find git repos, enumerate files via `git ls-files`
@@ -46,13 +46,18 @@ Three modes dispatched from `mcp_rag/__main__.py`:
 5. **Reconcile** (`reconcile.py`): diff units vs. DB state; only re-summarize changed/new units
 6. **Write** (`db.py`): SQLite with WAL mode + sqlite-vec virtual table for ANN
 
-**SERVE mode** (`server.py`) — read-only MCP stdio server with 6 tools: `search`, `get_unit`, `list_units`, `list_files`, `list_repos`, `index_status`. All tools delegate to `queries.py`.
+**WEBUI mode** (`webui.py`) — FastAPI ASGI app serving the REST API and browser UI. OpenAPI spec auto-generated at `/openapi.json`; interactive docs at `/docs`. Indexing runs in a daemon thread decoupled from any client connection. **All SQLite access happens here** — `code-rag-mcp.py` and `code-rag-cli.py` are HTTP clients only.
 
-**WEBUI mode** (`webui.py`) — FastAPI ASGI app serving the REST API and browser UI. OpenAPI spec auto-generated at `/openapi.json`; interactive docs at `/docs`. Indexing runs in a daemon thread decoupled from any client connection.
+### Top-level scripts (HTTP clients to the web UI)
+
+- `code-rag-mcp.py` — MCP server with 10 tools; stdio by default, `--http` for streamable-HTTP
+- `code-rag-cli.py` — stdlib-only Python CLI for humans/scripts; supports `--json` raw output
+
+Both are standalone (copyable to another machine; no install needed beyond Python + `fastmcp` for the MCP). HTTP helpers are duplicated between them on purpose — keeps each self-contained.
 
 ### Shared data access layer
 
-`queries.py` is the single source of truth for all DB reads. Both `server.py` (MCP) and `webui.py` (REST) call into it — no SQL is duplicated between them.
+`queries.py` is the single source of truth for all DB reads, used exclusively by `webui.py`. The MCP and CLI scripts at repo root never touch SQLite directly — they always go through the REST API.
 
 ### Indexing job state
 
