@@ -38,7 +38,7 @@ reindex:
 
 # Start the MCP stdio server (HTTP client to webui). Usage: make mcp BASE_URL=http://host:8081
 mcp:
-	~/.local/bin/uv run python code-rag-mcp.py --base-url $(or $(BASE_URL),http://localhost:8081)
+	uv run python $(DIR)/code-rag-mcp.py --base-url $(or $(BASE_URL),http://localhost:8081)
 
 # Start the web UI. Usage: make webui DB=my.db PORT=8081
 webui:

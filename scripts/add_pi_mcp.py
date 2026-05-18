@@ -11,7 +11,8 @@ def main():
         print("usage: add_pi_mcp.py <directory> <db-path> [base-url]", file=sys.stderr)
         sys.exit(1)
 
-    directory, db_path = sys.argv[1], sys.argv[2]
+    directory = sys.argv[1]
+    _db_path = sys.argv[2]  # accepted for back-compat; HTTP-client MCP gets the DB from the webui
     base_url = sys.argv[3] if len(sys.argv) > 3 else "http://localhost:8081"
     mcp_json = Path.home() / ".pi" / "agent" / "mcp.json"
 
