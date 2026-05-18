@@ -12,7 +12,8 @@ Complete implementation specification for `mcp-rag`. See `overview.md` for desig
 |---|---|
 | Runtime | Python ≥ 3.12, managed with [uv](https://github.com/astral-sh/uv) |
 | Packaging | `uvx`-runnable; entry point script `mcp-rag` |
-| MCP server | `fastmcp`, stdio transport (default); Streamable HTTP optional |
+| MCP server | `code-rag-mcp.py` (root) — `fastmcp`, stdio default, `--http` for streamable-HTTP. Proxies all reads/writes to the web UI; never touches SQLite directly. |
+| Web UI | `mcp_rag/webui.py` — FastAPI ASGI app; sole owner of SQLite read/write |
 | Embeddings | `fastembed` in-process via ONNX Runtime |
 | Default model | `nomic-ai/nomic-embed-text-v1.5-Q` (quantized, 768-dim, ~130 MB) |
 | Summarization | Anthropic API (`claude-haiku-4-5-20251001`), index-time only |
@@ -607,9 +608,11 @@ One object is returned per repo in the `repos` table.
 ## CLI
 
 ```
-mcp-rag [paths...]                    Index if absent, then serve (stdio)
-mcp-rag index [paths...] [options]    Build or update the index
-mcp-rag serve [options]               Start the MCP server
+code-rag index [paths...] [options]   Build or update the index
+code-rag webui [options]              Start the REST API + web UI
+
+code-rag-cli.py SUBCOMMAND [args]     Standalone stdlib CLI client to a running web UI
+code-rag-mcp.py [options]             Standalone MCP server proxying tools to a running web UI
 ```
 
 **`index` options**
@@ -620,19 +623,21 @@ mcp-rag serve [options]               Start the MCP server
 | `--embed-model MODEL` | `nomic-ai/nomic-embed-text-v1.5-Q` | Embedding model |
 | `--db PATH` | `./index.db` | Override index file location |
 
-**`serve` options**
+**`webui` options**
 
 | Flag | Default | Description |
 |---|---|---|
-| `--http` | off | Streamable HTTP instead of stdio; binds `127.0.0.1` only |
-| `--port N` | `8000` | Port for `--http` mode |
-| `--db PATH` | `./index.db` | Override index file location |
+| `--db PATH` | `./index.db` | Index file location |
+| `--host HOST` | `0.0.0.0` | Bind address |
+| `--port N` | `8080` | Listen port |
+| `--embed-model MODEL` | (from DB) | Override embedding model (defaults to what the DB was indexed with) |
+| `--summarizer {anthropic,ollama}` | `ollama` | Summarization backend used by reindex jobs triggered via the web UI |
 
 **Environment variables**
 
 | Variable | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Required for `mcp-rag index`; checked at startup before any file I/O |
+| `ANTHROPIC_API_KEY` | Required when `code-rag index --summarizer anthropic` is used; checked at startup before any file I/O |
 | `EMBED_MODEL` | Default embedding model; overridden by `--embed-model` |
 
 `mcp-rag index` aborts immediately on startup if `ANTHROPIC_API_KEY` is not set:
@@ -648,7 +653,7 @@ required or used.
 
 ## Multi-repository Behaviour
 
-Multiple paths may be passed to `mcp-rag index` or `mcp-rag` (combined mode):
+Multiple paths may be passed to `code-rag index`:
 
 ```
 mcp-rag index /path/to/workspace
@@ -681,13 +686,6 @@ independently.
   ```
 
 ---
-
-## Combined-mode Behaviour
-
-`mcp-rag [paths...]` runs `index` then `serve` in one invocation. The index step is only
-triggered if the DB file does not exist at the resolved `--db` path. If the DB file already
-exists (even if empty or partially indexed), the index step is skipped and `serve` starts
-immediately.
 
 ## First-run Behaviour
 
