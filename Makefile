@@ -21,12 +21,12 @@ test-integration:
 
 # Check code style without modifying files
 lint:
-	uv run ruff check mcp_rag tests
-	uv run ruff format --check mcp_rag tests
+	uv run ruff check mcp_rag tests code-rag-cli.py code-rag-mcp.py scripts
+	uv run ruff format --check mcp_rag tests code-rag-cli.py code-rag-mcp.py scripts
 
 # Auto-format source and tests
 format:
-	uv run ruff format mcp_rag tests
+	uv run ruff format mcp_rag tests code-rag-cli.py code-rag-mcp.py scripts
 
 # Index a directory into index.db (skips unchanged files). Usage: make index SRC=../some-repo DB=my.db
 index:
