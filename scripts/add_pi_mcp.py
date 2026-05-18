@@ -7,18 +7,20 @@ from pathlib import Path
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("usage: add_pi_mcp.py <directory> <db-path>", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print("usage: add_pi_mcp.py <directory> <db-path> [base-url]", file=sys.stderr)
         sys.exit(1)
 
     directory, db_path = sys.argv[1], sys.argv[2]
+    base_url = sys.argv[3] if len(sys.argv) > 3 else "http://localhost:8081"
     mcp_json = Path.home() / ".pi" / "agent" / "mcp.json"
 
     mcp_json.parent.mkdir(parents=True, exist_ok=True)
     cfg = json.loads(mcp_json.read_text()) if mcp_json.exists() else {}
     cfg.setdefault("mcpServers", {})["code-rag"] = {
         "command": "uv",
-        "args": ["run", "--directory", directory, "code-rag", "serve", "--db", db_path],
+        "args": ["run", "--directory", directory, "python",
+                 f"{directory}/code-rag-mcp.py", "--base-url", base_url],
     }
     mcp_json.write_text(json.dumps(cfg, indent=2) + "\n")
     print(f"added code-rag to {mcp_json}")

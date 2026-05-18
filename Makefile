@@ -1,4 +1,4 @@
-.PHONY: install test test-unit test-integration lint format index reindex serve webui skill clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
+.PHONY: install test test-unit test-integration lint format index reindex mcp webui skill clean add-claude-mcp remove-claude-mcp add-pi-mcp remove-pi-mcp
 
 # Resolve absolute path at make-time so the registered command works from any working directory
 DIR := $(shell pwd)
@@ -36,26 +36,26 @@ index:
 reindex:
 	uv run code-rag index --reindex --db $(or $(DB),index.db) $(or $(SRC),.)
 
-# Start the MCP stdio server. Usage: make serve DB=my.db
-serve:
-	uv run code-rag serve --db $(or $(DB),index.db)
+# Start the MCP stdio server (HTTP client to webui). Usage: make mcp BASE_URL=http://host:8081
+mcp:
+	~/.local/bin/uv run python code-rag-mcp.py --base-url $(or $(BASE_URL),http://localhost:8081)
 
 # Start the web UI. Usage: make webui DB=my.db PORT=8081
 webui:
 	uv run code-rag webui --db $(or $(DB),index.db) --port $(or $(PORT),8081)
 
-# Register this server with Claude Code (run once after cloning). Usage: make add-claude-mcp DB=my.db
+# Register this server with Claude Code (run once after cloning). Usage: make add-claude-mcp BASE_URL=http://host:8081
 add-claude-mcp:
-	claude mcp add --transport stdio -s user code-rag -- uv run --directory $(DIR) code-rag serve --db $(abspath $(or $(DB),index.db))
+	claude mcp add --transport stdio -s user code-rag -- uv run --directory $(DIR) python $(DIR)/code-rag-mcp.py --base-url $(or $(BASE_URL),http://localhost:8081)
 
 # Unregister this server from Claude Code
 remove-claude-mcp:
 	claude mcp remove code-rag -s user
 
-# Register this server with the pi agent (run once after cloning). Usage: make add-pi-mcp DB=my.db
+# Register this server with the pi agent (run once after cloning). Usage: make add-pi-mcp BASE_URL=http://host:8081
 add-pi-mcp:
 	pi install npm:pi-mcp-adapter
-	python3 scripts/add_pi_mcp.py $(DIR) $(abspath $(or $(DB),index.db))
+	python3 scripts/add_pi_mcp.py $(DIR) $(abspath $(or $(DB),index.db)) $(or $(BASE_URL),http://localhost:8081)
 
 # Unregister this server from the pi agent
 remove-pi-mcp:
