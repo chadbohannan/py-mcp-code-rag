@@ -12,7 +12,9 @@ def main():
         sys.exit(1)
 
     directory = sys.argv[1]
-    _db_path = sys.argv[2]  # accepted for back-compat; HTTP-client MCP gets the DB from the webui
+    _db_path = sys.argv[
+        2
+    ]  # accepted for back-compat; HTTP-client MCP gets the DB from the webui
     base_url = sys.argv[3] if len(sys.argv) > 3 else "http://localhost:8081"
     mcp_json = Path.home() / ".pi" / "agent" / "mcp.json"
 
@@ -20,8 +22,15 @@ def main():
     cfg = json.loads(mcp_json.read_text()) if mcp_json.exists() else {}
     cfg.setdefault("mcpServers", {})["code-rag"] = {
         "command": "uv",
-        "args": ["run", "--directory", directory, "python",
-                 f"{directory}/code-rag-mcp.py", "--base-url", base_url],
+        "args": [
+            "run",
+            "--directory",
+            directory,
+            "python",
+            f"{directory}/code-rag-mcp.py",
+            "--base-url",
+            base_url,
+        ],
     }
     mcp_json.write_text(json.dumps(cfg, indent=2) + "\n")
     print(f"added code-rag to {mcp_json}")
