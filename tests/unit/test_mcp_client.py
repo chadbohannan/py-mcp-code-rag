@@ -97,6 +97,23 @@ def test_index_status_returns_repos_list(mcp_mod):
     assert result == payload["repos"]
 
 
+def test_staleness_returns_list(mcp_mod):
+    payload = [
+        {
+            "repo": "r",
+            "root": "/r",
+            "last_indexed_at": "t1",
+            "last_commit_at": "t2",
+            "stale": True,
+            "reason": "older than HEAD",
+        }
+    ]
+    with patch("urllib.request.urlopen", return_value=_fake_response(payload)) as m:
+        result = asyncio.run(mcp_mod.staleness())
+    assert "/api/repos/staleness" in m.call_args[0][0].full_url
+    assert result == payload
+
+
 # --- Index control tools ---------------------------------------------------
 
 

@@ -183,6 +183,19 @@ async def index_status() -> list[dict]:
 
 
 @mcp.tool
+async def staleness() -> list[dict]:
+    """Compare each indexed repo's last_indexed_at against its git HEAD commit time.
+
+    Returns one row per repo with ``stale`` (bool) and ``reason`` (human-readable
+    string explaining why). Call this when you suspect the index may be out of
+    date — e.g. after the user mentions a recent commit, or before starting a
+    fresh investigation in a repo. If any repo is stale, recommend running
+    ``index_start`` on its root path before searching.
+    """
+    return _get("/api/repos/staleness")
+
+
+@mcp.tool
 async def index_start(paths: list[str], reindex: bool = False) -> dict:
     """Enqueue paths for indexing on the shared service.
 
