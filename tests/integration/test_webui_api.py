@@ -54,3 +54,38 @@ def test_search_top_k_caps_returned_count(client):
     assert r.status_code == 200
     results = r.json()
     assert len(results) == 2
+
+
+def test_units_listing_returns_paths_and_summaries(client):
+    r = client.get("/api/units", params={"limit": 100})
+    assert r.status_code == 200
+    units = r.json()
+    assert len(units) > 0
+    assert all(set(u.keys()) >= {"path", "summary"} for u in units)
+    paths = {u["path"] for u in units}
+    assert any(p.endswith(":login") for p in paths)
+    assert any(p.endswith(":connect") for p in paths)
+
+
+def test_unit_fetch_single_returns_full_content(client):
+    listing = client.get("/api/units").json()
+    target = next(u["path"] for u in listing if u["path"].endswith(":login"))
+    r = client.get("/api/unit", params={"path": target})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["path"] == target
+    assert "def login" in body["content"]
+    assert body["summary"]
+
+
+def test_units_fetch_post_returns_only_matching_paths(client):
+    listing = client.get("/api/units").json()
+    real_path = listing[0]["path"]
+    r = client.post(
+        "/api/units/fetch",
+        json={"paths": [real_path, "testrepo/does/not/exist:nope"]},
+    )
+    assert r.status_code == 200
+    results = r.json()
+    assert len(results) == 1
+    assert results[0]["path"] == real_path
