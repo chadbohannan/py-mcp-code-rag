@@ -114,3 +114,33 @@ def test_repos_and_status_consistent(client):
     status = client.get("/api/status").json()
     assert status["repos"][0]["repo"] == "testrepo"
     assert status["repos"][0]["file_count"] == 3
+
+
+def test_staleness_fresh_after_index(client):
+    r = client.get("/api/repos/staleness")
+    assert r.status_code == 200
+    rows = r.json()
+    assert len(rows) == 1
+    assert rows[0]["repo"] == "testrepo"
+    assert rows[0]["stale"] is False
+
+
+def test_browse_root_then_drill_into_file(client):
+    root = client.get("/api/browse", params={"path": ""}).json()
+    assert any(node["type"] == "repo" and node["name"] == "testrepo" for node in root)
+
+    drill = client.get("/api/browse", params={"path": "testrepo/src/app.py"}).json()
+    types = {node["type"] for node in drill}
+    assert "unit" in types
+
+
+def test_unit_not_found_returns_404_with_detail_key(client):
+    """Load-bearing cross-check: code-rag-mcp.py extracts ``detail`` from
+    the JSON body on HTTPError. If FastAPI ever stops emitting that field,
+    the MCP error message degrades to the raw body. This test guards the
+    contract from the webui side."""
+    r = client.get("/api/unit", params={"path": "no/such/path:no"})
+    assert r.status_code == 404
+    body = r.json()
+    assert "detail" in body
+    assert body["detail"] == "Unit not found"
