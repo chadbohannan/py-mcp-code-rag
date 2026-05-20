@@ -23,11 +23,7 @@ REPO_FILES = {
         "        return True\n"
     ),
     "src/db.py": (
-        "def connect():\n"
-        "    return None\n"
-        "\n"
-        "def disconnect():\n"
-        "    return None\n"
+        "def connect():\n    return None\n\ndef disconnect():\n    return None\n"
     ),
     "README.md": "# Overview\n\nProject docs for the test fixture repo.\n",
 }
