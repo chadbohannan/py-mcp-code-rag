@@ -32,7 +32,9 @@ def test_search_returns_results_with_required_fields(client):
 
 def test_search_results_are_ordered_by_score_descending(client):
     r = client.get("/api/search", params={"q": "database connection", "top_k": 5})
+    assert r.status_code == 200
     scores = [e["score"] for e in r.json()]
+    assert len(scores) >= 2
     assert scores == sorted(scores, reverse=True)
 
 
@@ -50,4 +52,5 @@ def test_search_globs_filter_narrows_to_markdown(client):
 def test_search_top_k_caps_returned_count(client):
     r = client.get("/api/search", params={"q": "anything", "top_k": 2})
     assert r.status_code == 200
-    assert len(r.json()) <= 2
+    results = r.json()
+    assert len(results) == 2
