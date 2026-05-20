@@ -6,14 +6,30 @@ FakeSummarizer — deterministic strings + call log, no Anthropic API dependency
 """
 
 import hashlib
+import json as _json
 import math
 import subprocess
 import textwrap
+import urllib.parse as _urlparse
 from pathlib import Path
 
 import pytest
 
 from mcp_rag.models import SemanticUnit
+
+
+def parse_request(mock_call) -> tuple[str, str, dict, dict | None]:
+    """Decompose a urlopen MagicMock call into (method, path, query, json_body).
+
+    *mock_call* is ``mock.call_args`` from a patched ``urllib.request.urlopen``.
+    *query* is a dict of {name: [values]} from ``parse_qs`` — note values are
+    always lists, even single-valued ones. *json_body* is ``None`` for GETs.
+    """
+    req = mock_call[0][0]
+    parsed = _urlparse.urlparse(req.full_url)
+    query = _urlparse.parse_qs(parsed.query, keep_blank_values=True)
+    body = _json.loads(req.data.decode()) if req.data else None
+    return req.get_method(), parsed.path, query, body
 
 
 # ---------------------------------------------------------------------------
