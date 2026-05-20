@@ -105,6 +105,27 @@ def list_files(conn: sqlite3.Connection, globs: list[str] | None = None) -> list
     return [{"repo": r[0], "path": r[1], "indexed_at": r[2]} for r in rows]
 
 
+def get_file_on_disk(conn: sqlite3.Connection, qualified_path: str) -> dict | None:
+    """Resolve a qualified file path (e.g. 'repo/sub/file.py') to its on-disk
+    location and return its content. Returns None if no matching repo/file row
+    exists. Raises FileNotFoundError if the file no longer exists on disk.
+    """
+    if "/" not in qualified_path:
+        return None
+    repo_name, rel_path = qualified_path.split("/", 1)
+    row = conn.execute(
+        "SELECT r.root FROM repos r"
+        " JOIN files f ON f.repo_id = r.id"
+        " WHERE r.name = ? AND f.path = ?",
+        (repo_name, rel_path),
+    ).fetchone()
+    if row is None:
+        return None
+    abs_path = Path(row[0]) / rel_path
+    content = abs_path.read_text(encoding="utf-8", errors="replace")
+    return {"path": qualified_path, "content": content}
+
+
 def list_repos(conn: sqlite3.Connection) -> list[dict]:
     repos = list_repos_db(conn)
     for repo in repos:

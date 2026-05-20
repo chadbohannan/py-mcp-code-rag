@@ -16,6 +16,7 @@ from mcp_rag.api_models import (
     BrowseNode,
     DirEntry,
     FetchRequest,
+    FileContent,
     FileEntry,
     IndexRequest,
     IndexStatus,
@@ -275,6 +276,36 @@ async def api_units_fetch(body: FetchRequest) -> list[UnitDetail]:
 # ---------------------------------------------------------------------------
 # Files, repos, status
 # ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/api/file",
+    response_model=FileContent,
+    summary="Read the on-disk contents of an indexed file",
+)
+async def api_file(
+    path: str = Query(
+        ...,
+        description="Qualified file path, e.g. 'repo/sub/file.py' (no ':' segments)",
+    ),
+) -> FileContent:
+    if _db_path is None or _embedder is None:
+        raise HTTPException(status_code=503, detail="Index not ready")
+    if ":" in path:
+        raise HTTPException(status_code=400, detail="Path must be a file, not a unit")
+    conn = _get_read_conn()
+    try:
+        try:
+            result = queries.get_file_on_disk(conn, path)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="File missing on disk")
+        except OSError as e:
+            raise HTTPException(status_code=500, detail=f"Read failed: {e}")
+    finally:
+        conn.close()
+    if result is None:
+        raise HTTPException(status_code=404, detail="File not indexed")
+    return result
 
 
 @app.get(

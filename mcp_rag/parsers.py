@@ -861,6 +861,284 @@ def parse_go(source: str) -> list[SemanticUnit]:
 
 
 # ---------------------------------------------------------------------------
+# YAML
+# ---------------------------------------------------------------------------
+
+_YAML_EXTENSIONS = frozenset({".yml", ".yaml"})
+
+
+def _get_ts_yaml_language():
+    """Return the tree-sitter YAML Language object, or None if unavailable."""
+    try:
+        import tree_sitter
+        import tree_sitter_yaml
+
+        return tree_sitter.Language(tree_sitter_yaml.language())
+    except Exception:
+        return None
+
+
+def _yaml_scalar_text(node, source_bytes: bytes) -> str | None:
+    """Extract the textual value of a scalar node, descending through wrappers."""
+    if node is None:
+        return None
+    if node.type in ("plain_scalar", "string_scalar"):
+        return _ts_node_text(node, source_bytes).strip()
+    if node.type in (
+        "single_quote_scalar",
+        "double_quote_scalar",
+        "block_scalar",
+        "integer_scalar",
+        "float_scalar",
+        "boolean_scalar",
+        "null_scalar",
+    ):
+        text = _ts_node_text(node, source_bytes).strip()
+        if len(text) >= 2 and text[0] in ("'", '"') and text[-1] == text[0]:
+            return text[1:-1]
+        return text
+    for child in node.children:
+        result = _yaml_scalar_text(child, source_bytes)
+        if result is not None:
+            return result
+    return None
+
+
+def _yaml_unwrap_value(node):
+    """Drill through block_node/flow_node wrappers to the underlying mapping/sequence/scalar."""
+    while node is not None and node.type in ("block_node", "flow_node"):
+        inner = None
+        for child in node.children:
+            if child.type not in ("tag", "anchor", "alias", "comment"):
+                inner = child
+                break
+        if inner is None:
+            return None
+        node = inner
+    return node
+
+
+def _yaml_sequence_items(seq_node):
+    """Return the list of item nodes inside a block_sequence or flow_sequence."""
+    if seq_node is None:
+        return []
+    if seq_node.type == "block_sequence":
+        return [c for c in seq_node.children if c.type == "block_sequence_item"]
+    if seq_node.type == "flow_sequence":
+        return [
+            c
+            for c in seq_node.children
+            if c.type not in ("[", "]", ",", "comment")
+        ]
+    return []
+
+
+def _yaml_sequence_item_value(item_node):
+    """Return the value node inside a block_sequence_item or flow item."""
+    if item_node is None:
+        return None
+    if item_node.type == "block_sequence_item":
+        for child in item_node.children:
+            if child.type in ("block_node", "flow_node"):
+                return child
+        return None
+    return item_node
+
+
+def _yaml_mapping_pairs(map_node):
+    """Return the list of block_mapping_pair / flow_pair nodes inside a mapping."""
+    if map_node is None:
+        return []
+    return [
+        c
+        for c in map_node.children
+        if c.type in ("block_mapping_pair", "flow_pair")
+    ]
+
+
+def _yaml_pair_name_field(pair_node, source_bytes: bytes) -> str | None:
+    """If a mapping pair has a `name:` child, return that name. Used for naming sequence items."""
+    value = pair_node.child_by_field_name("value") if hasattr(pair_node, "child_by_field_name") else None
+    if value is None:
+        for child in pair_node.children:
+            if child.type in ("block_node", "flow_node"):
+                value = child
+                break
+    inner = _yaml_unwrap_value(value)
+    if inner is None or inner.type not in ("block_mapping", "flow_mapping"):
+        return None
+    for sub_pair in _yaml_mapping_pairs(inner):
+        key = sub_pair.child_by_field_name("key") if hasattr(sub_pair, "child_by_field_name") else None
+        if key is None:
+            for c in sub_pair.children:
+                if c.type in ("flow_node", "block_node"):
+                    key = c
+                    break
+        key_text = _yaml_scalar_text(key, source_bytes)
+        if key_text == "name":
+            val = sub_pair.child_by_field_name("value") if hasattr(sub_pair, "child_by_field_name") else None
+            if val is None:
+                # Fall back: second wrapped node
+                seen_key = False
+                for c in sub_pair.children:
+                    if c.type in ("flow_node", "block_node"):
+                        if seen_key:
+                            val = c
+                            break
+                        seen_key = True
+            return _yaml_scalar_text(val, source_bytes)
+    return None
+
+
+def _yaml_emit_pair(
+    pair_node,
+    source_bytes: bytes,
+    name_prefix: str,
+    units: list[SemanticUnit],
+    depth: int,
+) -> None:
+    """Emit a unit for a mapping pair, then recurse into its value if useful."""
+    key_node = pair_node.child_by_field_name("key") if hasattr(pair_node, "child_by_field_name") else None
+    value_node = pair_node.child_by_field_name("value") if hasattr(pair_node, "child_by_field_name") else None
+    if key_node is None or value_node is None:
+        # Fall back to positional walk
+        wrapped = [c for c in pair_node.children if c.type in ("flow_node", "block_node")]
+        if len(wrapped) >= 1 and key_node is None:
+            key_node = wrapped[0]
+        if len(wrapped) >= 2 and value_node is None:
+            value_node = wrapped[1]
+    key_text = _yaml_scalar_text(key_node, source_bytes) or "?"
+    qualified = f"{name_prefix}{key_text}" if name_prefix else key_text
+
+    units.append(
+        SemanticUnit(
+            unit_type="key",
+            unit_name=qualified,
+            content=_ts_node_text(pair_node, source_bytes),
+            char_offset=pair_node.start_byte,
+        )
+    )
+
+    if depth >= 2:
+        return
+
+    inner = _yaml_unwrap_value(value_node)
+    if inner is None:
+        return
+
+    if inner.type in ("block_mapping", "flow_mapping"):
+        for sub_pair in _yaml_mapping_pairs(inner):
+            _yaml_emit_pair(
+                sub_pair,
+                source_bytes,
+                name_prefix=f"{qualified}.",
+                units=units,
+                depth=depth + 1,
+            )
+    elif inner.type in ("block_sequence", "flow_sequence"):
+        for idx, item in enumerate(_yaml_sequence_items(inner)):
+            value = _yaml_unwrap_value(_yaml_sequence_item_value(item))
+            if value is None or value.type not in ("block_mapping", "flow_mapping"):
+                continue
+            # Use the item's `name:` field if present, otherwise the index
+            item_label = None
+            for sub_pair in _yaml_mapping_pairs(value):
+                k = sub_pair.child_by_field_name("key") if hasattr(sub_pair, "child_by_field_name") else None
+                if _yaml_scalar_text(k, source_bytes) == "name":
+                    v = sub_pair.child_by_field_name("value") if hasattr(sub_pair, "child_by_field_name") else None
+                    item_label = _yaml_scalar_text(v, source_bytes)
+                    break
+            label = item_label if item_label else str(idx)
+            units.append(
+                SemanticUnit(
+                    unit_type="item",
+                    unit_name=f"{qualified}[{label}]",
+                    content=_ts_node_text(item, source_bytes),
+                    char_offset=item.start_byte,
+                )
+            )
+
+
+def _extract_yaml_units(tree, source_bytes: bytes) -> list[SemanticUnit]:
+    """Walk a tree-sitter-yaml parse tree and extract semantic units."""
+    units: list[SemanticUnit] = []
+    documents = [c for c in tree.root_node.children if c.type == "document"]
+    multi = len(documents) > 1
+
+    for doc_idx, doc in enumerate(documents):
+        # Find the root block_node inside the document, then unwrap.
+        root_value = None
+        for child in doc.children:
+            if child.type in ("block_node", "flow_node"):
+                root_value = child
+                break
+        inner = _yaml_unwrap_value(root_value)
+        prefix = f"doc{doc_idx}." if multi else ""
+
+        if inner is None:
+            continue
+
+        if inner.type in ("block_mapping", "flow_mapping"):
+            for pair in _yaml_mapping_pairs(inner):
+                _yaml_emit_pair(pair, source_bytes, prefix, units, depth=1)
+        elif inner.type in ("block_sequence", "flow_sequence"):
+            # Top-level is a list — emit each item that's a mapping
+            for idx, item in enumerate(_yaml_sequence_items(inner)):
+                value = _yaml_unwrap_value(_yaml_sequence_item_value(item))
+                if value is None:
+                    continue
+                units.append(
+                    SemanticUnit(
+                        unit_type="item",
+                        unit_name=f"{prefix}[{idx}]" if prefix else f"[{idx}]",
+                        content=_ts_node_text(item, source_bytes),
+                        char_offset=item.start_byte,
+                    )
+                )
+        else:
+            # Single-scalar document; emit the whole document as one unit.
+            units.append(
+                SemanticUnit(
+                    unit_type="document",
+                    unit_name=f"doc{doc_idx}" if multi else None,
+                    content=_ts_node_text(doc, source_bytes),
+                    char_offset=doc.start_byte,
+                )
+            )
+
+    return sorted(units, key=lambda u: u.char_offset)
+
+
+def parse_yaml(source: str) -> list[SemanticUnit]:
+    """Parse YAML source into SemanticUnits using tree-sitter.
+
+    Emits one unit per top-level mapping pair per document, plus one unit per
+    nested mapping pair (named `parent.child`) and one unit per item inside a
+    sequence of mappings (named `parent[name]` or `parent[index]`).
+
+    Returns [] with a warning if tree-sitter-yaml is not installed.
+    """
+    if not source:
+        return []
+
+    lang = _get_ts_yaml_language()
+    if lang is None:
+        warnings.warn(
+            "tree-sitter-yaml not installed — .yml/.yaml files will not be indexed",
+            stacklevel=2,
+        )
+        return []
+
+    import tree_sitter
+
+    parser = tree_sitter.Parser()
+    parser.language = lang
+    source_bytes = source.encode()
+    tree = parser.parse(source_bytes)
+    return _extract_yaml_units(tree, source_bytes)
+
+
+# ---------------------------------------------------------------------------
 # File dispatcher
 # ---------------------------------------------------------------------------
 
@@ -1136,6 +1414,8 @@ def parse_file(path: Path) -> list[SemanticUnit]:
         )
     if suffix in _OPENSCAD_EXTENSIONS:
         return parse_openscad(path.read_text(encoding="utf-8", errors="replace"))
+    if suffix in _YAML_EXTENSIONS:
+        return parse_yaml(path.read_text(encoding="utf-8", errors="replace"))
 
     logger.debug("skipping %s: unsupported extension %r", path, suffix)
     return []

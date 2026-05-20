@@ -67,6 +67,28 @@ Remove all indexed data for a repository by name
 
 ---
 
+## `GET /api/file`
+
+Read the on-disk contents of an indexed file
+
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `path` | string | yes | Qualified file path, e.g. 'repo/sub/file.py' (no ':' segments) |
+
+
+**Response:**
+```
+{
+  path: string,
+  content: string,
+}
+```
+
+---
+
 ## `GET /api/files`
 
 List indexed files with optional glob filter

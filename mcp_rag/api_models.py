@@ -28,6 +28,11 @@ class FileEntry(BaseModel):
     indexed_at: str
 
 
+class FileContent(BaseModel):
+    path: str
+    content: str
+
+
 class RepoEntry(BaseModel):
     name: str
     root: str

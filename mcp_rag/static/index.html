@@ -409,10 +409,24 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 let currentFolder = '';
 // Unified pill state — one render pipeline for selection through completion.
 // Order in display: active (1) -> queued (server) -> staged (local).
-let stagedPaths = [];     // selected, not yet sent to server
+const _STAGED_KEY = 'code-rag.stagedPaths';
+function _loadStaged() {
+  try {
+    const raw = localStorage.getItem(_STAGED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(p => typeof p === 'string') : [];
+  } catch(e) { return []; }
+}
+function _saveStaged() {
+  try { localStorage.setItem(_STAGED_KEY, JSON.stringify(stagedPaths)); }
+  catch(e) { /* ignore quota / private-mode errors */ }
+}
+let stagedPaths = _loadStaged();     // selected, not yet sent to server
 let queuedPaths = [];     // server queue, from WS / status events
 let activePath = null;    // currently being indexed
 let browsePath = '';
+let browseRaw = false;
 let _suppressHistory = false;
 
 async function folderNavigate(path) {
@@ -479,6 +493,7 @@ function folderGoHome() {
 function selectPath(path) {
   if (_pathInPills(path)) return;
   stagedPaths.push(path);
+  _saveStaged();
   renderPills();
   document.getElementById('index-paths').value = stagedPaths.join(', ');
   folderNavigate(currentFolder);
@@ -486,6 +501,7 @@ function selectPath(path) {
 
 function removePath(path) {
   stagedPaths = stagedPaths.filter(p => p !== path);
+  _saveStaged();
   renderPills();
   document.getElementById('index-paths').value = stagedPaths.join(', ');
   if (currentFolder) folderNavigate(currentFolder);
@@ -545,6 +561,17 @@ folderNavigate('');
     }
     queuedPaths = data.queue || [];
     activePath = data.current || null;
+    // Drop any staged paths that the server already knows about
+    // (queued or actively indexing) to avoid duplicate pills.
+    const known = new Set([...queuedPaths, ...(activePath ? [activePath] : [])]);
+    const filtered = stagedPaths.filter(p => !known.has(p));
+    if (filtered.length !== stagedPaths.length) {
+      stagedPaths = filtered;
+      _saveStaged();
+    }
+    if (stagedPaths.length) {
+      document.getElementById('index-paths').value = stagedPaths.join(', ');
+    }
     renderPills();
     syncJobButtons();
   } catch(e) { /* ignore */ }
@@ -692,6 +719,7 @@ function startIndex() {
   // The pending broadcast will populate queuedPaths shortly; meanwhile
   // promote them optimistically so the user sees no flicker.
   stagedPaths = stagedPaths.filter(p => !paths.includes(p));
+  _saveStaged();
   for (const p of paths) {
     if (!queuedPaths.includes(p) && activePath !== p) queuedPaths.push(p);
   }
@@ -967,13 +995,30 @@ async function loadBrowse() {
   browseNavigate('');
 }
 
-async function browseNavigate(path) {
+async function browseNavigate(path, raw = false) {
   browsePath = path;
+  browseRaw = !!raw && _isFilePath(path);
   syncURL(true);
   renderBrowseBreadcrumb(path);
 
   const el = document.getElementById('browse-content');
   el.innerHTML = '<div class="muted">Loading\u2026</div>';
+
+  if (browseRaw) {
+    try {
+      const res = await fetch('/api/file?path=' + encodeURIComponent(path));
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({detail: res.statusText}));
+        el.innerHTML = `<div class="muted">Failed to load file: ${escHtml(err.detail || '')}</div>`;
+        return;
+      }
+      const data = await res.json();
+      el.innerHTML = `<pre class="source-code" style="margin-top:0;max-height:none;overflow-y:visible">${escHtml(data.content)}</pre>`;
+    } catch(e) {
+      el.innerHTML = '<div class="muted">Failed to load file.</div>';
+    }
+    return;
+  }
 
   try {
     const params = path ? '?path=' + encodeURIComponent(path) : '';
@@ -985,10 +1030,17 @@ async function browseNavigate(path) {
   }
 }
 
+function _isFilePath(path) {
+  if (!path || path.includes(':')) return false;
+  const last = path.split('/').pop();
+  return /\.[^/]+$/.test(last);
+}
+
 function renderBrowseBreadcrumb(path) {
   const el = document.getElementById('browse-breadcrumb');
   // Build crumbs: [{label, path}]
   const crumbs = [{label: 'root', path: ''}];
+  let filePath = '';
   if (path) {
     let acc = '';
     let segStart = 0;
@@ -1000,19 +1052,39 @@ function renderBrowseBreadcrumb(path) {
           const sep = segStart > 0 ? path[segStart - 1] : '';
           acc = acc ? acc + sep + seg : seg;
           crumbs.push({label: seg, path: acc});
+          // Track the deepest path that points to a file (no ':' segments yet,
+          // last segment has an extension).
+          if (!acc.includes(':') && /\.[^/]+$/.test(seg)) {
+            filePath = acc;
+          }
         }
         segStart = i + 1;
       }
     }
   }
-  el.innerHTML = crumbs.map((c, i) => {
+  let html = crumbs.map((c, i) => {
     const isLast = i === crumbs.length - 1;
+    // When in raw mode, the file crumb is no longer "current" \u2014 the trailing
+    // "raw" crumb is. Make the file crumb clickable so it returns to units.
+    const isCurrent = isLast && !browseRaw;
     const sep = i > 0 ? '<span class="bc-sep">\u203a</span>' : '';
-    if (isLast) {
+    if (isCurrent) {
       return sep + `<span class="bc-current">${escHtml(c.label)}</span>`;
     }
     return sep + `<span class="bc-link" onclick="browseNavigate('${escHtml(c.path)}')">${escHtml(c.label)}</span>`;
   }).join('');
+  // At file-level: add either a "raw" link (to view source) or a "raw" current
+  // crumb (when already in raw mode). Hidden when drilled into units within
+  // the file, since raw view doesn't make sense there.
+  if (filePath && filePath === path) {
+    const sep = '<span class="bc-sep">\u203a</span>';
+    if (browseRaw) {
+      html += ' ' + sep + ' <span class="bc-current">raw</span>';
+    } else {
+      html += ' ' + sep + ` <span class="bc-link" onclick="browseNavigate('${escHtml(filePath)}', true)">raw</span>`;
+    }
+  }
+  el.innerHTML = html;
 }
 
 // Labels and CSS classes driven by unit_type (the DB value) where available,
@@ -1121,7 +1193,10 @@ function syncURL(push = false) {
     if (globs) params.set('globs', globs);
     if (k && k !== '10') params.set('k', k);
   }
-  if (activeTab === 'browse' && browsePath) params.set('browse', browsePath);
+  if (activeTab === 'browse' && browsePath) {
+    params.set('browse', browsePath);
+    if (browseRaw) params.set('raw', '1');
+  }
   const url = params.toString() ? '?' + params.toString() : location.pathname;
   push ? history.pushState(null, '', url) : history.replaceState(null, '', url);
 }
@@ -1136,7 +1211,7 @@ async function restoreFromURL() {
     if (p.has('k')) document.getElementById('search-topk').value = p.get('k');
     activateTab(tab);
     if (tab === 'search' && p.has('q')) await doSearch();
-    if (tab === 'browse') await browseNavigate(p.get('browse') || '');
+    if (tab === 'browse') await browseNavigate(p.get('browse') || '', p.get('raw') === '1');
   } finally {
     _suppressHistory = false;
   }

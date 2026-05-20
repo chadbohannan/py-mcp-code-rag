@@ -85,6 +85,8 @@ _SUPPORTED_EXTENSIONS = frozenset(
         ".tf",
         ".tfvars",
         ".scad",
+        ".yml",
+        ".yaml",
     }
 )
 
