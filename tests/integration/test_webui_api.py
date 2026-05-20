@@ -89,3 +89,28 @@ def test_units_fetch_post_returns_only_matching_paths(client):
     results = r.json()
     assert len(results) == 1
     assert results[0]["path"] == real_path
+
+
+def test_files_listing_returns_three_files(client):
+    r = client.get("/api/files")
+    assert r.status_code == 200
+    files = r.json()
+    paths = {f["path"] for f in files}
+    assert paths == {"src/app.py", "src/db.py", "README.md"}
+
+
+def test_files_glob_filter_narrows_to_markdown(client):
+    r = client.get("/api/files", params={"globs": "*.md"})
+    assert r.status_code == 200
+    paths = [f["path"] for f in r.json()]
+    assert paths == ["README.md"]
+
+
+def test_repos_and_status_consistent(client):
+    repos = client.get("/api/repos").json()
+    assert len(repos) == 1
+    assert repos[0]["name"] == "testrepo"
+
+    status = client.get("/api/status").json()
+    assert status["repos"][0]["repo"] == "testrepo"
+    assert status["repos"][0]["file_count"] == 3
