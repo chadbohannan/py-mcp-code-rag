@@ -206,3 +206,22 @@ def test_http_error_raises_toolerror(mcp_mod):
 
         with pytest.raises(ToolError, match="422"):
             asyncio.run(mcp_mod.search("bad"))
+
+
+# --- main() entrypoint -----------------------------------------------------
+
+
+def test_main_stdio_is_default(mcp_mod, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["code-rag-mcp", "--base-url", "http://h:1"])
+    with patch.object(mcp_mod.mcp, "run") as run:
+        mcp_mod.main()
+    run.assert_called_once_with()
+
+
+def test_main_http_uses_port(mcp_mod, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["code-rag-mcp", "--http", "--port", "9999"])
+    with patch.object(mcp_mod.mcp, "run") as run:
+        mcp_mod.main()
+    run.assert_called_once_with(
+        transport="streamable-http", host="127.0.0.1", port=9999
+    )
