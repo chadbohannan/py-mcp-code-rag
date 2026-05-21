@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.conftest import parse_request
+
 
 def _load_cli():
     path = Path(__file__).parent.parent.parent / "code-rag-cli.py"
@@ -114,3 +116,170 @@ def test_index_wait_nonzero_on_failure(cli, tmp_path):
         with pytest.raises(SystemExit) as ei:
             args.func(args, args.base_url)
     assert ei.value.code == 1
+
+
+# --- CLI subcommands (one smoke test per command) --------------------------
+
+
+def test_unit_subcommand(cli, capsys):
+    payload = {"path": "r/f.py:foo", "content": "def foo(): pass", "summary": "s"}
+    m = _run(cli, ["unit", "r/f.py:foo"], payload)
+    method, path, query, _ = parse_request(m.call_args)
+    assert method == "GET"
+    assert path == "/api/unit"
+    assert query == {"path": ["r/f.py:foo"]}
+    out = capsys.readouterr().out
+    assert "# r/f.py:foo" in out
+    assert "def foo(): pass" in out
+
+
+def test_fetch_subcommand(cli, capsys):
+    payload = [
+        {"path": "a", "content": "code-a", "summary": "sa"},
+        {"path": "b", "content": "code-b", "summary": "sb"},
+    ]
+    m = _run(cli, ["fetch", "a", "b"], payload)
+    method, path, _, body = parse_request(m.call_args)
+    assert method == "POST"
+    assert path == "/api/units/fetch"
+    assert body == {"paths": ["a", "b"]}
+    out = capsys.readouterr().out
+    assert "code-a" in out and "code-b" in out
+    assert "---" in out  # separator between units
+
+
+def test_units_subcommand_with_globs(cli, capsys):
+    payload = [{"path": "r/x.py:foo", "summary": "does foo"}]
+    m = _run(cli, ["units", "--limit", "5", "--glob", "*.py:*"], payload)
+    method, path, query, _ = parse_request(m.call_args)
+    assert method == "GET"
+    assert path == "/api/units"
+    assert query == {"limit": ["5"], "globs": ["*.py:*"]}
+    assert "r/x.py:foo" in capsys.readouterr().out
+
+
+def test_files_subcommand(cli, capsys):
+    payload = [{"repo": "r", "path": "f.py", "indexed_at": "2026-01-01"}]
+    m = _run(cli, ["files"], payload)
+    _, path, _, _ = parse_request(m.call_args)
+    assert path == "/api/files"
+    out = capsys.readouterr().out
+    assert "r/f.py" in out and "2026-01-01" in out
+
+
+def test_repos_subcommand(cli, capsys):
+    payload = [{"name": "r", "root": "/r", "added_at": "2026-01-01", "description": ""}]
+    m = _run(cli, ["repos"], payload)
+    _, path, _, _ = parse_request(m.call_args)
+    assert path == "/api/repos"
+    assert "r" in capsys.readouterr().out
+
+
+def test_status_subcommand(cli, capsys):
+    payload = {
+        "repos": [
+            {
+                "repo": "r",
+                "root": "/r",
+                "file_count": 3,
+                "unit_count": 7,
+                "last_indexed_at": "2026-01-01",
+            }
+        ],
+        "total_units": 7,
+        "embed_count": 7,
+    }
+    m = _run(cli, ["status"], payload)
+    _, path, _, _ = parse_request(m.call_args)
+    assert path == "/api/status"
+    out = capsys.readouterr().out
+    assert "total_units: 7" in out
+    assert "embed_count: 7" in out
+
+
+def test_browse_subcommand(cli, capsys):
+    payload = [
+        {
+            "type": "repo",
+            "name": "r",
+            "path": "r",
+            "summary": "",
+            "has_children": True,
+        }
+    ]
+    m = _run(cli, ["browse"], payload)
+    _, path, query, _ = parse_request(m.call_args)
+    assert path == "/api/browse"
+    assert query == {"path": [""]}
+    assert "repo" in capsys.readouterr().out
+
+
+def test_index_subcommand_no_wait(cli, tmp_path, capsys):
+    payload = {"running": True, "last_result": None, "last_finished_at": None}
+    m = _run(cli, ["index", str(tmp_path)], payload)
+    method, path, _, body = parse_request(m.call_args)
+    assert method == "POST"
+    assert path == "/api/index"
+    assert body == {"paths": [str(tmp_path)], "reindex": False}
+    assert "running: True" in capsys.readouterr().out
+
+
+def test_index_status_subcommand(cli, capsys):
+    payload = {"running": False, "last_result": "ok", "last_finished_at": "t"}
+    m = _run(cli, ["index-status"], payload)
+    method, path, _, _ = parse_request(m.call_args)
+    assert method == "GET"
+    assert path == "/api/index/status"
+    assert "running: False" in capsys.readouterr().out
+
+
+def test_index_cancel_subcommand(cli, capsys):
+    payload = {"running": False, "last_result": "cancelled", "last_finished_at": "t"}
+    m = _run(cli, ["index-cancel"], payload)
+    method, path, _, _ = parse_request(m.call_args)
+    assert method == "POST"
+    assert path == "/api/index/cancel"
+    assert "running: False" in capsys.readouterr().out
+
+
+def test_clear_repo_subcommand(cli, capsys):
+    payload = {"ok": True, "repo": "myrepo"}
+    m = _run(cli, ["clear-repo", "myrepo"], payload)
+    method, path, query, _ = parse_request(m.call_args)
+    assert method == "POST"
+    assert path == "/api/clear_repo"
+    assert query == {"repo": ["myrepo"]}
+    assert "cleared: myrepo" in capsys.readouterr().out
+
+
+def test_staleness_subcommand(cli, capsys):
+    payload = [
+        {
+            "repo": "alpha",
+            "root": "/r",
+            "last_indexed_at": "t1",
+            "last_commit_at": "t2",
+            "stale": True,
+            "reason": "older than HEAD",
+        }
+    ]
+    m = _run(cli, ["staleness"], payload)
+    _, path, _, _ = parse_request(m.call_args)
+    assert path == "/api/repos/staleness"
+    out = capsys.readouterr().out
+    assert "alpha" in out and "older than HEAD" in out
+
+
+def test_ls_subcommand_marks_git_repo(cli, capsys):
+    payload = {
+        "path": "/home/u/r",
+        "parent": "/home/u",
+        "is_git": True,
+        "dirs": [{"name": "src", "path": "/home/u/r/src"}],
+    }
+    m = _run(cli, ["ls", "/home/u/r"], payload)
+    _, path, query, _ = parse_request(m.call_args)
+    assert path == "/api/ls"
+    assert query == {"path": ["/home/u/r"]}
+    out = capsys.readouterr().out
+    assert "*" in out and "src" in out
