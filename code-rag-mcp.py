@@ -14,9 +14,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
@@ -230,11 +234,139 @@ async def index_cancel() -> dict:
     return _post("/api/index/cancel")
 
 
+# --- Interactive setup -----------------------------------------------------
+
+
+def _prompt(question: str, default: str = "") -> str:
+    suffix = f" [{default}]" if default else ""
+    try:
+        answer = input(f"{question}{suffix}: ").strip()
+    except EOFError:
+        return default
+    return answer or default
+
+
+def _probe_webui(base_url: str) -> tuple[bool, str]:
+    """Hit GET /api/status. Returns (reachable, summary_or_error)."""
+    try:
+        with urllib.request.urlopen(
+            base_url.rstrip("/") + "/api/status", timeout=3
+        ) as resp:
+            data = json.loads(resp.read())
+        repos = data.get("repos", [])
+        return True, f"{len(repos)} repo(s) indexed"
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _build_command(script_dir: Path, script_path: Path, base_url: str) -> list[str]:
+    """Construct the argv used by MCP hosts to launch this server.
+
+    Prefer `uv run --directory <dir> python <script>` when uv is on PATH and
+    the project has a pyproject.toml — that matches the Makefile and keeps
+    dependencies resolved correctly. Otherwise fall back to the current
+    interpreter.
+    """
+    if shutil.which("uv") and (script_dir / "pyproject.toml").exists():
+        return [
+            "uv",
+            "run",
+            "--directory",
+            str(script_dir),
+            "python",
+            str(script_path),
+            "--base-url",
+            base_url,
+        ]
+    return [sys.executable, str(script_path), "--base-url", base_url]
+
+
+def _install_claude_code(command: list[str]) -> None:
+    if not shutil.which("claude"):
+        print(
+            "  ! `claude` CLI not found on PATH. Run this manually once it's installed:"
+        )
+        print("    " + " ".join(["claude", "mcp", "add", "--transport", "stdio",
+                                  "-s", "user", "code-rag", "--", *command]))
+        return
+    argv = ["claude", "mcp", "add", "--transport", "stdio", "-s", "user",
+            "code-rag", "--", *command]
+    result = subprocess.run(argv, capture_output=True, text=True)
+    if result.returncode == 0:
+        print("  ✓ registered with Claude Code (user scope)")
+    else:
+        print(f"  ! claude mcp add failed: {result.stderr.strip() or result.stdout.strip()}")
+
+
+def _install_pi_agent(command: list[str]) -> None:
+    mcp_json = Path.home() / ".pi" / "agent" / "mcp.json"
+    mcp_json.parent.mkdir(parents=True, exist_ok=True)
+    cfg = json.loads(mcp_json.read_text()) if mcp_json.exists() else {}
+    cfg.setdefault("mcpServers", {})["code-rag"] = {
+        "command": command[0],
+        "args": command[1:],
+    }
+    mcp_json.write_text(json.dumps(cfg, indent=2) + "\n")
+    print(f"  ✓ wrote {mcp_json}")
+
+
+def _run_setup(default_base_url: str) -> int:
+    script_path = Path(__file__).resolve()
+    script_dir = script_path.parent
+
+    print("code-rag MCP — interactive setup")
+    print("=" * 32)
+    print(
+        "This script is normally launched over stdio by an MCP host\n"
+        "(Claude Code, pi-agent, etc.). Since you're running it from a\n"
+        "terminal, let's wire it up.\n"
+    )
+
+    base_url = _prompt("Base URL of the code-rag webui", default_base_url)
+    ok, summary = _probe_webui(base_url)
+    if ok:
+        print(f"  ✓ reachable — {summary}\n")
+    else:
+        print(f"  ! could not reach {base_url}: {summary}")
+        if _prompt("Continue anyway? (y/N)", "n").lower() != "y":
+            print("aborted.")
+            return 1
+        print()
+
+    print("Which hosts should I configure?")
+    print("  1) Claude Code")
+    print("  2) pi-agent")
+    print("  3) Both")
+    print("  4) Just print the launch command (don't write any config)")
+    choice = _prompt("Choose", "3")
+
+    command = _build_command(script_dir, script_path, base_url)
+
+    if choice == "4":
+        print("\nLaunch command for manual configuration:")
+        print("  " + " ".join(command))
+        return 0
+
+    if choice in ("1", "3"):
+        print("\nConfiguring Claude Code...")
+        _install_claude_code(command)
+    if choice in ("2", "3"):
+        print("\nConfiguring pi-agent...")
+        _install_pi_agent(command)
+
+    print("\nDone. Restart your MCP host to pick up the new server.")
+    return 0
+
+
 # --- Entry point -----------------------------------------------------------
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="code-rag-mcp")
+    p = argparse.ArgumentParser(
+        prog="code-rag-mcp",
+        description="MCP server that proxies code-rag tools to the webui. "
+        "Run with --setup (or from a terminal) for an interactive integration helper.",
+    )
     p.add_argument(
         "--base-url",
         default=os.environ.get("CODE_RAG_URL", "http://localhost:8081"),
@@ -246,7 +378,19 @@ def main() -> None:
         help="Run as streamable-HTTP MCP server (default: stdio)",
     )
     p.add_argument("--port", type=int, default=8000)
+    p.add_argument(
+        "--setup",
+        action="store_true",
+        help="Run the interactive setup wizard for Claude Code / pi-agent.",
+    )
     args = p.parse_args()
+
+    # Auto-enter setup if invoked from a terminal without an MCP host on the
+    # pipe. --http is a server mode, so skip setup there.
+    auto_setup = sys.stdin.isatty() and sys.stdout.isatty() and not args.http
+    if args.setup or auto_setup:
+        sys.exit(_run_setup(args.base_url))
+
     global BASE_URL
     BASE_URL = args.base_url
     if args.http:

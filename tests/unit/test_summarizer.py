@@ -205,11 +205,20 @@ def test_raises_immediately_on_401(mock_client, summarizer, no_sleep):
 # ---------------------------------------------------------------------------
 
 
+def _fake_list_response(names):
+    """Build an ollama-style ListResponse mock with the given model names."""
+    return MagicMock(models=[MagicMock(model=n) for n in names])
+
+
 @pytest.fixture
 def mock_ollama_client(monkeypatch):
     import sys
 
     client = MagicMock()
+    # Default: server reports the model the tests ask for plus the default.
+    client.list.return_value = _fake_list_response(
+        ["test-model", "gemma4:latest"]
+    )
     ollama_mod = MagicMock()
     ollama_mod.Client.return_value = client
     monkeypatch.setitem(sys.modules, "ollama", ollama_mod)
@@ -273,6 +282,7 @@ def test_ollama_default_model_is_gemma4(monkeypatch):
     import sys
 
     client = MagicMock()
+    client.list.return_value = _fake_list_response(["gemma4:latest"])
     ollama_mod = MagicMock()
     ollama_mod.Client.return_value = client
     monkeypatch.setitem(sys.modules, "ollama", ollama_mod)
@@ -280,6 +290,65 @@ def test_ollama_default_model_is_gemma4(monkeypatch):
     client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
     s.summarize(_unit())
     assert client.chat.call_args.kwargs["model"] == "gemma4:latest"
+
+
+def test_ollama_falls_back_when_requested_model_missing(monkeypatch, capsys):
+    """Requested model absent → pick first match from FALLBACK_OLLAMA_MODELS."""
+    import sys
+
+    client = MagicMock()
+    # gemma4:latest (requested) not present; gemma4:e2b is the first
+    # FALLBACK_OLLAMA_MODELS entry that's installed.
+    client.list.return_value = _fake_list_response(
+        ["qwen3.5:2b", "gemma4:e2b", "qwen3:1.7b"]
+    )
+    ollama_mod = MagicMock()
+    ollama_mod.Client.return_value = client
+    monkeypatch.setitem(sys.modules, "ollama", ollama_mod)
+
+    s = OllamaSummarizer(model="gemma4:latest")
+    client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
+    s.summarize(_unit())
+
+    assert client.chat.call_args.kwargs["model"] == "gemma4:e2b"
+    err = capsys.readouterr().err
+    assert "gemma4:latest" in err and "gemma4:e2b" in err
+
+
+def test_ollama_falls_back_to_first_available_when_no_preferred(
+    monkeypatch, capsys
+):
+    """No preferred fallback present → use first model the server reports."""
+    import sys
+
+    client = MagicMock()
+    client.list.return_value = _fake_list_response(["random:model", "other:tag"])
+    ollama_mod = MagicMock()
+    ollama_mod.Client.return_value = client
+    monkeypatch.setitem(sys.modules, "ollama", ollama_mod)
+
+    s = OllamaSummarizer(model="gemma4:latest")
+    client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
+    s.summarize(_unit())
+
+    assert client.chat.call_args.kwargs["model"] == "random:model"
+    assert "random:model" in capsys.readouterr().err
+
+
+def test_ollama_trusts_requested_model_when_list_fails(monkeypatch):
+    """If client.list() raises, defer the real error to the chat() call."""
+    import sys
+
+    client = MagicMock()
+    client.list.side_effect = ConnectionError("server down")
+    ollama_mod = MagicMock()
+    ollama_mod.Client.return_value = client
+    monkeypatch.setitem(sys.modules, "ollama", ollama_mod)
+
+    s = OllamaSummarizer(model="whatever:tag")
+    client.chat.return_value = MagicMock(message=MagicMock(content="ok"))
+    s.summarize(_unit())
+    assert client.chat.call_args.kwargs["model"] == "whatever:tag"
 
 
 def test_ollama_handles_anonymous_unit(mock_ollama_client, ollama_summarizer):

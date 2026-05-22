@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import sys
 import time
 
 from mcp_rag.models import SemanticUnit
@@ -14,6 +15,20 @@ _RETRY_STATUSES = frozenset({429, 529})
 
 DEFAULT_OLLAMA_MODEL = "gemma4:latest"
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
+
+# Ordered preference list used when the requested model isn't installed.
+# First match wins; if none match, the first available model on the server
+# is used as a last resort.
+FALLBACK_OLLAMA_MODELS: tuple[str, ...] = (
+    "gemma4:latest",
+    "gemma4:e4b",
+    "gemma4:e2b",
+    "qwen3.5:4b",
+    "qwen3.5:2b",
+    "qwen3:1.7b",
+    "llama3.2:3b",
+    "llama3.2:1b",
+)
 
 
 class AnthropicSummarizer:
@@ -69,7 +84,7 @@ class OllamaSummarizer:
         import ollama  # lazy import — optional dependency
 
         self._client = ollama.Client(host=host)
-        self._model = model
+        self._model = _resolve_ollama_model(self._client, model)
 
     def summarize(self, unit: SemanticUnit) -> str:
         response = self._client.chat(
@@ -84,6 +99,63 @@ class OllamaSummarizer:
         if not content and getattr(response.message, "thinking", None):
             content = response.message.thinking
         return content or ""
+
+
+def _list_available_models(client) -> list[str]:
+    """Return the list of model names installed on the Ollama server.
+
+    Returns [] if the server is unreachable or returns an unexpected shape;
+    callers treat that as "skip validation and trust the requested model."
+    """
+    try:
+        resp = client.list()
+        models = getattr(resp, "models", None) or []
+        names: list[str] = []
+        for m in models:
+            name = getattr(m, "model", None) or getattr(m, "name", None)
+            if isinstance(name, str):
+                names.append(name)
+        return names
+    except Exception:
+        return []
+
+
+def _resolve_ollama_model(client, requested: str) -> str:
+    """Pick a usable model, falling back through FALLBACK_OLLAMA_MODELS.
+
+    1. If the requested model is installed, use it.
+    2. Otherwise try each name in FALLBACK_OLLAMA_MODELS in order.
+    3. Otherwise use the first model the server reports.
+    4. If the server reports no models at all, raise.
+
+    If listing fails entirely (empty list returned), we trust `requested`
+    and let any subsequent chat() call surface the real error.
+    """
+    available = _list_available_models(client)
+    if not available:
+        return requested  # can't validate; defer to chat() to error out
+
+    available_set = set(available)
+    if requested in available_set:
+        return requested
+
+    for candidate in FALLBACK_OLLAMA_MODELS:
+        if candidate in available_set:
+            print(
+                f"ollama: requested model {requested!r} not installed; "
+                f"falling back to {candidate!r}",
+                file=sys.stderr,
+            )
+            return candidate
+
+    chosen = available[0]
+    print(
+        f"ollama: requested model {requested!r} not installed and no "
+        f"preferred fallback present; using {chosen!r}. "
+        f"Available: {', '.join(available)}",
+        file=sys.stderr,
+    )
+    return chosen
 
 
 _STYLE_SHORT = "Be direct, no preamble. 2 sentences max. No headings, no bullet points."
