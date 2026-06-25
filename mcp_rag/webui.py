@@ -29,7 +29,7 @@ from mcp_rag.api_models import (
     UnitDetail,
     UnitSummary,
 )
-from mcp_rag.db import open_db
+from mcp_rag.db import open_db, remove_repo_db
 from mcp_rag.indexer import DEFAULT_EXCLUDE_GLOBS, IndexAbortError, run_index
 from mcp_rag.models import Embedder
 from mcp_rag import job, queries
@@ -327,7 +327,7 @@ async def api_files(
 
 @app.post(
     "/api/clear_repo",
-    summary="Remove all indexed data for a repository by name",
+    summary="Remove a repository and all its indexed data by name",
 )
 async def api_clear_repo(
     repo: str = Query(..., description="Repository name to clear"),
@@ -336,13 +336,13 @@ async def api_clear_repo(
         raise HTTPException(status_code=503, detail="Index not ready")
     conn = _get_read_conn()
     try:
-        row = conn.execute("SELECT id FROM repos WHERE name = ?", (repo,)).fetchone()
-        if row is None:
+        # Delete the repo row; ON DELETE CASCADE removes its files and units
+        # (and the units trigger removes their embeddings). Leaving the repo
+        # row behind orphans it: it vanishes from /api/status (inner join on
+        # files) but lingers in /api/repos/staleness (left join), so the two
+        # lists disagree.
+        if remove_repo_db(conn, repo) == 0:
             raise HTTPException(status_code=404, detail="Repo not found")
-        repo_id = row[0]
-        conn.execute("DELETE FROM files WHERE repo_id = ?", (repo_id,))
-        conn.execute("DELETE FROM units WHERE repo_id = ?", (repo_id,))
-        conn.commit()
     finally:
         conn.close()
     return {"ok": True, "repo": repo}

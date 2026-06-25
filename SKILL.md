@@ -49,7 +49,7 @@ Browse the index tree: repos → dirs → files → units
 
 ## `POST /api/clear_repo`
 
-Remove all indexed data for a repository by name
+Remove a repository and all its indexed data by name
 
 
 **Query parameters:**

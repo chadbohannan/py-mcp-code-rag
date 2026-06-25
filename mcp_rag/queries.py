@@ -208,7 +208,7 @@ def index_status(conn: sqlite3.Connection) -> dict:
             COUNT(u.id)          AS unit_count,
             MAX(f.indexed_at)    AS last_indexed_at
         FROM repos r
-        JOIN files f ON f.repo_id = r.id
+        LEFT JOIN files f ON f.repo_id = r.id
         LEFT JOIN units u ON u.file_id = f.id
         GROUP BY r.id
         ORDER BY r.name
